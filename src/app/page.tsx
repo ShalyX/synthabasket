@@ -32,7 +32,7 @@ export default function Home() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-7 text-xs font-semibold text-ink-secondary md:flex">
+          <nav className="hidden items-center gap-10 text-xs font-semibold text-ink-secondary md:flex">
             <a href="#baskets" className="transition-colors hover:text-ink-primary">Baskets</a>
             <a href="#how-it-works" className="transition-colors hover:text-ink-primary">How it works</a>
             <a href="#protocol" className="transition-colors hover:text-ink-primary">Protocol</a>
@@ -48,15 +48,14 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1600px] grid-cols-1 gap-10 px-4 py-20 sm:px-6 lg:grid-cols-12 lg:items-center lg:px-8 lg:py-28">
-        <div className="space-y-6 lg:col-span-6">
+      <section className="mx-auto grid max-w-[1600px] grid-cols-1 gap-12 px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:grid-cols-12 lg:items-center lg:px-8 lg:pb-24 lg:pt-36">
+        <div className="space-y-6 lg:col-span-7">
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-brand-primary">
             DIVERSIFY EARLY. OWN THE FUTURE.
           </span>
-          <h1 className="max-w-3xl text-5xl font-extrabold leading-[1.03] tracking-[-0.04em] text-ink-primary sm:text-6xl">
-            Tokenized Private Markets.
-            <br />
-            <span className="text-brand-primary">In One Basket.</span>
+          <h1 className="max-w-5xl text-5xl font-extrabold leading-[1.03] tracking-[-0.04em] text-ink-primary sm:text-6xl">
+            <span className="block md:whitespace-nowrap">Tokenized Private Markets.</span>
+            <span className="block text-brand-primary">In One Basket.</span>
           </h1>
           <p className="max-w-xl text-base leading-7 text-ink-secondary">
             Get diversified exposure to the world&apos;s most innovative private companies through asset-backed,
@@ -79,24 +78,29 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="lg:col-span-6 flex items-center justify-center lg:justify-end">
-          <div className="relative flex h-[360px] w-[360px] items-center justify-center sm:h-[420px] sm:w-[420px]">
-            <div className="absolute inset-[12%] rounded-full bg-brand-primary/10 blur-3xl animate-pulse" />
-            <div className="absolute inset-[6%] rounded-full border border-brand-primary/10" />
-            <div className="absolute inset-[16%] rounded-full border border-brand-primary/15" />
+        <div className="lg:col-span-5 flex items-center justify-center lg:justify-end">
+          <div className="group/globe relative flex h-[430px] w-[430px] cursor-default items-center justify-center sm:h-[500px] sm:w-[500px] xl:h-[560px] xl:w-[560px]">
+            <div className="absolute inset-[10%] rounded-full bg-brand-primary/10 blur-3xl transition-all duration-700 group-hover/globe:scale-110 group-hover/globe:bg-brand-primary/20" />
+            <div className="absolute inset-[4%] rounded-full border border-brand-primary/10 transition-all duration-700 group-hover/globe:rotate-6 group-hover/globe:border-brand-primary/30" />
+            <div className="absolute inset-[14%] rounded-full border border-brand-primary/15 transition-all duration-700 group-hover/globe:-rotate-6 group-hover/globe:border-brand-primary/30" />
+
+            <div className="absolute left-[13%] top-[25%] h-2.5 w-2.5 rounded-full bg-brand-primary/70 shadow-[0_0_18px_rgba(0,209,130,0.65)] transition-all duration-500 group-hover/globe:-translate-x-2 group-hover/globe:-translate-y-2 group-hover/globe:scale-125" />
+            <div className="absolute right-[10%] top-[42%] h-2 w-2 rounded-full bg-brand-primary/60 shadow-[0_0_14px_rgba(0,209,130,0.55)] transition-all duration-500 group-hover/globe:translate-x-2 group-hover/globe:-translate-y-1 group-hover/globe:scale-125" />
+            <div className="absolute bottom-[16%] left-[34%] h-2 w-2 rounded-full bg-brand-primary/50 shadow-[0_0_14px_rgba(0,209,130,0.5)] transition-all duration-500 group-hover/globe:translate-y-2 group-hover/globe:scale-125" />
+
             <svg
               viewBox="0 0 200 200"
-              className="relative h-[82%] w-[82%] animate-[spin_60s_linear_infinite]"
+              className="relative h-[86%] w-[86%] animate-[spin_60s_linear_infinite] transition-transform duration-700 ease-out group-hover/globe:scale-[1.035]"
               aria-label="SynthaBasket global private markets visualization"
               role="img"
             >
               <circle cx="100" cy="100" r="90" fill="none" stroke="#2f3447" strokeWidth="1" />
-              <ellipse cx="100" cy="100" rx="90" ry="30" fill="none" stroke="#00d182" strokeWidth="1.35" strokeOpacity="0.85" strokeDasharray="3 3" />
-              <ellipse cx="100" cy="100" rx="90" ry="60" fill="none" stroke="#00d182" strokeWidth="1.2" strokeOpacity="0.55" strokeDasharray="3 3" />
-              <ellipse cx="100" cy="100" rx="30" ry="90" fill="none" stroke="#00d182" strokeWidth="1.35" strokeOpacity="0.85" strokeDasharray="3 3" />
-              <ellipse cx="100" cy="100" rx="60" ry="90" fill="none" stroke="#00d182" strokeWidth="1.2" strokeOpacity="0.55" strokeDasharray="3 3" />
-              <circle cx="100" cy="100" r="5" fill="#00d182" />
-              <circle cx="100" cy="100" r="13" fill="none" stroke="#00d182" strokeWidth="0.8" strokeOpacity="0.5" />
+              <ellipse cx="100" cy="100" rx="90" ry="30" fill="none" stroke="#00d182" strokeWidth="1.45" strokeOpacity="0.9" strokeDasharray="3 3" />
+              <ellipse cx="100" cy="100" rx="90" ry="60" fill="none" stroke="#00d182" strokeWidth="1.25" strokeOpacity="0.6" strokeDasharray="3 3" />
+              <ellipse cx="100" cy="100" rx="30" ry="90" fill="none" stroke="#00d182" strokeWidth="1.45" strokeOpacity="0.9" strokeDasharray="3 3" />
+              <ellipse cx="100" cy="100" rx="60" ry="90" fill="none" stroke="#00d182" strokeWidth="1.25" strokeOpacity="0.6" strokeDasharray="3 3" />
+              <circle cx="100" cy="100" r="5" fill="#00d182" className="transition-all duration-500 group-hover/globe:r-[6]" />
+              <circle cx="100" cy="100" r="13" fill="none" stroke="#00d182" strokeWidth="0.9" strokeOpacity="0.55" />
             </svg>
           </div>
         </div>
