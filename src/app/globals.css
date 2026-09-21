@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #0c0d12;
+  --background: #000000;
   --foreground: #f1f5f9;
 }
 
@@ -26,7 +26,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0c0d12;
+  background: #000000;
 }
 
 ::-webkit-scrollbar-thumb {
