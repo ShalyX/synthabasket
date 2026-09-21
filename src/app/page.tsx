@@ -6,7 +6,9 @@ import {
   Lock,
   ShieldCheck,
   Zap,
+  Bell,
 } from 'lucide-react';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { INITIAL_BASKETS } from '../lib/data/registry';
 
 const featured = INITIAL_BASKETS.filter((basket) => basket.providerMode === 'multi').slice(0, 3);
@@ -24,12 +26,7 @@ export default function Home() {
                 <path d="M2 17L12 22L22 17" className="stroke-emerald-400 stroke-[1.75]" />
               </svg>
             </div>
-            <div className="flex flex-col">
-              <span className="text-base font-extrabold tracking-tight text-ink-primary">SYNTHABASKET</span>
-              <span className="font-mono text-[9px] uppercase tracking-wider text-ink-tertiary">
-                SOLANA • TOKENIZED PRE-IPO INDEXES
-              </span>
-            </div>
+            <span className="text-base font-extrabold tracking-tight text-ink-primary">SYNTHABASKET</span>
           </Link>
 
           <nav className="hidden items-center gap-10 text-xs font-semibold text-ink-secondary md:flex">
@@ -38,17 +35,29 @@ export default function Home() {
             <a href="#protocol" className="transition-colors hover:text-ink-primary">Protocol</a>
           </nav>
 
-          <Link
-            href="/app"
-            className="inline-flex items-center gap-2 rounded-full bg-brand-primary px-5 py-2.5 text-xs font-bold text-black transition-transform hover:scale-[1.02]"
-          >
-            Launch App
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              type="button"
+              aria-label="Notifications"
+              title="Notifications"
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-ink-secondary transition-colors hover:border-brand-primary hover:text-ink-primary"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand-primary ring-2 ring-background" />
+            </button>
+            <Link
+              href="/app"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-primary px-5 py-2.5 text-xs font-bold text-black transition-transform hover:scale-[1.02]"
+            >
+              Launch App
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1600px] grid-cols-1 gap-12 px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:grid-cols-12 lg:items-center lg:px-8 lg:pb-24 lg:pt-36">
+      <section className="mx-auto grid max-w-[1600px] grid-cols-1 gap-12 px-4 pb-20 pt-24 sm:px-6 sm:pt-28 lg:grid-cols-12 lg:items-center lg:px-8 lg:pb-24 lg:pt-32">
         <div className="space-y-6 lg:col-span-7">
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-brand-primary">
             DIVERSIFY EARLY. OWN THE FUTURE.
@@ -79,7 +88,7 @@ export default function Home() {
         </div>
 
         <div className="lg:col-span-5 flex items-center justify-center lg:justify-end">
-          <div className="group/globe relative flex h-[430px] w-[430px] cursor-default items-center justify-center sm:h-[500px] sm:w-[500px] xl:h-[560px] xl:w-[560px]">
+          <div className="group/globe relative flex h-[460px] w-[460px] cursor-default items-center justify-center sm:h-[540px] sm:w-[540px] xl:h-[620px] xl:w-[620px]">
             <div className="absolute inset-[10%] rounded-full bg-brand-primary/10 blur-3xl transition-all duration-700 group-hover/globe:scale-110 group-hover/globe:bg-brand-primary/20" />
             <div className="absolute inset-[4%] rounded-full border border-brand-primary/10 transition-all duration-700 group-hover/globe:rotate-6 group-hover/globe:border-brand-primary/30" />
             <div className="absolute inset-[14%] rounded-full border border-brand-primary/15 transition-all duration-700 group-hover/globe:-rotate-6 group-hover/globe:border-brand-primary/30" />
