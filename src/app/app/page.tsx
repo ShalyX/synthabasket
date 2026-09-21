@@ -18,7 +18,6 @@ import {
   BasketRedeemQuote,
   BasisMonitorItem,
   MeteoraDBCConfig,
-  ProviderMode,
   TxLifecycleState,
 } from '../../lib/types';
 import {
@@ -31,21 +30,7 @@ import { MeteoraDbcManager } from '../../lib/execution/meteora_dbc';
 
 import { PublicKey } from '@solana/web3.js';
 import {
-  ArrowUpRight,
-  ArrowDownRight,
-  ShieldCheck,
-  Lock,
-  ArrowRightLeft,
-  ExternalLink,
-  ChevronRight,
   Search,
-  Globe,
-  Database,
-  BarChart3,
-  Clock,
-  ArrowRight,
-  Radio,
-  Zap,
   Layers,
 } from 'lucide-react';
 
@@ -53,7 +38,6 @@ export default function AppPage() {
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
-  const providerMode: ProviderMode = 'multi';
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab: 'baskets' | 'basis_monitor' | 'create_studio' =
@@ -91,16 +75,16 @@ export default function AppPage() {
     actionType: 'mint',
   });
 
-  // Fetch live asset quotes on mount or mode change
+  // Fetch the unified multi-provider private-market universe.
   useEffect(() => {
     async function loadAssets() {
-      const quotes = await getUnifiedAssetQuotes(providerMode);
+      const quotes = await getUnifiedAssetQuotes('multi');
       setAvailableAssets(quotes);
       const basis = generateBasisMonitoringLedger(quotes);
       setBasisItems(basis);
     }
     loadAssets();
-  }, [providerMode]);
+  }, []);
 
   const handleSelectBasket = (basket: BasketDefinition, mode: 'mint' | 'redeem' | 'inspect') => {
     setSelectedBasket(basket);
@@ -852,19 +836,20 @@ export default function AppPage() {
 
         {/* TAB 2: BASIS & ORACLES MONITOR */}
         {activeTab === 'basis_monitor' && (
-          <BasisMonitor items={basisItems} providerMode={providerMode} />
+          <BasisMonitor items={basisItems} />
         )}
 
         {/* TAB 3: CREATE BASKET STUDIO */}
         {activeTab === 'create_studio' && (
           <CreateBasketStudio
             availableAssets={availableAssets}
-            providerMode={providerMode}
             onDeployBasket={handleDeployBasket}
             onCancel={() => router.push('/app')}
           />
         )}
-      </div>      <footer className="mt-24 border-t border-border/60 bg-background py-10 font-sans">
+      </div>
+
+      <footer className="mt-24 border-t border-border/60 bg-background py-10 font-sans">
         <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
             <div>
