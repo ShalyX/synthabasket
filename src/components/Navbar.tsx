@@ -31,14 +31,14 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
   };
 
   const navClass = (active: boolean) =>
-    `relative rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+    `relative px-1 py-5 text-[13px] font-semibold transition-colors ${
       active
-        ? 'bg-surface-elevated text-brand-primary shadow-sm border border-border-strong'
+        ? 'text-brand-primary'
         : 'text-ink-secondary hover:text-ink-primary'
     }`;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex items-center gap-3 text-left">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-strong group-hover:border-brand-primary transition-colors shadow-sm">
@@ -59,35 +59,35 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
           </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1 rounded-full border border-border bg-surface-subtle p-1 font-sans">
+        <nav className="hidden md:flex items-center gap-8 font-sans">
           <Link href="/app" className={navClass(isActive('baskets'))}>
             Baskets
             {isActive('baskets') && (
-              <span className="absolute -bottom-1 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-brand-primary" />
+              <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
             )}
           </Link>
           <Link href="/app?view=markets" className={navClass(isActive('markets'))}>
             Markets
             {isActive('markets') && (
-              <span className="absolute -bottom-1 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-brand-primary" />
+              <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
             )}
           </Link>
           <Link href="/app?view=create" className={navClass(isActive('create'))}>
             Create Basket
             {isActive('create') && (
-              <span className="absolute -bottom-1 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-brand-primary" />
+              <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
             )}
           </Link>
           <Link href="/app/portfolio" className={navClass(isActive('portfolio'))}>
             Portfolio
             {isActive('portfolio') && (
-              <span className="absolute -bottom-1 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-brand-primary" />
+              <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
             )}
           </Link>
           <Link href="/app?proof=1" className={navClass(isActive('proof'))}>
             Proof &amp; Audits
             {isActive('proof') && (
-              <span className="absolute -bottom-1 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-brand-primary" />
+              <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
             )}
           </Link>
         </nav>
