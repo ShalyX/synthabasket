@@ -30,6 +30,9 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Internal Agent Notes & Learning Logs (Private to User & Agent)
+LEARNINGS.md
+
 # Solana Keypairs & Secrets (CRITICAL FOR LAUNCH HYGIENE)
 *.keypair
 *.keypair.json
@@ -46,3 +49,5 @@ target/
 .vscode/
 *.swp
 *.swo
+
+.vercel
