@@ -2,17 +2,14 @@
 
 import React from 'react';
 import { Activity, ArrowUpRight, ArrowDownRight, Radio, ExternalLink, ShieldCheck, ArrowRightLeft, Clock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
-import { BasisMonitorItem, ProviderMode } from '../lib/types';
+import { BasisMonitorItem } from '../lib/types';
 
 interface BasisMonitorProps {
   items: BasisMonitorItem[];
-  providerMode: ProviderMode;
 }
 
-export const BasisMonitor: React.FC<BasisMonitorProps> = ({ items, providerMode }) => {
-  const filtered = items.filter((item) =>
-    providerMode === 'prestocks_pure' ? item.provider === 'prestocks' : true
-  );
+export const BasisMonitor: React.FC<BasisMonitorProps> = ({ items }) => {
+  const filtered = items;
 
   const hasFeeds = filtered.length > 0;
   const actionableItems = filtered.filter((item) => Math.abs(item.spreadBps) > 10);
@@ -64,7 +61,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({ items, providerMode 
             <div className="mt-1 font-mono text-lg font-bold text-ink-primary tabular-nums">
               {hasFeeds ? filtered.length : '0'}
             </div>
-            <span className="text-[10px] text-ink-secondary">Pre-IPO &amp; Synthetic Assets</span>
+            <span className="text-[10px] text-ink-secondary">Tokenized private-market assets</span>
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface-subtle p-3">
