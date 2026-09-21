@@ -12,21 +12,19 @@ import {
   CheckCircle2,
   Lock,
 } from 'lucide-react';
-import { AssetQuote, BasketDefinition, MeteoraDBCConfig, ProviderMode } from '../lib/types';
+import { AssetQuote, BasketDefinition, MeteoraDBCConfig } from '../lib/types';
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import { SynthaBasketVaultClient } from '../lib/execution/vault_client';
 import { MeteoraDbcManager } from '../lib/execution/meteora_dbc';
 
 interface CreateBasketStudioProps {
   availableAssets: AssetQuote[];
-  providerMode: ProviderMode;
   onDeployBasket: (newBasket: BasketDefinition, dbcConfig?: MeteoraDBCConfig) => void;
   onCancel: () => void;
 }
 
 export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
   availableAssets,
-  providerMode,
   onDeployBasket,
   onCancel,
 }) => {
@@ -39,9 +37,7 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
   const [feeBps, setFeeBps] = useState(25); // 0.25%
   const [graduationThresholdUsd, setGraduationThresholdUsd] = useState(2_000_000);
 
-  const filteredAvailable = availableAssets.filter((a) =>
-    providerMode === 'prestocks_pure' ? a.provider === 'prestocks' : true
-  );
+  const filteredAvailable = availableAssets;
 
   const totalWeight = selectedAssets.reduce((sum, item) => sum + item.weightPct, 0);
   const isValidWeight = Math.abs(totalWeight - 100) < 0.01;
@@ -129,7 +125,7 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
       symbol: basketSymbol.toUpperCase(),
       description: basketDescription || 'Curated pre-IPO thematic index basket on Solana.',
       category: 'custom',
-      providerMode: providerMode,
+      providerMode: 'multi',
       navUsd: Number(previewNav.toFixed(2)),
       navChange24h: 0.0,
       aumUsd: 100_000,
