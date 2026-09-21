@@ -9,6 +9,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { ScrollReveal } from '../components/ScrollReveal';
 import { INITIAL_BASKETS } from '../lib/data/registry';
 
 const featured = INITIAL_BASKETS.filter((basket) => basket.providerMode === 'multi').slice(0, 3);
@@ -57,7 +58,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1600px] grid-cols-1 gap-12 px-4 pb-20 pt-24 sm:px-6 sm:pt-28 lg:grid-cols-12 lg:items-center lg:px-8 lg:pb-24 lg:pt-32">
+      <section className="mx-auto grid max-w-[1600px] grid-cols-1 gap-12 px-4 pb-20 pt-14 sm:px-6 sm:pt-16 lg:grid-cols-12 lg:items-center lg:px-8 lg:pb-24 lg:pt-20">
         <div className="space-y-6 lg:col-span-7">
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-brand-primary">
             DIVERSIFY EARLY. OWN THE FUTURE.
@@ -115,34 +116,28 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1600px] px-4 pb-20 sm:px-6 lg:px-8">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <Lock className="h-5 w-5 text-brand-primary" />
-            <h3 className="mt-6 text-sm font-bold">Real Assets</h3>
-            <p className="mt-2 text-sm leading-6 text-ink-secondary">Underlying SPL assets held in on-chain vaults.</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <Layers className="h-5 w-5 text-brand-primary" />
-            <h3 className="mt-6 text-sm font-bold">Diversified</h3>
-            <p className="mt-2 text-sm leading-6 text-ink-secondary">Theme-based exposure across AI, space, fintech and more.</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <Zap className="h-5 w-5 text-brand-primary" />
-            <h3 className="mt-6 text-sm font-bold">Solana Native</h3>
-            <p className="mt-2 text-sm leading-6 text-ink-secondary">Fast execution, transparent settlement and composable liquidity.</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <ArrowRightLeft className="h-5 w-5 text-brand-primary" />
-            <h3 className="mt-6 text-sm font-bold">Redeemable</h3>
-            <p className="mt-2 text-sm leading-6 text-ink-secondary">Burn basket shares for proportional underlying reserves.</p>
-          </div>
+      <section className="mx-auto max-w-[1600px] px-4 pb-24 sm:px-6 lg:px-8">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            [Lock, 'Real Assets', 'Underlying SPL assets held in on-chain vaults.'],
+            [Layers, 'Diversified', 'Theme-based exposure across AI, space, fintech and more.'],
+            [Zap, 'Solana Native', 'Fast execution, transparent settlement and composable liquidity.'],
+            [ArrowRightLeft, 'Redeemable', 'Burn basket shares for proportional underlying reserves.'],
+          ].map(([Icon, title, body], index) => (
+            <ScrollReveal key={title as string} delay={index * 70} className="h-full">
+              <div className="h-full rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1 hover:border-border-strong hover:shadow-lg">
+                {typeof Icon !== 'string' && <Icon className="h-5 w-5 text-brand-primary" />}
+                <h3 className="mt-6 text-sm font-bold">{title as string}</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-secondary">{body as string}</p>
+              </div>
+            </ScrollReveal>
+          ))}
         </div>
       </section>
 
       <section id="baskets" className="border-y border-border bg-surface-subtle">
-        <div className="mx-auto max-w-[1600px] px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mx-auto max-w-[1600px] px-4 py-24 sm:px-6 lg:px-8">
+          <ScrollReveal className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
                 Featured baskets
@@ -152,11 +147,12 @@ export default function Home() {
             <Link href="/app" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-primary">
               View marketplace <ArrowRight className="h-4 w-4" />
             </Link>
-          </div>
+          </ScrollReveal>
 
-          <div className="grid gap-5 lg:grid-cols-3">
-            {featured.map((basket) => (
-              <article key={basket.id} className="rounded-2xl border border-border bg-surface p-5">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {featured.map((basket, index) => (
+              <ScrollReveal key={basket.id} delay={index * 90} className="h-full">
+              <article key={basket.id} className="h-full rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1 hover:border-border-strong hover:shadow-lg">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-mono text-xs font-bold text-brand-primary">${basket.symbol}</p>
@@ -184,34 +180,38 @@ export default function Home() {
                   <span className="font-mono text-sm font-bold text-brand-primary">+${basket.navChange24h.toFixed(2)}%</span>
                 </div>
               </article>
+              </ScrollReveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto max-w-[1600px] px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mb-10 max-w-2xl">
+      <section id="how-it-works" className="mx-auto max-w-[1600px] px-4 py-24 sm:px-6 lg:px-8">
+        <ScrollReveal className="mb-12 max-w-2xl">
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">How it works</span>
           <h2 className="mt-3 text-3xl font-extrabold tracking-tight">One position. Real underlying assets.</h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-4">
+        </ScrollReveal>
+        <div className="grid gap-5 md:grid-cols-4">
           {[
             ['01', 'Choose', 'Select a curated basket or structure your own.'],
             ['02', 'Allocate', 'USDC is routed toward the target constituent weights.'],
             ['03', 'Vault', 'Underlying assets settle into program-controlled custody.'],
             ['04', 'Redeem', 'Burn shares to release your proportional underlying assets.'],
-          ].map(([step, title, body]) => (
-            <div key={step} className="rounded-2xl border border-border bg-surface p-5">
-              <span className="font-mono text-[10px] text-brand-primary">{step}</span>
-              <h3 className="mt-8 text-base font-bold">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-ink-secondary">{body}</p>
-            </div>
+          ].map(([step, title, body], index) => (
+            <ScrollReveal key={step} delay={index * 80} className="h-full">
+              <div className="h-full rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1 hover:border-border-strong">
+                <span className="font-mono text-[10px] text-brand-primary">{step}</span>
+                <h3 className="mt-8 text-base font-bold">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-secondary">{body}</p>
+              </div>
+            </ScrollReveal>
           ))}
         </div>
       </section>
 
       <section id="protocol" className="border-t border-border bg-surface-subtle">
-        <div className="mx-auto grid max-w-[1600px] gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
+        <div className="mx-auto grid max-w-[1600px] gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
+          <ScrollReveal>
           <div>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
               Protocol-backed
@@ -222,10 +222,13 @@ export default function Home() {
               while the on-chain vault tracks the actual constituent tokens backing basket shares.
             </p>
           </div>
+        </ScrollReveal>
+        <ScrollReveal delay={120}>
           <div className="flex items-center gap-2 rounded-full border border-brand-primary/30 bg-brand-primary/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-brand-primary">
             <ShieldCheck className="h-4 w-4" />
             Asset-backed
           </div>
+        </ScrollReveal>
         </div>
       </section>
 
