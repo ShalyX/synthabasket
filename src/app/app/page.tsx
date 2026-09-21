@@ -53,7 +53,7 @@ export default function AppPage() {
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
-  const [providerMode, setProviderMode] = useState<ProviderMode>('multi');
+  const providerMode: ProviderMode = 'multi';
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab: 'baskets' | 'basis_monitor' | 'create_studio' =
@@ -468,10 +468,15 @@ export default function AppPage() {
     }
   };
 
+  const categoryLabels: Record<string, string> = {
+    all: 'All Baskets',
+    ai: 'AI',
+    space_defense: 'Space & Defense',
+    fintech: 'FinTech',
+    custom: 'Custom',
+  };
+
   const filteredBaskets = baskets.filter((b) => {
-    if (providerMode === 'prestocks_pure' && b.providerMode !== 'prestocks_pure') {
-      return false;
-    }
     if (selectedCategory !== 'all' && b.category !== selectedCategory) {
       return false;
     }
@@ -491,66 +496,44 @@ export default function AppPage() {
       <Navbar network={network} />
 
       <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-6 lg:px-8 space-y-10">
-        {/* Contextual Market Universe Switcher Bar */}
-        <div className="flex items-center justify-between border-b border-border pb-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-ink-tertiary">Market Universe:</span>
-            <div className="flex items-center rounded-full border border-border bg-surface-subtle p-0.5 font-medium">
-              <button
-                onClick={() => setProviderMode('multi')}
-                className={`rounded-full px-3 py-1 text-xs transition-colors ${
-                  providerMode === 'multi'
-                    ? 'bg-surface-elevated text-ink-primary font-bold shadow-sm'
-                    : 'text-ink-tertiary hover:text-ink-secondary'
-                }`}
-              >
-                Multi-Asset (PreStocks, Tessera, Synthetic)
-              </button>
-              <button
-                onClick={() => setProviderMode('prestocks_pure')}
-                className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition-colors ${
-                  providerMode === 'prestocks_pure'
-                    ? 'bg-brand-primary text-black font-bold shadow-sm'
-                    : 'text-ink-tertiary hover:text-ink-secondary'
-                }`}
-              >
-                <ShieldCheck className="h-3 w-3" />
-                PreStocks Pure ($10k Bounty Track)
-              </button>
-            </div>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-ink-tertiary">
-            <Radio className="h-3.5 w-3.5 text-brand-primary animate-pulse" />
-            <span>Pyth Hermes Oracle: <span className="font-semibold text-brand-primary">38ms</span></span>
-          </div>
-        </div>
 
         {/* ========================================================================= */}
         {/* TAB 1: MAIN HOMEPAGE / BASKETS MARKETPLACE (MATCHING REFERENCE DESIGN) */}
         {/* ========================================================================= */}
         {activeTab === 'baskets' && (
           <div className="space-y-10">
-
+            <div className="flex flex-col gap-2 pt-2">
+              <span className="text-[12px] font-semibold text-brand-primary">Private-market indexes</span>
+              <h1 className="text-2xl font-extrabold tracking-tight text-ink-primary sm:text-3xl">
+                Thematic Baskets
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-ink-secondary">
+                Asset-backed baskets of tokenized private companies, sourced across multiple providers and settled on Solana.
+              </p>
+            </div>
 
             {/* THEMATIC BASKETS SECTION */}
             <div id="baskets-grid" className="space-y-4 pt-4">
               {/* Category Filter Pills & Search matching reference */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {['all', 'ai', 'space_defense', 'fintech', 'custom'].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-                        selectedCategory === cat
-                          ? 'bg-brand-primary text-black shadow-sm font-bold'
-                          : 'border border-border bg-surface text-ink-secondary hover:text-ink-primary hover:border-border-strong'
-                      }`}
-                    >
-                      {cat === 'all' ? 'All Baskets' : cat.replace('_', ' & ')}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-6">
+                  {['all', 'ai', 'space_defense', 'fintech', 'custom'].map((cat) => {
+                    const active = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`relative py-2 text-[13px] font-semibold transition-colors ${
+                          active ? 'text-brand-primary' : 'text-ink-secondary hover:text-ink-primary'
+                        }`}
+                      >
+                        {categoryLabels[cat]}
+                        {active && (
+                          <span className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-brand-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -564,7 +547,7 @@ export default function AppPage() {
                       className="w-64 rounded-full border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-ink-primary placeholder-ink-tertiary focus:border-brand-primary focus:outline-none"
                     />
                   </div>
-                  <div className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-ink-secondary font-mono">
+                  <div className="px-2 py-1.5 text-xs font-medium text-ink-tertiary">
                     Sort: AUM
                   </div>
                 </div>
@@ -584,52 +567,41 @@ export default function AppPage() {
                         {/* Header: Badge, Name, Category */}
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-strong bg-surface-elevated font-mono text-xs font-bold text-brand-primary">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-elevated font-mono text-xs font-bold text-brand-primary">
                               ${basket.symbol}
                             </div>
                             <div>
-                              <h3 className="text-xs font-bold text-ink-primary leading-tight">
+                              <h3 className="text-sm font-semibold leading-tight text-ink-primary">
                                 {basket.name}
                               </h3>
-                              <span className="text-[10px] text-ink-tertiary">
-                                {basket.category.replace('_', ' & ')}
+                              <span className="text-[11px] text-ink-tertiary">
+                                {categoryLabels[basket.category] ?? basket.category}
                               </span>
                             </div>
                           </div>
                         </div>
 
                         {/* Badges */}
-                        <div className="mt-2.5 flex items-center gap-1.5">
-                          {basket.providerMode === 'prestocks_pure' ? (
-                            <>
-                              <span className="rounded-full border border-brand-primary/40 bg-brand-primary/10 px-2 py-0.5 font-mono text-[9px] text-brand-primary font-semibold">
-                                PreStocks Only
-                              </span>
-                              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 font-mono text-[9px] text-emerald-400 font-semibold">
-                                Hackathon Eligible
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="rounded-full border border-brand-primary/40 bg-brand-primary/10 px-2 py-0.5 font-mono text-[9px] text-brand-primary font-semibold">
-                                Physically Backed
-                              </span>
-                              <span className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-0.5 font-mono text-[9px] text-cyan-400 font-semibold">
-                                Redeemable 1:1
-                              </span>
-                            </>
-                          )}
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-brand-primary">
+                            <span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
+                            Physically Backed
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-cyan-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                            Redeemable 1:1
+                          </span>
                         </div>
 
                         {/* Description */}
-                        <p className="mt-2.5 line-clamp-2 text-[11px] text-ink-secondary leading-relaxed">
+                        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-ink-secondary">
                           {basket.description}
                         </p>
 
                         {/* NAV & 24h Return */}
                         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-2.5">
                           <div>
-                            <span className="block font-mono text-[9px] uppercase tracking-wider text-ink-tertiary">
+                            <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-ink-tertiary">
                               NAV
                             </span>
                             <span className="font-mono text-base font-bold text-ink-primary tabular-nums">
@@ -637,7 +609,7 @@ export default function AppPage() {
                             </span>
                           </div>
                           <div className="text-right">
-                            <span className="block font-mono text-[9px] uppercase tracking-wider text-ink-tertiary">
+                            <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-ink-tertiary">
                               24H RETURN
                             </span>
                             <span
@@ -663,14 +635,14 @@ export default function AppPage() {
                           </div>
 
                           {/* Holdings list */}
-                          <div className="space-y-1 pt-1 font-mono text-[11px]">
+                          <div className="space-y-1.5 pt-1 text-[11px]">
                             {basket.constituents.slice(0, 3).map((c, idx) => (
                               <div key={c.asset.tokenMint} className="flex items-center justify-between text-ink-secondary">
                                 <div className="flex items-center gap-1.5">
                                   <span className={`h-1.5 w-1.5 rounded-full ${getSegmentColor(idx)}`} />
                                   <span className="text-ink-primary font-medium">{c.asset.symbol}</span>
                                 </div>
-                                <span className="tabular-nums text-ink-tertiary">{c.targetWeightBps / 100}%</span>
+                                <span className="font-mono tabular-nums text-ink-tertiary">{c.targetWeightBps / 100}%</span>
                               </div>
                             ))}
                           </div>
@@ -722,7 +694,7 @@ export default function AppPage() {
                 </div>
 
                 <div className="overflow-hidden">
-                  <table className="w-full text-left font-mono text-xs">
+                  <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-border text-[10px] uppercase text-ink-tertiary font-sans">
                         <th className="pb-1.5">Asset</th>
@@ -764,7 +736,7 @@ export default function AppPage() {
                 </div>
 
                 <div className="overflow-hidden">
-                  <table className="w-full text-left font-mono text-xs">
+                  <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-border text-[10px] uppercase text-ink-tertiary font-sans">
                         <th className="pb-1.5">Asset</th>
@@ -812,7 +784,7 @@ export default function AppPage() {
                 </div>
 
                 <div className="overflow-hidden">
-                  <table className="w-full text-left font-mono text-xs">
+                  <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-border text-[10px] uppercase text-ink-tertiary font-sans">
                         <th className="pb-1.5">Type</th>
@@ -892,49 +864,39 @@ export default function AppPage() {
             onCancel={() => router.push('/app')}
           />
         )}
-      </div>
-
-      {/* PRODUCT-FIRST FOOTER matching reference */}
-      <footer className="mt-20 border-t border-border bg-surface-subtle py-8 font-sans">
+      </div>      <footer className="mt-24 border-t border-border/60 bg-background py-10 font-sans">
         <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            {/* Left: Brand */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface border border-border text-brand-primary">
-                <Layers className="h-4 w-4" />
+          <div className="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-surface-elevated text-brand-primary">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <span className="text-sm font-extrabold tracking-tight text-ink-primary">SYNTHABASKET</span>
               </div>
-              <div>
-                <span className="font-extrabold text-sm text-ink-primary">SYNTHABASKET</span>
-                <span className="text-xs text-ink-tertiary ml-2">Private Markets. On-Chain.</span>
-              </div>
+              <p className="mt-2 text-xs text-ink-tertiary">
+                Multi-provider private-market indexes on Solana.
+              </p>
             </div>
 
-            {/* Center: Ecosystem Stats */}
-            <div className="flex flex-wrap items-center gap-6 font-mono text-xs text-ink-secondary">
-              <div>
-                <span className="font-bold text-ink-primary tabular-nums">$16.1M</span>
-                <span className="text-ink-tertiary ml-1 font-sans text-[11px]">Total AUM</span>
-              </div>
-              <div>
-                <span className="font-bold text-ink-primary tabular-nums">34.5K</span>
-                <span className="text-ink-tertiary ml-1 font-sans text-[11px]">Shares</span>
-              </div>
-              <div>
-                <span className="font-bold text-ink-primary tabular-nums">4</span>
-                <span className="text-ink-tertiary ml-1 font-sans text-[11px]">DBC Pools</span>
-              </div>
-              <div>
-                <span className="font-bold text-brand-primary tabular-nums">3 Providers</span>
-                <span className="text-ink-tertiary ml-1 font-sans text-[11px]">(PreStocks • Tessera • Pyth)</span>
-              </div>
-            </div>
+            <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs font-medium text-ink-secondary">
+              <button onClick={() => router.push('/app')} className="transition-colors hover:text-brand-primary">Baskets</button>
+              <button onClick={() => router.push('/app?view=markets')} className="transition-colors hover:text-brand-primary">Markets</button>
+              <button onClick={() => router.push('/app?view=create')} className="transition-colors hover:text-brand-primary">Create</button>
+              <button onClick={() => router.push('/app/portfolio')} className="transition-colors hover:text-brand-primary">Portfolio</button>
+              <a
+                href="https://github.com/ShalyX/synthabasket"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-brand-primary"
+              >
+                GitHub
+              </a>
+            </nav>
 
-            {/* Right: Built on Solana Badge */}
-            <div className="flex items-center gap-3 text-xs text-ink-tertiary">
-              <span>Built on</span>
-              <span className="font-extrabold text-ink-primary tracking-wider font-mono">SOLANA</span>
-              <span>•</span>
-              <span>Making private markets accessible.</span>
+            <div className="text-xs text-ink-tertiary md:text-right">
+              <div className="font-medium text-ink-secondary">PreStocks + Tessera assets</div>
+              <div className="mt-1">Pyth data · Jupiter execution · Meteora liquidity</div>
             </div>
           </div>
         </div>
