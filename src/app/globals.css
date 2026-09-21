@@ -160,3 +160,18 @@ html:not(.dark) .wallet-adapter-modal-list .wallet-adapter-button {
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
 }
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+section[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
