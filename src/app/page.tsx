@@ -495,7 +495,7 @@ export default function Home() {
         setNetwork={setNetwork}
       />
 
-      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8 space-y-10">
+      <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-6 lg:px-8 space-y-10">
         {/* Contextual Market Universe Switcher Bar */}
         <div className="flex items-center justify-between border-b border-border pb-3 text-xs">
           <div className="flex items-center gap-2">
@@ -1046,7 +1046,7 @@ export default function Home() {
 
       {/* PRODUCT-FIRST FOOTER matching reference */}
       <footer className="mt-20 border-t border-border bg-surface-subtle py-8 font-sans">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             {/* Left: Brand */}
             <div className="flex items-center gap-3">
