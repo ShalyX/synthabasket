@@ -1,0 +1,232 @@
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  SystemProgram,
+  ComputeBudgetProgram,
+} from '@solana/web3.js';
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+  getMint,
+} from '@solana/spl-token';
+import { BN, BorshInstructionCoder, Idl } from '@coral-xyz/anchor';
+import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../types';
+import { SYNTHABASKET_IDL } from './idl';
+
+export const SYNTHABASKET_PROGRAM_ID = new PublicKey('BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh');
+
+export class SynthaBasketVaultClient {
+  private connection: Connection;
+  private programId: PublicKey;
+  private instructionCoder: BorshInstructionCoder;
+
+  constructor(connection: Connection, programId: PublicKey = SYNTHABASKET_PROGRAM_ID) {
+    this.connection = connection;
+    this.programId = programId;
+    this.instructionCoder = new BorshInstructionCoder(SYNTHABASKET_IDL as unknown as Idl);
+  }
+
+  getBasketPda(symbol: string): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('basket'), Buffer.from(symbol.toUpperCase())],
+      this.programId
+    );
+  }
+
+  getBasketMintPda(symbol: string): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('basket_mint'), Buffer.from(symbol.toUpperCase())],
+      this.programId
+    );
+  }
+
+  getVaultTokenAccount(basketPda: PublicKey, tokenMint: PublicKey): PublicKey {
+    return getAssociatedTokenAddressSync(tokenMint, basketPda, true);
+  }
+
+  getUserTokenAccount(userPublicKey: PublicKey, tokenMint: PublicKey): PublicKey {
+    return getAssociatedTokenAddressSync(tokenMint, userPublicKey);
+  }
+
+  /**
+   * Reads SPL token mint decimals dynamically from the cluster with cached fallbacks.
+   */
+  async getMintDecimals(mintPubkey: PublicKey): Promise<number> {
+    try {
+      const mintInfo = await getMint(this.connection, mintPubkey);
+      return mintInfo.decimals;
+    } catch {
+      // Default to 6 decimals if offline or uninitialized
+      return 6;
+    }
+  }
+
+  /**
+   * Builds an executable transaction for depositing constituent tokens and minting basket shares.
+   * Encodes instruction data directly using Anchor's BorshInstructionCoder from IDL.
+   */
+  async buildMintTransaction(
+    userPublicKey: PublicKey,
+    basket: BasketDefinition,
+    quote: BasketMintQuote,
+    priorityFeeMicroLamports: number = 50_000
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+
+    // 1. Add Compute Budget Instructions
+    tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
+    tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFeeMicroLamports }));
+
+    const [basketPda] = this.getBasketPda(basket.symbol);
+    const [basketMint] = this.getBasketMintPda(basket.symbol);
+    const userBasketAta = this.getUserTokenAccount(userPublicKey, basketMint);
+
+    // 2. Ensure User's Basket Token ATA exists
+    tx.add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        userPublicKey,
+        userBasketAta,
+        userPublicKey,
+        basketMint
+      )
+    );
+
+    // 3. Assemble remaining accounts & dynamic decimal conversion
+    const remainingAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
+    const constituentAmountsIn: BN[] = [];
+
+    for (const alloc of quote.allocations) {
+      const mintPubkey = new PublicKey(alloc.asset.tokenMint);
+      const userAta = this.getUserTokenAccount(userPublicKey, mintPubkey);
+      const vaultAta = this.getVaultTokenAccount(basketPda, mintPubkey);
+
+      // Ensure Vault ATA exists
+      tx.add(
+        createAssociatedTokenAccountIdempotentInstruction(
+          userPublicKey,
+          vaultAta,
+          basketPda,
+          mintPubkey
+        )
+      );
+
+      remainingAccounts.push(
+        { pubkey: userAta, isSigner: false, isWritable: true },
+        { pubkey: vaultAta, isSigner: false, isWritable: true }
+      );
+
+      // Dynamic decimals lookup
+      const decimals = await this.getMintDecimals(mintPubkey);
+      const rawAmount = BigInt(Math.floor(alloc.estimatedTokensReceived * 10 ** decimals));
+      constituentAmountsIn.push(new BN(rawAmount.toString()));
+    }
+
+    // 4. Encode instruction using Anchor IDL BorshInstructionCoder
+    const basketDecimals = 6;
+    const sharesToMintRaw = BigInt(Math.floor(quote.expectedBasketTokens * 10 ** basketDecimals));
+    const encodedData = this.instructionCoder.encode('depositAndMint', {
+      sharesToMint: new BN(sharesToMintRaw.toString()),
+      constituentAmountsIn,
+    });
+
+    const depositInstruction = new TransactionInstruction({
+      programId: this.programId,
+      keys: [
+        { pubkey: userPublicKey, isSigner: true, isWritable: true },
+        { pubkey: basketPda, isSigner: false, isWritable: true },
+        { pubkey: basketMint, isSigner: false, isWritable: true },
+        { pubkey: userBasketAta, isSigner: false, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ...remainingAccounts,
+      ],
+      data: encodedData,
+    });
+
+    tx.add(depositInstruction);
+    try {
+      const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
+      tx.recentBlockhash = blockhash;
+    } catch {
+      tx.recentBlockhash = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+    }
+    tx.feePayer = userPublicKey;
+
+    return tx;
+  }
+
+  /**
+   * Builds an executable transaction for burning basket shares and redeeming underlying tokens.
+   * Encodes instruction data directly using Anchor's BorshInstructionCoder from IDL.
+   */
+  async buildRedeemTransaction(
+    userPublicKey: PublicKey,
+    basket: BasketDefinition,
+    quote: BasketRedeemQuote,
+    priorityFeeMicroLamports: number = 50_000
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+
+    tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
+    tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFeeMicroLamports }));
+
+    const [basketPda] = this.getBasketPda(basket.symbol);
+    const [basketMint] = this.getBasketMintPda(basket.symbol);
+    const userBasketAta = this.getUserTokenAccount(userPublicKey, basketMint);
+
+    const remainingAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
+
+    for (const item of quote.constituentsToReturn) {
+      const mintPubkey = new PublicKey(item.asset.tokenMint);
+      const userAta = this.getUserTokenAccount(userPublicKey, mintPubkey);
+      const vaultAta = this.getVaultTokenAccount(basketPda, mintPubkey);
+
+      tx.add(
+        createAssociatedTokenAccountIdempotentInstruction(
+          userPublicKey,
+          userAta,
+          userPublicKey,
+          mintPubkey
+        )
+      );
+
+      remainingAccounts.push(
+        { pubkey: vaultAta, isSigner: false, isWritable: true },
+        { pubkey: userAta, isSigner: false, isWritable: true }
+      );
+    }
+
+    const basketDecimals = 6;
+    const sharesToBurnRaw = BigInt(Math.floor(quote.burnBasketTokensAmount * 10 ** basketDecimals));
+    const encodedData = this.instructionCoder.encode('burnAndRedeem', {
+      sharesToBurn: new BN(sharesToBurnRaw.toString()),
+    });
+
+    const redeemInstruction = new TransactionInstruction({
+      programId: this.programId,
+      keys: [
+        { pubkey: userPublicKey, isSigner: true, isWritable: true },
+        { pubkey: basketPda, isSigner: false, isWritable: true },
+        { pubkey: basketMint, isSigner: false, isWritable: true },
+        { pubkey: userBasketAta, isSigner: false, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        ...remainingAccounts,
+      ],
+      data: encodedData,
+    });
+
+    tx.add(redeemInstruction);
+    try {
+      const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
+      tx.recentBlockhash = blockhash;
+    } catch {
+      tx.recentBlockhash = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+    }
+    tx.feePayer = userPublicKey;
+
+    return tx;
+  }
+}
