@@ -79,28 +79,50 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="lg:col-span-6">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <Lock className="h-5 w-5 text-brand-primary" />
-              <h3 className="mt-6 text-sm font-bold">Real Assets</h3>
-              <p className="mt-2 text-sm leading-6 text-ink-secondary">Underlying SPL assets held in on-chain vaults.</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <Layers className="h-5 w-5 text-brand-primary" />
-              <h3 className="mt-6 text-sm font-bold">Diversified</h3>
-              <p className="mt-2 text-sm leading-6 text-ink-secondary">Theme-based exposure across AI, space, fintech and more.</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <Zap className="h-5 w-5 text-brand-primary" />
-              <h3 className="mt-6 text-sm font-bold">Solana Native</h3>
-              <p className="mt-2 text-sm leading-6 text-ink-secondary">Fast execution, transparent settlement and composable liquidity.</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <ArrowRightLeft className="h-5 w-5 text-brand-primary" />
-              <h3 className="mt-6 text-sm font-bold">Redeemable</h3>
-              <p className="mt-2 text-sm leading-6 text-ink-secondary">Burn basket shares for proportional underlying reserves.</p>
-            </div>
+        <div className="lg:col-span-6 flex items-center justify-center lg:justify-end">
+          <div className="relative flex h-[360px] w-[360px] items-center justify-center sm:h-[420px] sm:w-[420px]">
+            <div className="absolute inset-[12%] rounded-full bg-brand-primary/10 blur-3xl animate-pulse" />
+            <div className="absolute inset-[6%] rounded-full border border-brand-primary/10" />
+            <div className="absolute inset-[16%] rounded-full border border-brand-primary/15" />
+            <svg
+              viewBox="0 0 200 200"
+              className="relative h-[82%] w-[82%] animate-[spin_60s_linear_infinite]"
+              aria-label="SynthaBasket global private markets visualization"
+              role="img"
+            >
+              <circle cx="100" cy="100" r="90" fill="none" stroke="#2f3447" strokeWidth="1" />
+              <ellipse cx="100" cy="100" rx="90" ry="30" fill="none" stroke="#00d182" strokeWidth="1.35" strokeOpacity="0.85" strokeDasharray="3 3" />
+              <ellipse cx="100" cy="100" rx="90" ry="60" fill="none" stroke="#00d182" strokeWidth="1.2" strokeOpacity="0.55" strokeDasharray="3 3" />
+              <ellipse cx="100" cy="100" rx="30" ry="90" fill="none" stroke="#00d182" strokeWidth="1.35" strokeOpacity="0.85" strokeDasharray="3 3" />
+              <ellipse cx="100" cy="100" rx="60" ry="90" fill="none" stroke="#00d182" strokeWidth="1.2" strokeOpacity="0.55" strokeDasharray="3 3" />
+              <circle cx="100" cy="100" r="5" fill="#00d182" />
+              <circle cx="100" cy="100" r="13" fill="none" stroke="#00d182" strokeWidth="0.8" strokeOpacity="0.5" />
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1600px] px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <Lock className="h-5 w-5 text-brand-primary" />
+            <h3 className="mt-6 text-sm font-bold">Real Assets</h3>
+            <p className="mt-2 text-sm leading-6 text-ink-secondary">Underlying SPL assets held in on-chain vaults.</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <Layers className="h-5 w-5 text-brand-primary" />
+            <h3 className="mt-6 text-sm font-bold">Diversified</h3>
+            <p className="mt-2 text-sm leading-6 text-ink-secondary">Theme-based exposure across AI, space, fintech and more.</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <Zap className="h-5 w-5 text-brand-primary" />
+            <h3 className="mt-6 text-sm font-bold">Solana Native</h3>
+            <p className="mt-2 text-sm leading-6 text-ink-secondary">Fast execution, transparent settlement and composable liquidity.</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <ArrowRightLeft className="h-5 w-5 text-brand-primary" />
+            <h3 className="mt-6 text-sm font-bold">Redeemable</h3>
+            <p className="mt-2 text-sm leading-6 text-ink-secondary">Burn basket shares for proportional underlying reserves.</p>
           </div>
         </div>
       </section>
