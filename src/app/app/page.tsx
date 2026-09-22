@@ -1052,52 +1052,49 @@ export default function AppPage() {
                     </thead>
                     <tbody className="divide-y divide-border-subtle text-[11px]">
                       <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-brand-primary font-semibold">Mint</td>
+                        <td className="py-2 text-amber-400 font-semibold">Acquire</td>
                         <td className="py-2 text-ink-primary font-bold">$AIT</td>
                         <td className="py-2 text-ink-secondary">
                           <a
-                            href="https://explorer.solana.com/tx/2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1?cluster=devnet"
+                            href="https://explorer.solana.com/tx/ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS?cluster=devnet"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-brand-primary hover:underline"
                           >
-                            2si8SYfU...QfJd1
+                            ux7dGVzc...QtRdS
                           </a>
                         </td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">12m ago</td>
+                        <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
+                      </tr>
+                      <tr className="hover:bg-surface-elevated/40 transition-colors">
+                        <td className="py-2 text-brand-primary font-semibold">Mint</td>
+                        <td className="py-2 text-ink-primary font-bold">$AIT</td>
+                        <td className="py-2 text-ink-secondary">
+                          <a
+                            href="https://explorer.solana.com/tx/2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ?cluster=devnet"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-brand-primary hover:underline"
+                          >
+                            2VftJP3h...JhPtJ
+                          </a>
+                        </td>
+                        <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
                       </tr>
                       <tr className="hover:bg-surface-elevated/40 transition-colors">
                         <td className="py-2 text-cyan-400 font-semibold">Redeem</td>
                         <td className="py-2 text-ink-primary font-bold">$AIT</td>
                         <td className="py-2 text-ink-secondary">
                           <a
-                            href="https://explorer.solana.com/tx/41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt?cluster=devnet"
+                            href="https://explorer.solana.com/tx/4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5?cluster=devnet"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-brand-primary hover:underline"
                           >
-                            41W1CAjH...UWpF
+                            4C8hAJ8K...mod2zJ5
                           </a>
                         </td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">18m ago</td>
-                      </tr>
-                      <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-purple-400 font-semibold">Create</td>
-                        <td className="py-2 text-ink-primary font-bold">$PREX</td>
-                        <td className="py-2 text-ink-secondary">8kLn2vPq...9zXc</td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">1h ago</td>
-                      </tr>
-                      <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-amber-400 font-semibold">Swap</td>
-                        <td className="py-2 text-ink-primary font-bold">$ORBIT</td>
-                        <td className="py-2 text-ink-secondary">5nP3qRtL...t7Yp</td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">2h ago</td>
-                      </tr>
-                      <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-brand-primary font-semibold">DBC Config</td>
-                        <td className="py-2 text-ink-primary font-bold">$FINX</td>
-                        <td className="py-2 text-ink-secondary">9dw8mK2n...xJ4a</td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">3h ago</td>
+                        <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
                       </tr>
                     </tbody>
                   </table>
