@@ -27,6 +27,7 @@ import {
 import { AllocationRouter } from '../../lib/execution/allocation_router';
 import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
 import { MeteoraDbcManager } from '../../lib/execution/meteora_dbc';
+import { waitForSignatureOutcome } from '../../lib/execution/confirmation';
 
 import { PublicKey } from '@solana/web3.js';
 import {
@@ -96,33 +97,44 @@ export default function AppPage() {
     return palette[idx % palette.length];
   };
 
-  // 1-Click Mint Execution Flow (Honest, Step-by-Step Verification)
+  // 1-Click Mint Execution Flow
   const handleExecuteMint = async (basket: BasketDefinition, quote: BasketMintQuote) => {
     setSelectedBasket(null);
 
+    const isDevnet = network === 'devnet';
     const initialSteps = [
       {
         id: 'route_quote',
-        label: 'Calculate Multi-Asset Jupiter Routes',
-        description: `Splitting ${quote.depositUsdcAmount} USDC into ${basket.constituents.length} constituent assets via Swap API V2`,
+        label: isDevnet ? 'Resolve Executable Devnet Asset Routes' : 'Prepare Multi-Asset Jupiter Routes',
+        description: isDevnet
+          ? `Checking executable Devnet mirror assets for ${basket.constituents.length} constituents`
+          : `Splitting ${quote.depositUsdcAmount} USDC into ${basket.constituents.length} constituent assets via Jupiter Swap API V2`,
         status: 'active' as const,
       },
       {
+        id: 'acquire_underlying',
+        label: 'Acquire Underlying Constituent Assets',
+        description: isDevnet
+          ? 'Executing the explicit Devnet mirror acquisition path'
+          : 'Broadcasting and confirming every Jupiter constituent swap',
+        status: 'pending' as const,
+      },
+      {
         id: 'verify_custody',
-        label: 'Verify Vault PDA & Invariant Rules',
-        description: `Inspecting on-chain custody state: ${basket.vaultPda.slice(0, 8)}...`,
+        label: 'Verify Live Vault PDA & Basket Configuration',
+        description: `Checking program ownership, basket mint, and constituent configuration for ${basket.vaultPda.slice(0, 8)}...`,
         status: 'pending' as const,
       },
       {
         id: 'deposit_and_mint',
-        label: `Execute Vault Deposit & Mint ${quote.expectedBasketTokens} $${basket.symbol}`,
-        description: 'Dispatching Anchor synthabasket_vault CPI deposit_and_mint instruction',
+        label: `Deposit Underlying & Mint ${quote.expectedBasketTokens} $${basket.symbol}`,
+        description: 'Broadcasting the Anchor deposit_and_mint instruction with the acquired token amounts',
         status: 'pending' as const,
       },
       {
-        id: 'solvency_verified',
-        label: 'Confirm On-Chain Settlement & Invariant',
-        description: 'Verifying non-dilutive share receipt on Solana Devnet',
+        id: 'settlement',
+        label: 'Confirm On-Chain Settlement',
+        description: 'Polling Solana for a definitive confirmed, failed, or expired status',
         status: 'pending' as const,
       },
     ];
@@ -141,85 +153,164 @@ export default function AppPage() {
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
-        steps: prev.steps.map((s, idx) =>
-          idx === 0
-            ? { ...s, status: 'failed', error: 'Wallet not connected. Please connect your Solana wallet.' }
-            : s
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? { ...step, status: 'failed', error: 'Wallet not connected. Please connect your Solana wallet.' }
+            : step
         ),
       }));
       return;
     }
 
+    let activeStepIndex = 0;
+
+    const activateStep = (nextIndex: number, completedIndex?: number, evidence?: string[]) => {
+      activeStepIndex = nextIndex;
+      setTxLifecycle((prev) => ({
+        ...prev,
+        currentStepIndex: nextIndex,
+        steps: prev.steps.map((step, index) => {
+          if (typeof completedIndex === 'number' && index === completedIndex) {
+            return {
+              ...step,
+              status: 'completed',
+              txSignatures: evidence,
+              txSignature: evidence?.length === 1 ? evidence[0] : step.txSignature,
+            };
+          }
+          if (index === nextIndex) return { ...step, status: 'active' };
+          return step;
+        }),
+      }));
+    };
+
     try {
-      // Step 1: Jupiter Quote & Allocation Calculation
+      // Step 1: Produce an execution plan. Estimates are never treated as executable routes.
       const router = new AllocationRouter(connection);
-      await router.prepareAllocationSwaps(publicKey, quote, network === 'devnet');
+      const allocationPlan = await router.prepareAllocationSwaps(publicKey, quote, isDevnet);
 
-      setTxLifecycle((prev) => ({
-        ...prev,
-        currentStepIndex: 1,
-        steps: prev.steps.map((s, idx) =>
-          idx === 0 ? { ...s, status: 'completed' } : idx === 1 ? { ...s, status: 'active' } : s
-        ),
-      }));
+      if (allocationPlan.unavailable.length > 0) {
+        const reasons = allocationPlan.unavailable
+          .map((item) => `${item.symbol}: ${item.reason}`)
+          .join(' | ');
+        throw new Error(
+          `Investment stopped before signing because the full constituent acquisition is not executable on this cluster. ${reasons}`
+        );
+      }
 
-      // Step 2: Verify Vault Custody & Invariant Rules
+      if (allocationPlan.preparedSwaps.length !== quote.allocations.length) {
+        throw new Error(
+          `Investment stopped: expected ${quote.allocations.length} executable constituent routes but received ${allocationPlan.preparedSwaps.length}.`
+        );
+      }
+
+      activateStep(1, 0);
+
+      // Step 2: Execute every prepared constituent swap and require a confirmed result.
+      const allocationSignatures: string[] = [];
+      for (const prepared of allocationPlan.preparedSwaps) {
+        const signature = await sendTransaction(prepared.transaction, connection, {
+          skipPreflight: false,
+          maxRetries: 3,
+        });
+
+        const outcome = await waitForSignatureOutcome(connection, signature, {
+          lastValidBlockHeight: prepared.lastValidBlockHeight,
+          timeoutMs: 90_000,
+        });
+
+        if (outcome.state !== 'confirmed') {
+          throw new Error(
+            `${prepared.symbol} acquisition ${outcome.state}: ${outcome.error}`
+          );
+        }
+        allocationSignatures.push(signature);
+      }
+
+      activateStep(2, 1, allocationSignatures);
+
+      // Use exact quoted raw outputs for the vault deposit instead of price-estimated amounts.
+      const executionQuote: BasketMintQuote = {
+        ...quote,
+        allocations: quote.allocations.map((allocation, index) => ({
+          ...allocation,
+          estimatedTokensReceived: allocationPlan.preparedSwaps[index].quotedOutAmountUi,
+          rawTokenAmount: allocationPlan.preparedSwaps[index].rawOutAmount,
+        })),
+      };
+
+      // Step 3: Verify the actual live basket account before asking the user to deposit.
       const vaultClient = new SynthaBasketVaultClient(connection);
-      const depositTx = await vaultClient.buildMintTransaction(publicKey, basket, quote);
+      await vaultClient.verifyBasketExecutionState(basket, false);
+      const depositTx = await vaultClient.buildMintTransaction(
+        publicKey,
+        basket,
+        executionQuote,
+        50_000,
+        false
+      );
 
-      setTxLifecycle((prev) => ({
-        ...prev,
-        currentStepIndex: 2,
-        steps: prev.steps.map((s, idx) =>
-          idx === 1 ? { ...s, status: 'completed' } : idx === 2 ? { ...s, status: 'active' } : s
-        ),
-      }));
+      const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+      depositTx.recentBlockhash = latestBlockhash.blockhash;
+      depositTx.feePayer = publicKey;
 
-      // Step 3: Dispatch & Broadcast to Solana Cluster
-      const txSig = await sendTransaction(depositTx, connection);
+      activateStep(3, 2);
 
-      setTxLifecycle((prev) => ({
-        ...prev,
-        currentStepIndex: 3,
-        steps: prev.steps.map((s, idx) =>
-          idx === 2 ? { ...s, status: 'completed', txSignature: txSig } : idx === 3 ? { ...s, status: 'active' } : s
-        ),
-      }));
+      // Step 4: Broadcast the actual Anchor deposit_and_mint transaction.
+      const depositSignature = await sendTransaction(depositTx, connection, {
+        skipPreflight: false,
+        maxRetries: 3,
+      });
 
-      // Step 4: Confirm Transaction & Finalize Settlement
-      await connection.confirmTransaction(txSig, 'confirmed');
+      activateStep(4, 3, [depositSignature]);
+
+      // Step 5: Poll for a definitive outcome instead of treating a 30s RPC timeout as failure.
+      const depositOutcome = await waitForSignatureOutcome(connection, depositSignature, {
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        timeoutMs: 90_000,
+      });
+
+      if (depositOutcome.state !== 'confirmed') {
+        throw new Error(`Vault deposit ${depositOutcome.state}: ${depositOutcome.error}`);
+      }
 
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
-        finalSignature: txSig,
-        steps: prev.steps.map((s) => ({
-          ...s,
-          status: 'completed',
-          txSignature: txSig,
-        })),
+        finalSignature: depositSignature,
+        currentStepIndex: 4,
+        steps: prev.steps.map((step, index) =>
+          index === 4
+            ? { ...step, status: 'completed', txSignature: depositSignature }
+            : step
+        ),
       }));
 
-      // Update local basket state
       setBaskets((prev) =>
-        prev.map((b) =>
-          b.id === basket.id
+        prev.map((existingBasket) =>
+          existingBasket.id === basket.id
             ? {
-                ...b,
-                aumUsd: b.aumUsd + quote.depositUsdcAmount,
-                totalSharesMinted: b.totalSharesMinted + quote.expectedBasketTokens,
+                ...existingBasket,
+                aumUsd: existingBasket.aumUsd + quote.depositUsdcAmount,
+                totalSharesMinted:
+                  existingBasket.totalSharesMinted + quote.expectedBasketTokens,
               }
-            : b
+            : existingBasket
         )
       );
     } catch (err: any) {
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
-        steps: prev.steps.map((s, idx) =>
-          idx === prev.currentStepIndex
-            ? { ...s, status: 'failed', error: err.message || 'Transaction failed' }
-            : s
+        currentStepIndex: activeStepIndex,
+        steps: prev.steps.map((step, index) =>
+          index === activeStepIndex
+            ? {
+                ...step,
+                status: 'failed',
+                error: err?.message || 'Transaction failed',
+              }
+            : step
         ),
       }));
     }
