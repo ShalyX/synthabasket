@@ -919,13 +919,17 @@ export default function AppPage() {
                             <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-ink-tertiary">
                               24h
                             </span>
-                            <span
-                              className={`flex items-center justify-end font-mono text-xs font-bold tabular-nums ${
-                                isPositive ? 'text-brand-primary' : 'text-semantic-negative'
-                              }`}
-                            >
-                              {isPositive ? '+' : ''}{basket.navChange24h.toFixed(2)}%
-                            </span>
+                            {basket.navChange24hAvailable ? (
+                              <span
+                                className={`flex items-center justify-end font-mono text-xs font-bold tabular-nums ${
+                                  isPositive ? 'text-brand-primary' : 'text-semantic-negative'
+                                }`}
+                              >
+                                {isPositive ? '+' : ''}{basket.navChange24h.toFixed(2)}%
+                              </span>
+                            ) : (
+                              <span className="font-mono text-xs text-ink-tertiary">—</span>
+                            )}
                           </div>
                         </div>
 
