@@ -45,7 +45,12 @@ async function main() {
     allocations: quote.allocations.map((allocation) => ({
       ...allocation,
       rawTokenAmount: String(
-        Math.max(1, Math.floor(allocation.estimatedTokensReceived * 1_000_000))
+        Math.max(
+          1,
+          Math.floor(
+            (allocation.targetUsdAmount / allocation.asset.priceUsd) * 1_000_000
+          )
+        )
       ),
     })),
   };
