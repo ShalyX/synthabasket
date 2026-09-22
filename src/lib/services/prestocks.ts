@@ -186,9 +186,12 @@ export async function fetchPreStocksAssets(options?: { throwOnError?: boolean })
       };
     });
 
-    const liveMints = new Set(liveAssets.map((asset) => asset.tokenMint));
+    const validLiveAssets = liveAssets.filter(
+      (asset) => Boolean(asset.tokenMint) && Number.isFinite(asset.priceUsd) && asset.priceUsd > 0
+    );
+    const liveMints = new Set(validLiveAssets.map((asset) => asset.tokenMint));
     return [
-      ...liveAssets,
+      ...validLiveAssets,
       ...PRESTOCKS_VERIFIED_SNAPSHOT.filter(
         (asset) => !liveMints.has(asset.tokenMint)
       ),
