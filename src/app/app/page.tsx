@@ -20,6 +20,11 @@ import {
   TxLifecycleState,
 } from '../../lib/types';
 import { generateBasisMonitoringLedger } from '../../lib/services/valuation_engine';
+import {
+  NavHistoryByBasket,
+  readNavHistory,
+  recordBasketNavHistory,
+} from '../../lib/client/nav_history';
 import { AllocationRouter } from '../../lib/execution/allocation_router';
 import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
 import { MeteoraDbcManager } from '../../lib/execution/meteora_dbc';
@@ -50,6 +55,7 @@ export default function AppPage() {
   const [basisItems, setBasisItems] = useState<BasisMonitorItem[]>([]);
   const [hydrationNonce, setHydrationNonce] = useState(0);
   const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [navHistory, setNavHistory] = useState<NavHistoryByBasket>({});
   const hasHydratedMarketplaceRef = useRef(false);
 
   // Category filter for the basket cards
@@ -73,6 +79,10 @@ export default function AppPage() {
     hasError: false,
     actionType: 'mint',
   });
+
+  useEffect(() => {
+    setNavHistory(readNavHistory());
+  }, []);
 
   // Hydrate mutable basket data from one server endpoint. Provider prices,
   // live vault reserves, basket supply, and execution addresses are resolved
@@ -106,6 +116,7 @@ export default function AppPage() {
         setAvailableAssets(quotes);
         setBasisItems(generateBasisMonitoringLedger(quotes));
         setBaskets(hydrated);
+        setNavHistory(recordBasketNavHistory(hydrated));
         hasHydratedMarketplaceRef.current = true;
         setMarketplaceStatus('ready');
       } catch (error) {
@@ -1081,6 +1092,7 @@ export default function AppPage() {
           onClose={() => setSelectedBasket(null)}
           onExecuteMint={handleExecuteMint}
           onExecuteRedeem={handleExecuteRedeem}
+          navHistory={navHistory[selectedBasket.id] || []}
         />
       )}
 
