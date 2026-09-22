@@ -13,9 +13,8 @@ import {
   Lock,
 } from 'lucide-react';
 import { AssetQuote, BasketDefinition, MeteoraDBCConfig } from '../lib/types';
-import { Connection, PublicKey, Keypair } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 import { SynthaBasketVaultClient } from '../lib/execution/vault_client';
-import { MeteoraDbcManager } from '../lib/execution/meteora_dbc';
 
 interface CreateBasketStudioProps {
   availableAssets: AssetQuote[];
@@ -110,15 +109,6 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
     const [basketPda] = vaultClient.getBasketPda(basketSymbol);
     const [basketMintPda] = vaultClient.getBasketMintPda(basketSymbol);
 
-    let dbcPoolAddress: string | undefined;
-    if (enableMeteoraDbc) {
-      const dbcManager = new MeteoraDbcManager(new Connection('https://api.devnet.solana.com'));
-      const quoteMint = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
-      const dummyConfig = Keypair.generate().publicKey;
-      const [poolPda] = dbcManager.getPoolPda(basketMintPda, quoteMint, dummyConfig);
-      dbcPoolAddress = poolPda.toBase58();
-    }
-
     const newBasket: BasketDefinition = {
       id: basketSymbol.toLowerCase(),
       name: basketName,
@@ -128,12 +118,12 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
       providerMode: 'multi',
       navUsd: Number(previewNav.toFixed(2)),
       navChange24h: 0.0,
-      aumUsd: 100_000,
-      totalSharesMinted: Math.floor(100_000 / (previewNav || 100)),
+      aumUsd: 0,
+      totalSharesMinted: 0,
       vaultPda: basketPda.toBase58(),
       basketMint: basketMintPda.toBase58(),
+      devnetExecutionSymbol: basketSymbol.toUpperCase(),
       meteoraGraduated: false,
-      meteoraDbcPoolAddress: dbcPoolAddress,
       createdAt: Date.now(),
       constituents: selectedAssets.map((item) => ({
         asset: item.asset,
