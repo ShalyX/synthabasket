@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../lib/types';
 import { calculateMintQuote, calculateRedeemQuote } from '../lib/services/valuation_engine';
@@ -38,7 +38,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   const [redeemShares, setRedeemShares] = useState<number>(0.1);
   const [chartTimeframe, setChartTimeframe] =
     useState<(typeof TIMEFRAMES)[number]['label']>('1H');
-
+  const [durableHistory, setDurableHistory] = useState<NavHistoryPoint[]>([]);
+  const [durableHistoryEnabled, setDurableHistoryEnabled] = useState(false);
 
   const mintQuote = calculateMintQuote(basket, usdcAmount || 0);
   const redeemQuote = calculateRedeemQuote(basket, redeemShares || 0);
@@ -48,12 +49,61 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
     TIMEFRAMES.find((timeframe) => timeframe.label === chartTimeframe) ||
     TIMEFRAMES[0];
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDurableHistory() {
+      try {
+        const response = await fetch(
+          `/api/nav-history?basketId=${encodeURIComponent(
+            basket.id
+          )}&rangeMs=${selectedRange.ms}`,
+          { cache: 'no-store' }
+        );
+        const payload = await response.json();
+        if (cancelled) return;
+
+        setDurableHistoryEnabled(payload.durable === true);
+        setDurableHistory(
+          Array.isArray(payload.points)
+            ? payload.points.filter(
+                (point: NavHistoryPoint) =>
+                  Number.isFinite(point.timestamp) &&
+                  Number.isFinite(point.navUsd)
+              )
+            : []
+        );
+      } catch {
+        if (!cancelled) {
+          setDurableHistoryEnabled(false);
+          setDurableHistory([]);
+        }
+      }
+    }
+
+    void loadDurableHistory();
+    const intervalId = window.setInterval(loadDurableHistory, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [basket.id, selectedRange.ms]);
+
   const chartPoints = useMemo(() => {
-    return getHistoryForRange(navHistory, selectedRange.ms).map((point) => ({
+    const merged = new Map<number, NavHistoryPoint>();
+
+    for (const point of durableHistory) merged.set(point.timestamp, point);
+    for (const point of navHistory) merged.set(point.timestamp, point);
+
+    return getHistoryForRange(
+      [...merged.values()].sort((a, b) => a.timestamp - b.timestamp),
+      selectedRange.ms
+    ).map((point) => ({
       timestamp: point.timestamp,
       navUsd: point.navUsd,
     }));
-  }, [navHistory, selectedRange.ms]);
+  }, [durableHistory, navHistory, selectedRange.ms]);
 
   const localRangeChange = useMemo(() => {
     if (chartPoints.length < 2) return null;
@@ -146,7 +196,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 <div>
                   <h3 className="text-sm font-semibold text-ink-primary">NAV history</h3>
                   <p className="mt-0.5 text-xs text-ink-tertiary">
-                    Real observations from live basket refreshes on this device.
+                    {durableHistoryEnabled
+                      ? 'Protocol NAV observations stored server-side.'
+                      : 'Real observations from live basket refreshes on this device.'}
                   </p>
                 </div>
 
