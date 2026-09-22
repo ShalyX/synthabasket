@@ -89,24 +89,32 @@ export async function fetchTesseraAssets(options?: { throwOnError?: boolean }): 
       return TESSERA_VERIFIED_SNAPSHOT;
     }
 
-    return rawTokens.map((item) => {
+    const liveAssets: AssetQuote[] = rawTokens.map((item) => {
       const providerChange = [item.change24h, item.change24hPercent, item.priceChange24h]
         .find((value) => typeof value === 'number' && Number.isFinite(value));
 
       return {
         symbol: item.symbol,
         name: item.name,
-        provider: 'tessera' as const,
+        provider: 'tessera',
         tokenMint: item.mint,
         priceUsd: Number(item.markPrice.toFixed(2)),
         change24h: providerChange ?? 0,
         change24hAvailable: providerChange !== undefined,
-        quoteSource: 'live' as const,
+        quoteSource: 'live',
         marketCapUsd: item.markValuation,
         description: `Tessera tokenized ${item.sector} equity: ${item.name}`,
         lastUpdated: Date.now(),
       };
     });
+
+    const liveMints = new Set(liveAssets.map((asset) => asset.tokenMint));
+    return [
+      ...liveAssets,
+      ...TESSERA_VERIFIED_SNAPSHOT.filter(
+        (asset) => !liveMints.has(asset.tokenMint)
+      ),
+    ];
   } catch (error: any) {
     if (options?.throwOnError) {
       throw new Error(`Tessera API fetch failed: ${error.message}`);
