@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "verify-apis": "npx tsx scripts/verify-apis.ts",
-    "provision-devnet": "npx tsx scripts/provision-devnet-execution.ts"
+    "provision-devnet": "npx tsx scripts/provision-devnet-execution.ts",
+    "execute-happy-path": "npx tsx scripts/execute-happy-path.ts"
   },
   "dependencies": {
     "@meteora-ag/dynamic-bonding-curve-sdk": "^1.5.12",
