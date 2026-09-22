@@ -153,6 +153,82 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
               </p>
             </div>
 
+            {state.receipt && (
+              <div className="mt-4 border-y border-border py-4 text-sm">
+                {typeof state.receipt.spentUsdc === 'number' && (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-ink-secondary">USDC spent</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      {state.receipt.spentUsdc.toFixed(6)} USDC
+                    </span>
+                  </div>
+                )}
+
+                {typeof state.receipt.sharesReceived === 'number' && (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-ink-secondary">Shares received</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      +{state.receipt.sharesReceived.toFixed(6)}
+                    </span>
+                  </div>
+                )}
+
+                {typeof state.receipt.sharesBurned === 'number' && (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-ink-secondary">Shares burned</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      -{state.receipt.sharesBurned.toFixed(6)}
+                    </span>
+                  </div>
+                )}
+
+                {state.receipt.assetsDeposited &&
+                  state.receipt.assetsDeposited.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="mb-2 text-xs text-ink-tertiary">Deposited to vault</p>
+                      {state.receipt.assetsDeposited.map((asset) => (
+                        <div
+                          key={asset.symbol}
+                          className="flex items-center justify-between py-1"
+                        >
+                          <span className="text-ink-secondary">{asset.symbol}</span>
+                          <span className="font-mono tabular-nums text-ink-primary">
+                            {asset.amount.toFixed(6)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                {state.receipt.assetsReturned &&
+                  state.receipt.assetsReturned.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="mb-2 text-xs text-ink-tertiary">Returned to wallet</p>
+                      {state.receipt.assetsReturned.map((asset) => (
+                        <div
+                          key={asset.symbol}
+                          className="flex items-center justify-between py-1"
+                        >
+                          <span className="text-ink-secondary">{asset.symbol}</span>
+                          <span className="font-mono tabular-nums text-ink-primary">
+                            +{asset.amount.toFixed(6)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                {typeof state.receipt.resultingShareBalance === 'number' && (
+                  <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                    <span className="text-ink-secondary">Share balance</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      {state.receipt.resultingShareBalance.toFixed(6)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {state.finalSignature && (
               <a
                 href={`https://explorer.solana.com/tx/${state.finalSignature}?cluster=devnet`}
