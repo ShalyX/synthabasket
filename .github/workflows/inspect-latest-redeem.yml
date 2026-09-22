@@ -1,0 +1,36 @@
+name: Inspect Latest UI Redeem
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/inspect-latest-redeem.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ui/wider-shell
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Inspect recent Devnet redemption
+        env:
+          NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
+        run: npx tsx scripts/inspect-latest-redeem.ts
