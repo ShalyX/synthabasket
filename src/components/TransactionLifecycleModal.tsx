@@ -95,7 +95,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                     >
                       {step.label}
                     </span>
-                    {step.txSignature && (
+                    {step.txSignature && !step.txSignatures?.length && (
                       <a
                         href={`https://explorer.solana.com/tx/${step.txSignature}?cluster=devnet`}
                         target="_blank"
@@ -107,6 +107,21 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                     )}
                   </div>
                   <p className="mt-0.5 text-[11px] text-ink-secondary leading-relaxed font-sans">{step.description}</p>
+                  {step.txSignatures && step.txSignatures.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-sans">
+                      {step.txSignatures.map((signature, signatureIndex) => (
+                        <a
+                          key={signature}
+                          href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-primary hover:underline"
+                        >
+                          Tx {signatureIndex + 1} <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {step.error && (
                     <p className="mt-1.5 rounded bg-semantic-negative/10 p-2 text-[11px] text-semantic-negative border border-semantic-negative/30 font-mono">
                       {step.error}
