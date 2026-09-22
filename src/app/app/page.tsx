@@ -47,10 +47,11 @@ export default function AppPage() {
       : 'baskets';
   const [network] = useState<string>('devnet');
 
-  const [baskets, setBaskets] = useState<BasketDefinition[]>(INITIAL_BASKETS);
+  const [baskets, setBaskets] = useState<BasketDefinition[]>([]);
   const [availableAssets, setAvailableAssets] = useState<AssetQuote[]>([]);
   const [basisItems, setBasisItems] = useState<BasisMonitorItem[]>([]);
   const [hydrationNonce, setHydrationNonce] = useState(0);
+  const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   // Category filter for the basket cards
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -104,8 +105,10 @@ export default function AppPage() {
         setAvailableAssets(quotes);
         setBasisItems(generateBasisMonitoringLedger(quotes));
         setBaskets(hydrated);
+        setMarketplaceStatus('ready');
       } catch (error) {
         console.error('[Marketplace hydration]', error);
+        setMarketplaceStatus('error');
       }
     }
 
@@ -877,8 +880,15 @@ export default function AppPage() {
                 </div>
               </div>
 
-              {/* 4-Card Responsive Grid matching reference */}
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+              {/* Hydrated basket grid */}
+              {marketplaceStatus === 'loading' ? (
+                <div className="py-16 text-sm text-ink-tertiary">Loading basket data…</div>
+              ) : marketplaceStatus === 'error' ? (
+                <div className="py-16 text-sm text-semantic-negative">
+                  Live basket data is temporarily unavailable.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
                 {filteredBaskets.map((basket) => {
                   const isPositive = basket.navChange24h >= 0;
 
@@ -978,7 +988,8 @@ export default function AppPage() {
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              )}
             </div>
 
           </div>
