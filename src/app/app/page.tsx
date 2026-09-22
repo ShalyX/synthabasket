@@ -1087,7 +1087,10 @@ export default function AppPage() {
       {/* Deep Inspector & Mint/Redeem Modal */}
       {selectedBasket && (
         <BasketDetailView
-          basket={selectedBasket}
+          basket={
+            baskets.find((basket) => basket.id === selectedBasket.id) ||
+            selectedBasket
+          }
           initialTab={detailInitialTab}
           onClose={() => setSelectedBasket(null)}
           onExecuteMint={handleExecuteMint}
