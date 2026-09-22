@@ -199,6 +199,56 @@ export class SynthaBasketVaultClient {
     }
   }
 
+
+  /**
+   * Confirms the user actually holds every constituent amount that will be
+   * transferred by deposit_and_mint. This runs after acquisition confirmation
+   * and before asking the wallet to sign the vault deposit.
+   */
+  async verifyDepositBalances(
+    userPublicKey: PublicKey,
+    basket: BasketDefinition,
+    quote: BasketMintQuote,
+    useDevnetMirrors: boolean = false
+  ): Promise<void> {
+    for (const allocation of quote.allocations) {
+      const executionMint = useDevnetMirrors
+        ? allocation.asset.devnetMint || getDevnetMirrorMint(allocation.asset.symbol)
+        : allocation.asset.tokenMint;
+
+      if (!executionMint) {
+        throw new Error(
+          `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${allocation.asset.symbol}.`
+        );
+      }
+
+      const mint = new PublicKey(executionMint);
+      const userAta = this.getUserTokenAccount(userPublicKey, mint);
+      const account = await this.connection.getTokenAccountBalance(userAta, 'confirmed').catch(() => null);
+
+      if (!account) {
+        throw new Error(
+          `Acquisition did not create a usable ${allocation.asset.symbol} token account for the connected wallet.`
+        );
+      }
+
+      const requiredRaw = allocation.rawTokenAmount
+        ? BigInt(allocation.rawTokenAmount)
+        : BigInt(
+            Math.floor(
+              allocation.estimatedTokensReceived * 10 ** (await this.getMintDecimals(mint))
+            )
+          );
+
+      const availableRaw = BigInt(account.value.amount);
+      if (availableRaw < requiredRaw) {
+        throw new Error(
+          `Insufficient confirmed ${allocation.asset.symbol} balance after acquisition: need ${requiredRaw.toString()} raw units, found ${availableRaw.toString()}.`
+        );
+      }
+    }
+  }
+
   /**
    * Builds an executable transaction for depositing constituent tokens and minting basket shares.
    * Encodes instruction data directly using Anchor's BorshInstructionCoder from IDL.
