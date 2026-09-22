@@ -585,8 +585,37 @@ export default function AppPage() {
         basket,
         isDevnet
       );
+
+      if (beforeBasketBalance + 0.0000005 < quote.burnBasketTokensAmount) {
+        throw new Error(
+          `You only hold ${beforeBasketBalance.toFixed(6)} ${basket.symbol}. Reduce the redemption amount and try again.`
+        );
+      }
+
+      // Re-read reserves immediately before transaction construction so the
+      // executable burn amount and displayed constituent outputs are based on
+      // the latest vault state rather than an older modal quote.
+      const executionRedeemQuote = await vaultClient.prepareLiveRedeemQuote(
+        basket,
+        quote.burnBasketTokensAmount,
+        isDevnet
+      );
+
+      setTxLifecycle((prev) => ({
+        ...prev,
+        steps: prev.steps.map((step, index) =>
+          index === 1
+            ? {
+                ...step,
+                label: `Redeeming ${executionRedeemQuote.burnBasketTokensAmount} ${basket.symbol}`,
+                description: 'Burning your shares and releasing the current pro-rata vault assets',
+              }
+            : step
+        ),
+      }));
+
       const beforeConstituentBalances = await Promise.all(
-        quote.constituentsToReturn.map(async (item) => {
+        executionRedeemQuote.constituentsToReturn.map(async (item) => {
           const mint = new PublicKey(
             isDevnet
               ? item.asset.devnetMint || item.asset.tokenMint
@@ -602,7 +631,7 @@ export default function AppPage() {
       const redeemTx = await vaultClient.buildRedeemTransaction(
         publicKey,
         basket,
-        quote,
+        executionRedeemQuote,
         50_000,
         isDevnet
       );
@@ -623,6 +652,18 @@ export default function AppPage() {
             : step
         ),
       }));
+
+      const redeemSimulation = await connection.simulateTransaction(redeemTx);
+      if (redeemSimulation.value.err) {
+        const anchorErrorLog = (redeemSimulation.value.logs || []).find(
+          (line) => line.includes('Error Message:')
+        );
+        throw new Error(
+          anchorErrorLog
+            ? anchorErrorLog.replace(/^.*Error Message:\s*/, 'Vault preflight failed: ')
+            : `Vault preflight failed: ${JSON.stringify(redeemSimulation.value.err)}`
+        );
+      }
 
       const signature = await sendTransaction(redeemTx, connection, {
         skipPreflight: false,
@@ -676,7 +717,7 @@ export default function AppPage() {
         isDevnet
       );
       const afterConstituentBalances = await Promise.all(
-        quote.constituentsToReturn.map(async (item) => {
+        executionRedeemQuote.constituentsToReturn.map(async (item) => {
           const mint = new PublicKey(
             isDevnet
               ? item.asset.devnetMint || item.asset.tokenMint

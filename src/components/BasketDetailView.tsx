@@ -41,7 +41,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
     initialTab === 'redeem' ? 'redeem' : 'mint'
   );
   const [usdcAmount, setUsdcAmount] = useState<number>(100);
-  const [redeemShares, setRedeemShares] = useState<number>(0.1);
+  const [redeemShares, setRedeemShares] = useState<number>(0);
   const [chartTimeframe, setChartTimeframe] =
     useState<(typeof TIMEFRAMES)[number]['label']>('1H');
   const [durableHistory, setDurableHistory] = useState<NavHistoryPoint[]>([]);
@@ -53,6 +53,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   const [mintQuoteError, setMintQuoteError] = useState<string | null>(null);
   const [liveRedeemQuote, setLiveRedeemQuote] = useState<BasketRedeemQuote | null>(null);
   const [redeemQuoteLoading, setRedeemQuoteLoading] = useState(false);
+  const [redeemQuoteError, setRedeemQuoteError] = useState<string | null>(null);
 
   const mintQuote = useMemo(
     () => calculateMintQuote(basket, usdcAmount || 0),
@@ -182,8 +183,27 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   useEffect(() => {
     let cancelled = false;
     const timeoutId = window.setTimeout(async () => {
+      setRedeemQuoteError(null);
+
       if (!redeemShares || redeemShares <= 0) {
-        if (!cancelled) setLiveRedeemQuote(null);
+        if (!cancelled) {
+          setLiveRedeemQuote(null);
+          setRedeemQuoteLoading(false);
+        }
+        return;
+      }
+
+      if (
+        basketBalance !== null &&
+        redeemShares > basketBalance + 0.0000005
+      ) {
+        if (!cancelled) {
+          setLiveRedeemQuote(null);
+          setRedeemQuoteLoading(false);
+          setRedeemQuoteError(
+            `You own ${basketBalance.toFixed(6)} ${basket.symbol}. Enter that amount or less.`
+          );
+        }
         return;
       }
 
@@ -195,9 +215,17 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
           redeemShares,
           true
         );
-        if (!cancelled) setLiveRedeemQuote(quote);
-      } catch {
-        if (!cancelled) setLiveRedeemQuote(null);
+        if (!cancelled) {
+          setLiveRedeemQuote(quote);
+          setRedeemQuoteError(null);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          setLiveRedeemQuote(null);
+          setRedeemQuoteError(
+            error?.message || 'Unable to read the live vault right now. Try again in a moment.'
+          );
+        }
       } finally {
         if (!cancelled) setRedeemQuoteLoading(false);
       }
@@ -207,7 +235,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [basket, connection, redeemShares]);
+  }, [basket, basketBalance, connection, redeemShares]);
 
   const selectedRange =
     TIMEFRAMES.find((timeframe) => timeframe.label === chartTimeframe) ||
@@ -633,22 +661,26 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
               <div className="mt-6 space-y-5">
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-ink-secondary">Shares</label>
+                    <label className="text-xs font-medium text-ink-secondary">
+                      Shares to redeem
+                    </label>
                     {basketBalance !== null && (
                       <button
                         onClick={() => setRedeemShares(basketBalance)}
-                        className="text-xs text-ink-tertiary hover:text-brand-primary"
+                        disabled={basketBalance <= 0}
+                        className="text-xs text-ink-tertiary hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Balance {basketBalance.toFixed(6)} {basket.symbol} · Max
+                        You own {basketBalance.toFixed(6)} {basket.symbol} · Max
                       </button>
                     )}
                   </div>
                   <div className="relative mt-2">
                     <input
                       type="number"
-                      min="0.000001"
+                      min="0"
                       step="0.000001"
-                      value={redeemShares}
+                      value={redeemShares || ''}
+                      placeholder="0.000000"
                       onChange={(e) => setRedeemShares(Number(e.target.value))}
                       className="w-full rounded-lg border border-border bg-surface px-3.5 py-3 pr-16 font-mono text-lg font-semibold tabular-nums text-ink-primary outline-none transition-colors focus:border-brand-primary"
                     />
@@ -659,47 +691,56 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 <div className="border-y border-border py-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-ink-secondary">
-                      {redeemQuoteLoading
-                        ? 'Reading live vault…'
-                        : liveRedeemQuote
-                        ? 'Live reserve value'
-                        : 'Live quote unavailable'}
-                    </span>
-                    <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
-                      {liveRedeemQuote ? `${liveRedeemQuote.expectedUsdcValue.toFixed(2)}` : '—'}
-                    </span>
-                  </div>
-
-                  <div className="mt-4">
-                    <p className="mb-2 text-xs font-medium text-ink-secondary">
-                      You receive from the live vault
+                  {!redeemShares || redeemShares <= 0 ? (
+                    <p className="text-sm leading-6 text-ink-secondary">
+                      Enter the number of {basket.symbol} shares you want to redeem, or use Max.
+                      We’ll show the exact current vault assets before you sign.
                     </p>
-                    {!redeemQuoteLoading && !liveRedeemQuote && (
-                      <p className="mb-2 text-xs leading-5 text-semantic-negative">
-                        A live vault quote is required before redemption.
-                      </p>
-                    )}
-                    <div className="space-y-2">
-                      {liveRedeemQuote?.constituentsToReturn.map((item) => (
-                        <div
-                          key={item.asset.tokenMint}
-                          className="flex items-center justify-between text-sm"
-                        >
-                          <span className="text-ink-secondary">{item.asset.symbol}</span>
-                          <span className="font-mono tabular-nums text-ink-primary">
-                            {item.tokenAmount.toFixed(6)}
-                          </span>
+                  ) : redeemQuoteLoading ? (
+                    <p className="text-sm text-ink-secondary">Calculating from the live vault…</p>
+                  ) : redeemQuoteError ? (
+                    <p className="text-sm leading-6 text-semantic-negative">
+                      {redeemQuoteError}
+                    </p>
+                  ) : liveRedeemQuote ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-ink-secondary">Estimated value</span>
+                        <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
+                          ${liveRedeemQuote.expectedUsdcValue.toFixed(2)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4">
+                        <p className="mb-2 text-xs font-medium text-ink-secondary">
+                          You’ll receive
+                        </p>
+                        <div className="space-y-2">
+                          {liveRedeemQuote.constituentsToReturn.map((item) => (
+                            <div
+                              key={item.asset.tokenMint}
+                              className="flex items-center justify-between text-sm"
+                            >
+                              <span className="text-ink-secondary">{item.asset.symbol}</span>
+                              <span className="font-mono tabular-nums text-ink-primary">
+                                {item.tokenAmount.toFixed(6)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-ink-secondary">
+                      Waiting for the live vault quote…
+                    </p>
+                  )}
                 </div>
 
                 <button
                   onClick={() => liveRedeemQuote && onExecuteRedeem(basket, liveRedeemQuote)}
                   disabled={
+                    !publicKey ||
                     redeemQuoteLoading ||
                     !liveRedeemQuote ||
                     !redeemShares ||
@@ -708,11 +749,15 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   }
                   className="w-full rounded-lg bg-ink-primary py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Redeem {redeemShares || 0} {basket.symbol}
+                  {publicKey
+                    ? redeemShares > 0
+                      ? `Redeem ${redeemShares} ${basket.symbol}`
+                      : `Enter ${basket.symbol} amount`
+                    : 'Connect wallet to redeem'}
                 </button>
 
                 <p className="text-center text-xs text-ink-tertiary">
-                  Redemption returns the underlying assets to your wallet, not USDC.
+                  You receive the underlying constituent tokens, not USDC.
                 </p>
               </div>
             )}
