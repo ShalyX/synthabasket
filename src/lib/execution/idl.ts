@@ -1,10 +1,10 @@
 export const SYNTHABASKET_IDL = {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "name": "synthabasket_vault",
   "address": "BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh",
   "metadata": {
     "name": "synthabasket_vault",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "spec": "0.1.0"
   },
   "instructions": [
@@ -91,6 +91,9 @@ export const SYNTHABASKET_IDL = {
     { "code": 6008, "name": "SlippageExceeded", "msg": "Deposit amount exceeds acceptable slippage for requested shares." },
     { "code": 6009, "name": "InsufficientShares", "msg": "Insufficient basket shares to burn." },
     { "code": 6010, "name": "InvalidRemainingAccounts", "msg": "Invalid remaining accounts for constituent transfer." },
-    { "code": 6011, "name": "MathOverflow", "msg": "Math calculation overflow." }
+    { "code": 6011, "name": "MathOverflow", "msg": "Math calculation overflow." },
+    { "code": 6012, "name": "InvalidConstituentMint", "msg": "Token account mint does not match the configured basket constituent." },
+    { "code": 6013, "name": "InvalidTokenAuthority", "msg": "User token account is not owned by the transaction signer." },
+    { "code": 6014, "name": "InvalidVaultAuthority", "msg": "Vault token account is not owned by the basket PDA." }
   ]
 };
