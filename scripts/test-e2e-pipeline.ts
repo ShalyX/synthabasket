@@ -8,7 +8,7 @@ import { calculateMintQuote } from '../src/lib/services/valuation_engine';
 
 async function main() {
   console.log('====================================================================');
-  console.log('  SYNTHABASKET: COMPREHENSIVE END-TO-END AUDIT & PIPELINE TESTS     ');
+  console.log('  SYNTHABASKET: STATIC PIPELINE & TRANSACTION-CONSTRUCTION TESTS    ');
   console.log('====================================================================\n');
 
   let failureCount = 0;
@@ -94,7 +94,7 @@ async function main() {
   }
 
   // 4. Test Vault Client Transaction Building
-  console.log('\n4. Testing Vault Client Transaction Building with IDL & Decimals...');
+  console.log('\n4. Testing Vault Client Transaction Construction (not live execution proof)...');
   try {
     const conn = new Connection('https://api.devnet.solana.com');
     const client = new SynthaBasketVaultClient(conn);
@@ -120,7 +120,7 @@ async function main() {
     };
     const redeemTx = await client.buildRedeemTransaction(userKp.publicKey, testBasket, redeemQuote);
     console.log(`   Generated redeem transaction with ${redeemTx.instructions.length} instructions.`);
-    console.log('   [PASS] Vault client built valid Anchor transactions with IDL-encoded instructions.');
+    console.log('   [PASS] Vault client constructed IDL-encoded instructions. This test does not claim on-chain execution.');
   } catch (err: any) {
     console.error('   [FAIL] Vault client transaction building failed:', err.message);
     failureCount++;
@@ -132,7 +132,7 @@ async function main() {
     console.log('====================================================================');
     process.exit(1);
   } else {
-    console.log('  ALL AUDIT & PIPELINE TESTS PASSED WITH 100% COMPLIANCE             ');
+    console.log('  ALL STATIC PIPELINE TESTS PASSED                                   ');
     console.log('====================================================================');
   }
 }
