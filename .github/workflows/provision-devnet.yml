@@ -1,0 +1,46 @@
+name: Provision SynthaBasket Devnet Execution
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/provision-devnet.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEVNET_MIRROR_AUTHORITY_SECRET: ${{ secrets.DEVNET_MIRROR_AUTHORITY_SECRET }}
+      RUNNER_PRIVATE_KEY: ${{ secrets.RUNNER_PRIVATE_KEY }}
+      NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
+
+    steps:
+      - name: Checkout provisioning implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ui/wider-shell
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Check provisioning authority
+        run: |
+          if [ -z "$DEVNET_MIRROR_AUTHORITY_SECRET" ] && [ -z "$RUNNER_PRIVATE_KEY" ]; then
+            echo "::error::Missing DEVNET_MIRROR_AUTHORITY_SECRET or RUNNER_PRIVATE_KEY GitHub Actions secret."
+            exit 1
+          fi
+
+      - name: Provision mirror mints and basket states
+        run: npm run provision-devnet
