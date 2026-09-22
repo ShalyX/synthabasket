@@ -20,6 +20,20 @@ import { getDevnetMirrorMint } from './devnet_mirrors';
 
 export const SYNTHABASKET_PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA');
 
+export interface BasketExecutionSnapshot {
+  executionSymbol: string;
+  basketPda: string;
+  basketMint: string;
+  totalSharesMinted: number;
+  reserves: Array<{
+    symbol: string;
+    mint: string;
+    rawAmount: string;
+    uiAmount: number;
+    decimals: number;
+  }>;
+}
+
 export class SynthaBasketVaultClient {
   private connection: Connection;
   private programId: PublicKey;
@@ -199,6 +213,67 @@ export class SynthaBasketVaultClient {
     }
   }
 
+
+  /**
+   * Hydrates the execution basket from live Solana state.
+   *
+   * Supply is read from the SPL basket mint and reserve balances are read from
+   * the vault's actual token accounts. Registry AUM/share counts are never
+   * substituted when this method succeeds.
+   */
+  async getBasketExecutionSnapshot(
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean = false
+  ): Promise<BasketExecutionSnapshot> {
+    await this.verifyBasketExecutionState(basket, useDevnetMirrors);
+
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const [basketMint] = this.getBasketMintPda(executionSymbol);
+
+    const basketMintInfo = await getMint(this.connection, basketMint, 'confirmed');
+    const totalSharesMinted =
+      Number(basketMintInfo.supply) / 10 ** basketMintInfo.decimals;
+
+    const reserves = await Promise.all(
+      basket.constituents.map(async (constituent) => {
+        const executionMint = useDevnetMirrors
+          ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
+          : constituent.asset.tokenMint;
+
+        if (!executionMint) {
+          throw new Error(
+            `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`
+          );
+        }
+
+        const mint = new PublicKey(executionMint);
+        const decimals = await this.getMintDecimals(mint);
+        const vaultAta = this.getVaultTokenAccount(basketPda, mint);
+        const balance = await this.connection
+          .getTokenAccountBalance(vaultAta, 'confirmed')
+          .catch(() => null);
+
+        const rawAmount = balance?.value.amount || '0';
+
+        return {
+          symbol: constituent.asset.symbol,
+          mint: mint.toBase58(),
+          rawAmount,
+          uiAmount: Number(rawAmount) / 10 ** decimals,
+          decimals,
+        };
+      })
+    );
+
+    return {
+      executionSymbol,
+      basketPda: basketPda.toBase58(),
+      basketMint: basketMint.toBase58(),
+      totalSharesMinted,
+      reserves,
+    };
+  }
 
   /**
    * Returns true when the connected wallet already holds enough of every
