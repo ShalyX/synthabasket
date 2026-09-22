@@ -44,6 +44,8 @@ const KNOWN_DEVNET_MIRRORS: Record<string, string> = {
   KALSHI: '41ZBu1Frvec4r7TeQjYP4PnMSviU8vwd1wo5SZZZ5wMn',
   POLYMARKET: '9qHJAujJTHxwn6gTzmwQKJZYDsoQGsBxAw1ygvtFboTN',
   OPENAI: 'JBk4GN6xhW9rmu5pAM1Ub2pdgCZs3Bkc7xBAxbvH9Rr6',
+  NEURALINK: 'DbUYkDnEvh9mVPJNNXdCtLksFg7RDeXgqteRvesJ2F7A',
+  FIGUREAI: '2bzfznWhXfHZqU1wRUyVCPrLAUkqP5gt5kAjjSj4b8e7',
 };
 
 const ENV_BY_SYMBOL: Record<string, string> = {
@@ -184,39 +186,45 @@ async function ensureProgramDeployed(
     );
   fs.writeFileSync(anchorPath, anchorSource);
 
-  let lamports = await connection.getBalance(
-    authority.publicKey,
-    'confirmed'
-  );
+  // Use the CLI for funding checks here. Public Devnet RPC occasionally
+  // drops fetch requests from web3.js during long CI jobs.
+  try {
+    run('solana', [
+      'balance',
+      authority.publicKey.toBase58(),
+      '--url',
+      endpoint,
+    ]);
+  } catch {
+    console.warn('Unable to read Devnet SOL balance through the CLI.');
+  }
 
-  if (lamports < 2.5 * 1_000_000_000) {
-    console.log('Requesting Devnet SOL for program deployment...');
-
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        run('solana', [
-          'airdrop',
-          '2',
-          authority.publicKey.toBase58(),
-          '--url',
-          endpoint,
-        ]);
-      } catch {
-        console.warn(
-          'Devnet faucet request failed; continuing with current balance.'
-        );
-      }
+  console.log('Requesting Devnet deployment SOL if the faucet permits it...');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      run('solana', [
+        'airdrop',
+        '2',
+        authority.publicKey.toBase58(),
+        '--url',
+        endpoint,
+      ]);
+    } catch {
+      console.warn(
+        'Devnet faucet request failed or was rate-limited; continuing with the existing balance.'
+      );
     }
+  }
 
-    lamports = await connection.getBalance(
-      authority.publicKey,
-      'confirmed'
-    );
-    console.log(
-      'Authority balance after faucet attempts:',
-      lamports / 1_000_000_000,
-      'SOL'
-    );
+  try {
+    run('solana', [
+      'balance',
+      authority.publicKey.toBase58(),
+      '--url',
+      endpoint,
+    ]);
+  } catch {
+    console.warn('Unable to re-read Devnet SOL balance before deployment.');
   }
 
   run('cargo', ['build-sbf'], programDir);
