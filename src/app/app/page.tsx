@@ -20,10 +20,8 @@ import {
   MeteoraDBCConfig,
   TxLifecycleState,
 } from '../../lib/types';
-import {
-  getUnifiedAssetQuotes,
-  generateBasisMonitoringLedger,
-} from '../../lib/services/valuation_engine';
+import { generateBasisMonitoringLedger } from '../../lib/services/valuation_engine';
+import { hydrateBaskets } from '../../lib/services/basket_hydration';
 import { AllocationRouter } from '../../lib/execution/allocation_router';
 import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
 import { MeteoraDbcManager } from '../../lib/execution/meteora_dbc';
@@ -52,6 +50,7 @@ export default function AppPage() {
   const [baskets, setBaskets] = useState<BasketDefinition[]>(INITIAL_BASKETS);
   const [availableAssets, setAvailableAssets] = useState<AssetQuote[]>([]);
   const [basisItems, setBasisItems] = useState<BasisMonitorItem[]>([]);
+  const [hydrationNonce, setHydrationNonce] = useState(0);
 
   // Category filter for the basket cards
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -75,16 +74,46 @@ export default function AppPage() {
     actionType: 'mint',
   });
 
-  // Fetch the unified multi-provider private-market universe.
+  // Hydrate mutable basket data at runtime:
+  // provider quotes come from the server route, while supply/reserves come
+  // directly from the live Devnet execution basket accounts.
   useEffect(() => {
-    async function loadAssets() {
-      const quotes = await getUnifiedAssetQuotes('multi');
-      setAvailableAssets(quotes);
-      const basis = generateBasisMonitoringLedger(quotes);
-      setBasisItems(basis);
+    let cancelled = false;
+
+    async function hydrateMarketplace() {
+      try {
+        const response = await fetch('/api/market-data', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Market data request failed with HTTP ${response.status}.`);
+        }
+
+        const payload = await response.json();
+        const quotes: AssetQuote[] = Array.isArray(payload.assets) ? payload.assets : [];
+        if (quotes.length === 0) {
+          throw new Error('Market data response contained no assets.');
+        }
+
+        const hydrated = await hydrateBaskets(
+          connection,
+          INITIAL_BASKETS,
+          quotes,
+          true
+        );
+
+        if (cancelled) return;
+        setAvailableAssets(quotes);
+        setBasisItems(generateBasisMonitoringLedger(quotes));
+        setBaskets(hydrated);
+      } catch (error) {
+        console.error('[Marketplace hydration]', error);
+      }
     }
-    loadAssets();
-  }, []);
+
+    hydrateMarketplace();
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, hydrationNonce]);
 
   const handleSelectBasket = (basket: BasketDefinition, mode: 'mint' | 'redeem' | 'inspect') => {
     setSelectedBasket(basket);
@@ -401,23 +430,9 @@ export default function AppPage() {
         ),
       }));
 
-      setBaskets((prev) =>
-        prev.map((existingBasket) =>
-          existingBasket.id === basket.id
-            ? {
-                ...existingBasket,
-                aumUsd:
-                  existingBasket.aumUsd +
-                  quote.depositUsdcAmount *
-                    (quote.expectedBasketTokens > 0
-                      ? depositQuote.expectedBasketTokens / quote.expectedBasketTokens
-                      : 1),
-                totalSharesMinted:
-                  existingBasket.totalSharesMinted + depositQuote.expectedBasketTokens,
-              }
-            : existingBasket
-        )
-      );
+      // Refresh from actual provider prices + Solana state rather than
+      // incrementing registry/demo numbers locally.
+      setHydrationNonce((value) => value + 1);
     } catch (err: any) {
       setTxLifecycle((prev) => ({
         ...prev,
@@ -573,20 +588,9 @@ export default function AppPage() {
         ),
       }));
 
-      setBaskets((prev) =>
-        prev.map((existingBasket) =>
-          existingBasket.id === basket.id
-            ? {
-                ...existingBasket,
-                aumUsd: Math.max(0, existingBasket.aumUsd - quote.expectedUsdcValue),
-                totalSharesMinted: Math.max(
-                  0,
-                  existingBasket.totalSharesMinted - quote.burnBasketTokensAmount
-                ),
-              }
-            : existingBasket
-        )
-      );
+      // Re-read the vault after settlement so the UI reflects actual reserves
+      // and SPL supply rather than an estimated local subtraction.
+      setHydrationNonce((value) => value + 1);
     } catch (err: any) {
       setTxLifecycle((prev) => ({
         ...prev,
