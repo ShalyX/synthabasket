@@ -18,7 +18,7 @@ import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../types';
 import { SYNTHABASKET_IDL } from './idl';
 import { getDevnetMirrorMint } from './devnet_mirrors';
 
-export const SYNTHABASKET_PROGRAM_ID = new PublicKey('BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh');
+export const SYNTHABASKET_PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA');
 
 export class SynthaBasketVaultClient {
   private connection: Connection;
