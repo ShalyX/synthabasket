@@ -12,10 +12,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Navbar } from '../../../components/Navbar';
-import { INITIAL_BASKETS } from '../../../lib/data/registry';
 import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
-import { hydrateBaskets } from '../../../lib/services/basket_hydration';
-import { AssetQuote } from '../../../lib/types';
+import { BasketDefinition } from '../../../lib/types';
 
 type Holding = {
   basketId: string;
@@ -25,6 +23,7 @@ type Holding = {
   navUsd: number;
   valueUsd: number;
   change24h: number;
+  change24hAvailable: boolean;
   basketMint: string;
   vaultPda: string;
 };
@@ -49,18 +48,17 @@ export default function PortfolioPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/market-data', { cache: 'no-store' });
+      const response = await fetch('/api/baskets', { cache: 'no-store' });
       if (!response.ok) {
-        throw new Error(`Market data request failed with HTTP ${response.status}.`);
+        throw new Error(`Basket hydration request failed with HTTP ${response.status}.`);
       }
       const payload = await response.json();
-      const quotes: AssetQuote[] = Array.isArray(payload.assets) ? payload.assets : [];
-      const hydratedBaskets = await hydrateBaskets(
-        connection,
-        INITIAL_BASKETS,
-        quotes,
-        true
-      );
+      const hydratedBaskets: BasketDefinition[] = Array.isArray(payload.baskets)
+        ? payload.baskets
+        : [];
+      if (hydratedBaskets.length === 0) {
+        throw new Error('Hydrated basket response contained no baskets.');
+      }
 
       const vaultClient = new SynthaBasketVaultClient(connection);
       const results = await Promise.all(
@@ -85,6 +83,7 @@ export default function PortfolioPage() {
               navUsd: basket.navUsd,
               valueUsd: shares * basket.navUsd,
               change24h: basket.navChange24h,
+              change24hAvailable: basket.navChange24hAvailable === true,
               basketMint: mint.toBase58(),
               vaultPda: vaultPda.toBase58(),
             } satisfies Holding;
@@ -256,8 +255,10 @@ export default function PortfolioPage() {
                           <td className="px-5 py-4 text-right font-mono text-xs font-bold tabular-nums">
                             ${holding.valueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
-                          <td className={`px-5 py-4 text-right font-mono text-xs font-bold tabular-nums ${holding.change24h >= 0 ? 'text-brand-primary' : 'text-red-400'}`}>
-                            {holding.change24h >= 0 ? '+' : ''}{holding.change24h.toFixed(2)}%
+                          <td className={`px-5 py-4 text-right font-mono text-xs font-bold tabular-nums ${holding.change24hAvailable ? (holding.change24h >= 0 ? 'text-brand-primary' : 'text-red-400') : 'text-ink-tertiary'}`}>
+                            {holding.change24hAvailable
+                              ? `${holding.change24h >= 0 ? '+' : ''}${holding.change24h.toFixed(2)}%`
+                              : '—'}
                           </td>
                           <td className="px-5 py-4 text-right">
                             <a
