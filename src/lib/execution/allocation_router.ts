@@ -1,6 +1,7 @@
 import {
   Connection,
   PublicKey,
+  Transaction,
   VersionedTransaction,
 } from '@solana/web3.js';
 import { getMint } from '@solana/spl-token';
@@ -24,13 +25,11 @@ export interface JupiterSwapV2BuildResponse {
   prioritizationFeeLamports?: number;
 }
 
-export interface PreparedAllocationSwap {
-  symbol: string;
-  outputMint: string;
-  transaction: VersionedTransaction;
+export interface PreparedExecutionTransaction {
+  label: string;
+  symbols: string[];
+  transaction: Transaction | VersionedTransaction;
   lastValidBlockHeight: number;
-  rawOutAmount: string;
-  quotedOutAmountUi: number;
 }
 
 export interface AllocationUnavailableItem {
@@ -38,16 +37,20 @@ export interface AllocationUnavailableItem {
   reason: string;
 }
 
+export interface AllocationBreakdownItem {
+  symbol: string;
+  inUsdcAmount: number;
+  actualQuotedOutAmount: number | null;
+  rawOutAmount?: string;
+  executionMint?: string;
+  routeSource: 'jupiter_v2' | 'devnet_mirror' | 'unavailable';
+}
+
 export interface AllocationPlan {
-  preparedSwaps: PreparedAllocationSwap[];
+  executionTransactions: PreparedExecutionTransaction[];
   estimatedFeeLamports: number;
   unavailable: AllocationUnavailableItem[];
-  breakdown: Array<{
-    symbol: string;
-    inUsdcAmount: number;
-    actualQuotedOutAmount: number | null;
-    routeSource: 'jupiter_v2' | 'unavailable';
-  }>;
+  breakdown: AllocationBreakdownItem[];
 }
 
 export const USDC_MINT_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -89,9 +92,7 @@ export class AllocationRouter {
       }
 
       const res = await fetch(url, { headers });
-      if (!res.ok) {
-        return null;
-      }
+      if (!res.ok) return null;
       return await res.json();
     } catch {
       return null;
@@ -114,24 +115,20 @@ export class AllocationRouter {
         headers['x-api-key'] = process.env.JUPITER_API_KEY;
       }
 
-      const body = {
-        endpoint: 'build',
-        quoteResponse,
-        userPublicKey: userPublicKey.toBase58(),
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: 'auto',
-      };
-
       const res = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          endpoint: 'build',
+          quoteResponse,
+          userPublicKey: userPublicKey.toBase58(),
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: 'auto',
+        }),
       });
 
-      if (!res.ok) {
-        return null;
-      }
+      if (!res.ok) return null;
 
       const json: JupiterSwapV2BuildResponse = await res.json();
       if (!json.swapTransaction || typeof json.lastValidBlockHeight !== 'number') {
@@ -139,7 +136,9 @@ export class AllocationRouter {
       }
 
       return {
-        transaction: VersionedTransaction.deserialize(Buffer.from(json.swapTransaction, 'base64')),
+        transaction: VersionedTransaction.deserialize(
+          Buffer.from(json.swapTransaction, 'base64')
+        ),
         lastValidBlockHeight: json.lastValidBlockHeight,
       };
     } catch {
@@ -156,51 +155,157 @@ export class AllocationRouter {
     }
   }
 
+  private async prepareDevnetMirrorAcquisition(
+    userPublicKey: PublicKey,
+    mintQuote: BasketMintQuote
+  ): Promise<AllocationPlan> {
+    const unavailable: AllocationUnavailableItem[] = [];
+    const allocations = mintQuote.allocations.map((allocation) => {
+      if (!allocation.asset.devnetMint) {
+        unavailable.push({
+          symbol: allocation.asset.symbol,
+          reason: 'No Devnet mirror mint is configured for this private-market asset.',
+        });
+      }
+
+      const rawAmount = BigInt(
+        Math.max(1, Math.floor(allocation.estimatedTokensReceived * 1_000_000))
+      ).toString();
+      const usdcRaw = BigInt(
+        Math.max(1, Math.floor(allocation.targetUsdAmount * 1_000_000))
+      ).toString();
+
+      return {
+        symbol: allocation.asset.symbol,
+        mint: allocation.asset.devnetMint,
+        rawAmount,
+        usdcRaw,
+      };
+    });
+
+    if (unavailable.length > 0) {
+      return {
+        executionTransactions: [],
+        estimatedFeeLamports: 0,
+        unavailable,
+        breakdown: mintQuote.allocations.map((allocation) => ({
+          symbol: allocation.asset.symbol,
+          inUsdcAmount: allocation.targetUsdAmount,
+          actualQuotedOutAmount: null,
+          routeSource: 'unavailable',
+        })),
+      };
+    }
+
+    try {
+      const res = await fetch('/api/devnet-acquire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPublicKey: userPublicKey.toBase58(),
+          allocations,
+        }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok || !payload.transaction || typeof payload.lastValidBlockHeight !== 'number') {
+        const reason = payload?.error || 'Devnet mirror acquisition adapter is unavailable.';
+        return {
+          executionTransactions: [],
+          estimatedFeeLamports: 0,
+          unavailable: mintQuote.allocations.map((allocation) => ({
+            symbol: allocation.asset.symbol,
+            reason,
+          })),
+          breakdown: mintQuote.allocations.map((allocation) => ({
+            symbol: allocation.asset.symbol,
+            inUsdcAmount: allocation.targetUsdAmount,
+            actualQuotedOutAmount: null,
+            routeSource: 'unavailable',
+          })),
+        };
+      }
+
+      const transaction = Transaction.from(Buffer.from(payload.transaction, 'base64'));
+
+      return {
+        executionTransactions: [
+          {
+            label: 'Acquire Devnet private-market mirrors',
+            symbols: mintQuote.allocations.map((allocation) => allocation.asset.symbol),
+            transaction,
+            lastValidBlockHeight: payload.lastValidBlockHeight,
+          },
+        ],
+        estimatedFeeLamports: 5_000,
+        unavailable: [],
+        breakdown: mintQuote.allocations.map((allocation, index) => ({
+          symbol: allocation.asset.symbol,
+          inUsdcAmount: allocation.targetUsdAmount,
+          actualQuotedOutAmount: allocation.estimatedTokensReceived,
+          rawOutAmount: allocations[index].rawAmount,
+          executionMint: allocation.asset.devnetMint,
+          routeSource: 'devnet_mirror',
+        })),
+      };
+    } catch (error: any) {
+      const reason =
+        error?.message || 'Unable to reach the Devnet mirror acquisition adapter.';
+      return {
+        executionTransactions: [],
+        estimatedFeeLamports: 0,
+        unavailable: mintQuote.allocations.map((allocation) => ({
+          symbol: allocation.asset.symbol,
+          reason,
+        })),
+        breakdown: mintQuote.allocations.map((allocation) => ({
+          symbol: allocation.asset.symbol,
+          inUsdcAmount: allocation.targetUsdAmount,
+          actualQuotedOutAmount: null,
+          routeSource: 'unavailable',
+        })),
+      };
+    }
+  }
+
   /**
-   * Prepares only executable allocation transactions.
+   * Produces executable acquisition transactions only.
    *
-   * Important: there is deliberately no synthetic/estimated fallback here. If a
-   * constituent cannot be acquired on the active cluster, the plan reports it
-   * as unavailable and callers must stop before vault deposit.
+   * Mainnet uses Jupiter V2. Devnet uses an explicit USDC-backed mirror adapter.
+   * There is no estimated/synthetic route fallback.
    */
   async prepareAllocationSwaps(
     userPublicKey: PublicKey,
     mintQuote: BasketMintQuote,
     isDevnet: boolean = true
   ): Promise<AllocationPlan> {
-    const preparedSwaps: PreparedAllocationSwap[] = [];
+    if (isDevnet) {
+      return this.prepareDevnetMirrorAcquisition(userPublicKey, mintQuote);
+    }
+
+    const executionTransactions: PreparedExecutionTransaction[] = [];
     const unavailable: AllocationUnavailableItem[] = [];
-    const breakdown: AllocationPlan['breakdown'] = [];
+    const breakdown: AllocationBreakdownItem[] = [];
 
-    for (const alloc of mintQuote.allocations) {
-      if (isDevnet) {
-        unavailable.push({
-          symbol: alloc.asset.symbol,
-          reason: alloc.asset.devnetMint
-            ? 'Devnet mirror exists but must be acquired through the explicit Devnet mirror execution adapter, not Jupiter.'
-            : 'No Devnet mirror mint is configured for this private-market asset.',
-        });
-        breakdown.push({
-          symbol: alloc.asset.symbol,
-          inUsdcAmount: alloc.targetUsdAmount,
-          actualQuotedOutAmount: null,
-          routeSource: 'unavailable',
-        });
-        continue;
-      }
-
-      const rawUsdcAmount = BigInt(Math.floor(alloc.targetUsdAmount * 1_000_000));
-      const outputMint = alloc.asset.tokenMint;
-      const quote = await this.getQuote(USDC_MINT_MAINNET, outputMint, rawUsdcAmount);
+    for (const allocation of mintQuote.allocations) {
+      const rawUsdcAmount = BigInt(
+        Math.max(1, Math.floor(allocation.targetUsdAmount * 1_000_000))
+      );
+      const outputMint = allocation.asset.tokenMint;
+      const quote = await this.getQuote(
+        USDC_MINT_MAINNET,
+        outputMint,
+        rawUsdcAmount
+      );
 
       if (!quote || !quote.outAmount) {
         unavailable.push({
-          symbol: alloc.asset.symbol,
+          symbol: allocation.asset.symbol,
           reason: 'Jupiter returned no executable route for this constituent.',
         });
         breakdown.push({
-          symbol: alloc.asset.symbol,
-          inUsdcAmount: alloc.targetUsdAmount,
+          symbol: allocation.asset.symbol,
+          inUsdcAmount: allocation.targetUsdAmount,
           actualQuotedOutAmount: null,
           routeSource: 'unavailable',
         });
@@ -210,38 +315,42 @@ export class AllocationRouter {
       const built = await this.buildSwapTransaction(quote, userPublicKey);
       if (!built) {
         unavailable.push({
-          symbol: alloc.asset.symbol,
+          symbol: allocation.asset.symbol,
           reason: 'Jupiter quoted the route but did not return an executable transaction.',
         });
         breakdown.push({
-          symbol: alloc.asset.symbol,
-          inUsdcAmount: alloc.targetUsdAmount,
+          symbol: allocation.asset.symbol,
+          inUsdcAmount: allocation.targetUsdAmount,
           actualQuotedOutAmount: null,
           routeSource: 'unavailable',
         });
         continue;
       }
 
-      const quotedOutAmountUi = await this.rawAmountToUiAmount(outputMint, quote.outAmount);
-      preparedSwaps.push({
-        symbol: alloc.asset.symbol,
+      const quotedOutAmountUi = await this.rawAmountToUiAmount(
         outputMint,
+        quote.outAmount
+      );
+
+      executionTransactions.push({
+        label: `Acquire ${allocation.asset.symbol} via Jupiter`,
+        symbols: [allocation.asset.symbol],
         transaction: built.transaction,
         lastValidBlockHeight: built.lastValidBlockHeight,
-        rawOutAmount: quote.outAmount,
-        quotedOutAmountUi,
       });
       breakdown.push({
-        symbol: alloc.asset.symbol,
-        inUsdcAmount: alloc.targetUsdAmount,
+        symbol: allocation.asset.symbol,
+        inUsdcAmount: allocation.targetUsdAmount,
         actualQuotedOutAmount: quotedOutAmountUi,
+        rawOutAmount: quote.outAmount,
+        executionMint: outputMint,
         routeSource: 'jupiter_v2',
       });
     }
 
     return {
-      preparedSwaps,
-      estimatedFeeLamports: 5000 * preparedSwaps.length,
+      executionTransactions,
+      estimatedFeeLamports: 5_000 * executionTransactions.length,
       unavailable,
       breakdown,
     };
