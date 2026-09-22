@@ -228,6 +228,12 @@ export class AllocationRouter {
 
       const transaction = Transaction.from(Buffer.from(payload.transaction, 'base64'));
 
+      const issuedBySymbol = new Map<string, any>(
+        Array.isArray(payload.issued)
+          ? payload.issued.map((item: any) => [String(item.symbol), item])
+          : []
+      );
+
       return {
         executionTransactions: [
           {
@@ -239,14 +245,22 @@ export class AllocationRouter {
         ],
         estimatedFeeLamports: 5_000,
         unavailable: [],
-        breakdown: mintQuote.allocations.map((allocation, index) => ({
-          symbol: allocation.asset.symbol,
-          inUsdcAmount: allocation.targetUsdAmount,
-          actualQuotedOutAmount: allocation.estimatedTokensReceived,
-          rawOutAmount: allocations[index].rawAmount,
-          executionMint: allocation.asset.devnetMint,
-          routeSource: 'devnet_mirror',
-        })),
+        breakdown: mintQuote.allocations.map((allocation) => {
+          const issued = issuedBySymbol.get(allocation.asset.symbol);
+          if (!issued?.rawAmount) {
+            throw new Error(
+              `Devnet acquisition adapter omitted the issued amount for ${allocation.asset.symbol}.`
+            );
+          }
+          return {
+            symbol: allocation.asset.symbol,
+            inUsdcAmount: allocation.targetUsdAmount,
+            actualQuotedOutAmount: Number(issued.uiAmount),
+            rawOutAmount: String(issued.rawAmount),
+            executionMint: allocation.asset.devnetMint,
+            routeSource: 'devnet_mirror' as const,
+          };
+        }),
       };
     } catch (error: any) {
       const reason =
