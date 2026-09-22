@@ -1056,12 +1056,12 @@ export default function AppPage() {
                         <td className="py-2 text-ink-primary font-bold">$AIT</td>
                         <td className="py-2 text-ink-secondary">
                           <a
-                            href="https://explorer.solana.com/tx/ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS?cluster=devnet"
+                            href="https://explorer.solana.com/tx/64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg?cluster=devnet"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-brand-primary hover:underline"
                           >
-                            ux7dGVzc...QtRdS
+                            64MVX5hG...W77Yg
                           </a>
                         </td>
                         <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
@@ -1071,12 +1071,12 @@ export default function AppPage() {
                         <td className="py-2 text-ink-primary font-bold">$AIT</td>
                         <td className="py-2 text-ink-secondary">
                           <a
-                            href="https://explorer.solana.com/tx/2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ?cluster=devnet"
+                            href="https://explorer.solana.com/tx/eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8?cluster=devnet"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-brand-primary hover:underline"
                           >
-                            2VftJP3h...JhPtJ
+                            eq7G23KV...SCrzN8
                           </a>
                         </td>
                         <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
@@ -1086,12 +1086,12 @@ export default function AppPage() {
                         <td className="py-2 text-ink-primary font-bold">$AIT</td>
                         <td className="py-2 text-ink-secondary">
                           <a
-                            href="https://explorer.solana.com/tx/4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5?cluster=devnet"
+                            href="https://explorer.solana.com/tx/5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe?cluster=devnet"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-brand-primary hover:underline"
                           >
-                            4C8hAJ8K...mod2zJ5
+                            5bSV4hjn...Fe7fBe
                           </a>
                         </td>
                         <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
