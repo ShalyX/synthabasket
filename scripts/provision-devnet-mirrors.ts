@@ -125,7 +125,7 @@ async function main() {
         authority.publicKey,
         basket,
         true,
-        25
+        0
       );
       const signature = await sendAndConfirmTransaction(connection, tx, [authority], {
         commitment: 'confirmed',
