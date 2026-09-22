@@ -47,13 +47,17 @@ function parseKeypair(value: string): Keypair {
 }
 
 async function loadRunner(connection: Connection): Promise<Keypair> {
-  if (!process.env.RUNNER_PRIVATE_KEY) {
+  const runnerSecret =
+    process.env.RUNNER_PRIVATE_KEY ||
+    process.env.DEVNET_MIRROR_AUTHORITY_SECRET;
+
+  if (!runnerSecret) {
     throw new Error(
-      'RUNNER_PRIVATE_KEY is required. The proof runner no longer generates disposable wallets or fake settlement records.'
+      'RUNNER_PRIVATE_KEY or DEVNET_MIRROR_AUTHORITY_SECRET is required. The proof runner never generates disposable wallets or fake settlement records.'
     );
   }
 
-  const runner = parseKeypair(process.env.RUNNER_PRIVATE_KEY);
+  const runner = parseKeypair(runnerSecret);
   const balance = await connection.getBalance(runner.publicKey, 'confirmed');
   if (balance < 0.05 * LAMPORTS_PER_SOL) {
     throw new Error(
@@ -69,16 +73,36 @@ function explorer(signature: string): string {
 
 function attachConfiguredMirrors(basket: BasketDefinition): BasketDefinition {
   const envBySymbol: Record<string, string | undefined> = {
-    'T-OpenAI': process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_OPENAI,
-    ANTHROPIC: process.env.NEXT_PUBLIC_DEVNET_MIRROR_ANTHROPIC,
-    'T-Kalshi': process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_KALSHI,
-    'T-SpaceX': process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_SPACEX,
-    ANDURIL: process.env.NEXT_PUBLIC_DEVNET_MIRROR_ANDURIL,
-    KALSHI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_KALSHI,
-    POLYMARKET: process.env.NEXT_PUBLIC_DEVNET_MIRROR_POLYMARKET,
-    OPENAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_OPENAI,
-    NEURALINK: process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK,
-    FIGUREAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI,
+    'T-OpenAI':
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_OPENAI ||
+      'Bj47e5GCXuaxmbPjDRF5iSVjZ1Y4uEFoaDoPUAfD1xkB',
+    ANTHROPIC:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_ANTHROPIC ||
+      'GxtkS2jUU5br9JJB64FuvvUxwp2sadxwCCRsZwiqAR3p',
+    'T-Kalshi':
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_KALSHI ||
+      'HSv2zqvfSXv2CQ7TW79HpQPYziNvoiY3CKpGu7Ec3hFh',
+    'T-SpaceX':
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_SPACEX ||
+      'B5SFgwf1nMGPAid4ngWWtn1fxpL2wTSbibmzsQzp4oaq',
+    ANDURIL:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_ANDURIL ||
+      'F2ynAT6rER45pQPh62P63TLmDqhByepTJfDaypeETBJZ',
+    KALSHI:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_KALSHI ||
+      '41ZBu1Frvec4r7TeQjYP4PnMSviU8vwd1wo5SZZZ5wMn',
+    POLYMARKET:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_POLYMARKET ||
+      '9qHJAujJTHxwn6gTzmwQKJZYDsoQGsBxAw1ygvtFboTN',
+    OPENAI:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_OPENAI ||
+      'JBk4GN6xhW9rmu5pAM1Ub2pdgCZs3Bkc7xBAxbvH9Rr6',
+    NEURALINK:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK ||
+      'DbUYkDnEvh9mVPJNNXdCtLksFg7RDeXgqteRvesJ2F7A',
+    FIGUREAI:
+      process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI ||
+      '2bzfznWhXfHZqU1wRUyVCPrLAUkqP5gt5kAjjSj4b8e7',
   };
 
   return {
