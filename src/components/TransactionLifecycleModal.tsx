@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, Loader2, AlertCircle, ExternalLink, X, ShieldCheck, ArrowRight, Lock } from 'lucide-react';
+import { CheckCircle2, Loader2, AlertCircle, ExternalLink, X, ShieldCheck, Clock3 } from 'lucide-react';
 import { TxLifecycleState } from '../lib/types';
 
 interface TransactionLifecycleModalProps {
@@ -29,7 +29,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                 {state.title}
               </h3>
             </div>
-            {(state.isCompleted || state.hasError) && (
+            {(state.isCompleted || state.hasError || state.hasPendingConfirmation) && (
               <button
                 onClick={onClose}
                 className="rounded p-1 text-ink-tertiary hover:bg-surface-elevated hover:text-ink-primary transition-colors"
@@ -54,6 +54,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
             const isCompleted = step.status === 'completed';
             const isActive = step.status === 'active';
             const isFailed = step.status === 'failed';
+            const isSubmitted = step.status === 'submitted';
             const isPending = step.status === 'pending';
 
             return (
@@ -66,6 +67,8 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                     ? 'border-border-subtle bg-surface-subtle'
                     : isFailed
                     ? 'border-semantic-negative/50 bg-semantic-negative/5'
+                    : isSubmitted
+                    ? 'border-amber-400/40 bg-amber-400/5'
                     : 'border-border-subtle/50 bg-surface-subtle/30 opacity-40'
                 }`}
               >
@@ -73,6 +76,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   {isCompleted && <CheckCircle2 className="h-4 w-4 text-brand-primary" />}
                   {isActive && <Loader2 className="h-4 w-4 animate-spin text-brand-primary" />}
                   {isFailed && <AlertCircle className="h-4 w-4 text-semantic-negative" />}
+                  {isSubmitted && <Clock3 className="h-4 w-4 text-amber-400" />}
                   {isPending && (
                     <div className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-ink-tertiary">
                       {idx + 1}
@@ -90,6 +94,8 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                           ? 'text-ink-primary'
                           : isFailed
                           ? 'text-semantic-negative'
+                          : isSubmitted
+                          ? 'text-amber-300'
                           : 'text-ink-tertiary'
                       }`}
                     >
@@ -122,6 +128,11 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                       ))}
                     </div>
                   )}
+                  {step.statusMessage && (
+                    <p className="mt-1.5 rounded bg-amber-400/10 p-2 text-[11px] text-amber-300 border border-amber-400/20 font-sans">
+                      {step.statusMessage}
+                    </p>
+                  )}
                   {step.error && (
                     <p className="mt-1.5 rounded bg-semantic-negative/10 p-2 text-[11px] text-semantic-negative border border-semantic-negative/30 font-mono">
                       {step.error}
@@ -133,12 +144,31 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
           })}
         </div>
 
+        {state.hasPendingConfirmation && (
+          <div className="border-t border-border p-6 space-y-3 font-sans">
+            <div className="rounded border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-300 flex items-center gap-2">
+              <Clock3 className="h-4 w-4 shrink-0" />
+              <span>The transaction was submitted, but its final status is not known yet. Check the linked signature before retrying.</span>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full rounded border border-border bg-surface-subtle py-2.5 text-xs font-semibold text-ink-secondary hover:text-ink-primary"
+            >
+              Close
+            </button>
+          </div>
+        )}
+
         {/* Completion Receipt */}
         {state.isCompleted && (
           <div className="border-t border-border p-6 space-y-3 font-sans">
             <div className="rounded border border-brand-primary/30 bg-brand-primary/10 p-3 text-xs text-brand-primary flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 shrink-0" />
-              <span>Transaction finalized on Solana Devnet. Assets secured in Vault PDA custody.</span>
+              <span>
+                {state.actionType === 'redeem'
+                  ? 'Redemption finalized on Solana Devnet. Proportional constituent assets were released from vault custody.'
+                  : 'Transaction finalized on Solana Devnet. Assets secured in Vault PDA custody.'}
+              </span>
             </div>
             <button
               onClick={onClose}
