@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
 import {
   ArrowRight,
   ExternalLink,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '../../../components/Navbar';
 import { INITIAL_BASKETS } from '../../../lib/data/registry';
+import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
 
 type Holding = {
   basketId: string;
@@ -47,10 +47,13 @@ export default function PortfolioPage() {
     setError(null);
 
     try {
+      const vaultClient = new SynthaBasketVaultClient(connection);
       const results = await Promise.all(
         INITIAL_BASKETS.map(async (basket) => {
           try {
-            const mint = new PublicKey(basket.basketMint);
+            const executionSymbol = basket.devnetExecutionSymbol || `${basket.symbol}D`;
+            const [mint] = vaultClient.getBasketMintPda(executionSymbol);
+            const [vaultPda] = vaultClient.getBasketPda(executionSymbol);
             const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint });
 
             const shares = tokenAccounts.value.reduce((total, account) => {
@@ -67,8 +70,8 @@ export default function PortfolioPage() {
               navUsd: basket.navUsd,
               valueUsd: shares * basket.navUsd,
               change24h: basket.navChange24h,
-              basketMint: basket.basketMint,
-              vaultPda: basket.vaultPda,
+              basketMint: mint.toBase58(),
+              vaultPda: vaultPda.toBase58(),
             } satisfies Holding;
           } catch {
             return null;
