@@ -536,7 +536,7 @@ export default function AppPage() {
         publicKey,
         newBasket,
         isDevnet,
-        25
+        0
       );
       const initLatest = await connection.getLatestBlockhash('confirmed');
       initTx.recentBlockhash = initLatest.blockhash;
