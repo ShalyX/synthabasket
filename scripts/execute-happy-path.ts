@@ -278,20 +278,26 @@ async function runHappyPath() {
   console.log('Runner:', runner.publicKey.toBase58());
   console.log('Basket:', targetBasket.symbol);
 
-  const pythPrices = await fetchPythPrices(
-    [PYTH_FEED_MAP['SOL/USD'].id, PYTH_FEED_MAP['USDC/USD'].id],
-    {
-      apiKey: process.env.PYTH_API_KEY,
-      throwOnError: true,
-    }
-  );
+  if (process.env.PYTH_API_KEY) {
+    const pythPrices = await fetchPythPrices(
+      [PYTH_FEED_MAP['SOL/USD'].id, PYTH_FEED_MAP['USDC/USD'].id],
+      {
+        apiKey: process.env.PYTH_API_KEY,
+        throwOnError: true,
+      }
+    );
 
-  receipts.push({
-    step: 'Oracle Ingestion',
-    action: 'Authenticated Pyth Hermes price read',
-    status: 'CONFIRMED',
-    details: { pythPrices },
-  });
+    receipts.push({
+      step: 'Oracle Ingestion',
+      action: 'Authenticated Pyth Hermes price read',
+      status: 'CONFIRMED',
+      details: { pythPrices },
+    });
+  } else {
+    console.log(
+      'PYTH_API_KEY is not configured; skipping the optional oracle side-check. No oracle proof will be claimed.'
+    );
+  }
 
   await vaultClient.verifyBasketExecutionState(targetBasket, true);
 
