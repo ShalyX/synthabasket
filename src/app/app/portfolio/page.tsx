@@ -14,6 +14,8 @@ import {
 import { Navbar } from '../../../components/Navbar';
 import { INITIAL_BASKETS } from '../../../lib/data/registry';
 import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
+import { hydrateBaskets } from '../../../lib/services/basket_hydration';
+import { AssetQuote } from '../../../lib/types';
 
 type Holding = {
   basketId: string;
@@ -47,9 +49,22 @@ export default function PortfolioPage() {
     setError(null);
 
     try {
+      const response = await fetch('/api/market-data', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`Market data request failed with HTTP ${response.status}.`);
+      }
+      const payload = await response.json();
+      const quotes: AssetQuote[] = Array.isArray(payload.assets) ? payload.assets : [];
+      const hydratedBaskets = await hydrateBaskets(
+        connection,
+        INITIAL_BASKETS,
+        quotes,
+        true
+      );
+
       const vaultClient = new SynthaBasketVaultClient(connection);
       const results = await Promise.all(
-        INITIAL_BASKETS.map(async (basket) => {
+        hydratedBaskets.map(async (basket) => {
           try {
             const executionSymbol = basket.devnetExecutionSymbol || `${basket.symbol}D`;
             const [mint] = vaultClient.getBasketMintPda(executionSymbol);
