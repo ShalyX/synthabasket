@@ -1,156 +1,69 @@
-# SynthaBasket — Happy-Path Demo Execution Receipts
+# SynthaBasket — Devnet Execution Proof Status
 
-This document certifies the real, executable happy-path demonstration run of the **SynthaBasket** protocol on Solana Devnet for the **Stocklana 2026 Hackathon**.
+## Status: re-verification required
 
-**Execution Timestamp**: `2026-09-21T19:04:17.653Z`  
-**Runner Wallet**: [`Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR`](https://explorer.solana.com/address/Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR?cluster=devnet)  
-**Target Basket**: **AI Titans Index ($AIT)**  
-**Program ID**: [`BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh`](https://explorer.solana.com/address/BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh?cluster=devnet)  
+The previous receipt set has been **retired as execution proof**.
 
----
+During an execution audit on 2026-09-22, we found that the earlier happy-path script used unrelated Solana transfers as the recorded "confirmed" signatures while the actual Anchor `deposit_and_mint` and `burn_and_redeem` transactions were only simulated. The earlier Jupiter stage also produced no executable swap transactions for the Devnet private-market assets.
 
-## 🧾 Execution Lifecycle Receipts
+Those signatures remain valid Solana transactions, but they **do not prove the operations they were previously labeled as proving** and must not be used as SynthaBasket deposit/mint or redemption receipts.
 
-### 1. STAGE 1: Account Inception
-- **Action**: `Keypair & Balance Verification`
-- **Execution Status**: `CONFIRMED`
+### Retired signatures
 
+- `2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1`
+  - Historical operation: SOL transfer used to provision/fund a PDA address.
+  - **Not** proof of Anchor `deposit_and_mint`.
 
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "runnerPublicKey": "Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR",
-  "cluster": "devnet",
-  "balanceSol": 4.994995
-}
+- `41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt`
+  - Historical operation: small SOL self-transfer used as a settlement record.
+  - **Not** proof of Anchor `burn_and_redeem`.
+
+## Replacement proof standard
+
+A SynthaBasket operation may be marked **CONFIRMED** only when the transaction that performs that exact operation is itself broadcast and confirmed.
+
+The current proof runner, `scripts/execute-happy-path.ts`, now requires all of the following:
+
+1. Authenticated Pyth price ingestion.
+2. An actual Devnet USDC-backed acquisition transaction for configured private-market mirror assets.
+3. A confirmed Anchor `deposit_and_mint` transaction containing real SPL constituent transfers.
+4. A confirmed Anchor `burn_and_redeem` transaction containing proportional SPL releases.
+
+Route estimates, simulations, setup transfers, self-transfers, or PDA funding transactions are never substituted for execution proof.
+
+## Devnet execution prerequisites
+
+Before generating replacement receipts:
+
+1. Deploy the hardened Anchor program in `contracts/synthabasket_vault`.
+2. Configure a funded Devnet runner and mirror authority.
+3. Run:
+
+```bash
+npm run provision-devnet
 ```
 
----
+4. Add the printed `NEXT_PUBLIC_DEVNET_MIRROR_*` values to the application environment.
+5. Configure `DEVNET_MIRROR_AUTHORITY_SECRET` on the server.
+6. Fund the runner/user with Devnet SOL and Devnet USDC.
+7. Run:
 
-### 2. STAGE 2: Pyth Hermes Ingestion
-- **Action**: `Live Authenticated Oracle Pricing`
-- **Execution Status**: `CONFIRMED`
-
-
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "pythPrices": {
-    "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d": 117.37220783000001,
-    "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d": 117.37220783000001,
-    "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a": 0.99995004,
-    "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a": 0.99995004
-  },
-  "authentication": "Bearer Token (Post-August 2026 Mandate)"
-}
+```bash
+npx tsx scripts/execute-happy-path.ts
 ```
 
----
+Only after that script completes successfully should this file contain new transaction receipts.
 
-### 3. STAGE 3: Jupiter Allocation Routing
-- **Action**: `Swap API V2 Multi-Asset Split`
-- **Execution Status**: `CONFIRMED`
+## Current code-level hardening
 
+The repaired execution path now:
 
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "basket": "AIT",
-  "depositUsdc": 100,
-  "expectedShares": 0.1245,
-  "allocationBreakdown": [
-    {
-      "symbol": "T-OpenAI",
-      "inUsdcAmount": 49.88,
-      "actualQuotedOutAmount": 0.0614,
-      "routeSource": "devnet_synthetic_pool"
-    },
-    {
-      "symbol": "ANTHROPIC",
-      "inUsdcAmount": 29.92,
-      "actualQuotedOutAmount": 0.0285,
-      "routeSource": "devnet_synthetic_pool"
-    },
-    {
-      "symbol": "T-Kalshi",
-      "inUsdcAmount": 19.95,
-      "actualQuotedOutAmount": 0.0482,
-      "routeSource": "devnet_synthetic_pool"
-    }
-  ],
-  "versionedTransactionsGenerated": 0
-}
-```
+- refuses to advance when an executable constituent acquisition is unavailable;
+- broadcasts actual Jupiter transactions on supported mainnet routes;
+- uses an explicit Devnet mirror acquisition adapter instead of a synthetic route fallback;
+- feeds exact acquired raw token amounts into the vault deposit;
+- verifies live basket PDA ownership and constituent configuration before deposit;
+- polls Solana for confirmed / failed / expired transaction status rather than treating a short timeout as definitive;
+- validates constituent mint identities and token-account ownership inside the Anchor program.
 
----
-
-### 4. STAGE 4: Vault PDA Deposit & Mint
-- **Action**: `Anchor deposit_and_mint CPI & Vault Custody Inception`
-- **Execution Status**: `CONFIRMED`
-- **Transaction Signature**: [`2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1`](https://explorer.solana.com/tx/2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1?cluster=devnet)
-- **Solana Explorer**: [View on Solana Explorer](https://explorer.solana.com/tx/2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1?cluster=devnet)
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "vaultPda": "27tzwSrxqyrrQj7oLxfVTAuUVZ9qM6z2Tk2ibfUYkq4Z",
-  "basketMint": "BdUTUY9JtFCQ1nu6xmy7hWZjPo38k6fn1atHFHnNAEQy",
-  "sharesMinted": 0.1245,
-  "instructionCount": 7,
-  "onChainBroadcast": true
-}
-```
-
----
-
-### 5. STAGE 5: Meteora DBC 1.5.12 Pool
-- **Action**: `PartnerService.createConfig & Pool Derivation`
-- **Execution Status**: `SIMULATED`
-
-
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "programId": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-  "configPda": "ANsZWmu7DQfKAGLbL3SPhTC73FHYxYwKWuKv2PfuTiJJ",
-  "poolPda": "FXr27PGY4zvVoX4N6J7DSXs3n7Csa1Qx8N2WfaJuAkFv",
-  "migrationTarget": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
-  "feeBps": 25,
-  "graduationThresholdUsd": 2000000,
-  "onChainBroadcast": false
-}
-```
-
----
-
-### 6. STAGE 6: Vault PDA Burn & Redeem
-- **Action**: `Anchor burn_and_redeem CPI (Zero-Dust Solvency)`
-- **Execution Status**: `CONFIRMED`
-- **Transaction Signature**: [`41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt`](https://explorer.solana.com/tx/41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt?cluster=devnet)
-- **Solana Explorer**: [View on Solana Explorer](https://explorer.solana.com/tx/41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt?cluster=devnet)
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "sharesBurned": 0.1,
-  "settledValueUsd": 80.13,
-  "constituentsReturned": [
-    {
-      "symbol": "T-OpenAI"
-    },
-    {
-      "symbol": "ANTHROPIC"
-    },
-    {
-      "symbol": "T-Kalshi"
-    }
-  ],
-  "onChainBroadcast": true
-}
-```
-
-
----
-
-## 🛡️ Mathematical & Solvency Invariant Proof
-- **Deposit Invariant**: $S_{\text{mint}} \le S_{\text{total}} \times \min_i \left( \frac{\Delta A_i}{A_i} \right)$ enforced by Anchor CPI.
-- **Meteora Secondary Liquidity**: Derived pool PDA `[quoteMint, baseMint, config]` using official SDK `@meteora-ag/dynamic-bonding-curve-sdk@1.5.12` targeting Meteora DAMM v2.
-- **Redemption Invariant**: Exact proportional redemption executed with zero stranded dust in Vault PDA.
+This document intentionally contains **no replacement "confirmed" deposit or redemption signature yet**. New receipts must come from the repaired runner after the Devnet environment is provisioned.
