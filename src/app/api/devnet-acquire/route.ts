@@ -15,7 +15,7 @@ import {
   getMint,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
-import { INITIAL_BASKETS } from '../../../lib/data/registry';
+import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
 
 const DEVNET_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
@@ -31,15 +31,6 @@ const MIRROR_MINTS: Record<string, string | undefined> = {
   NEURALINK: process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK || 'DbUYkDnEvh9mVPJNNXdCtLksFg7RDeXgqteRvesJ2F7A',
   FIGUREAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI || '2bzfznWhXfHZqU1wRUyVCPrLAUkqP5gt5kAjjSj4b8e7',
 };
-
-const PRICE_BY_SYMBOL = new Map<string, number>();
-for (const basket of INITIAL_BASKETS) {
-  for (const constituent of basket.constituents) {
-    if (!PRICE_BY_SYMBOL.has(constituent.asset.symbol)) {
-      PRICE_BY_SYMBOL.set(constituent.asset.symbol, constituent.asset.priceUsd);
-    }
-  }
-}
 
 function parseAuthoritySecret(value: string): Keypair {
   const trimmed = value.trim();
@@ -86,6 +77,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const user = new PublicKey(body.userPublicKey);
     const allocations = Array.isArray(body.allocations) ? body.allocations : [];
+
+    // Price Devnet mirrors from the same provider quote layer that hydrates
+    // the marketplace. This keeps executable test issuance aligned with the
+    // NAV the user actually sees instead of stale registry seed prices.
+    const marketAssets = await getUnifiedAssetQuotes('multi');
+    const priceBySymbol = new Map(
+      marketAssets.map((asset) => [asset.symbol, asset.priceUsd])
+    );
 
     if (allocations.length < 1 || allocations.length > 8) {
       return NextResponse.json({ error: 'Invalid mirror allocation count.' }, { status: 400 });
@@ -154,7 +153,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const referencePrice = PRICE_BY_SYMBOL.get(symbol);
+      const referencePrice = priceBySymbol.get(symbol);
       if (!referencePrice || referencePrice <= 0) {
         return NextResponse.json(
           { error: `No server-side Devnet reference price for ${symbol}.` },
