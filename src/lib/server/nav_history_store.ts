@@ -22,7 +22,16 @@ function getRedisConfig(): { url: string; token: string } | null {
     process.env.KV_REST_API_TOKEN ||
     '';
 
-  return url && token ? { url: url.replace(/\/$/, ''), token } : null;
+  if (!url || !token) return null;
+
+  const normalizedUrl = url.trim().replace(/\/$/, '');
+  if (!/^https:\/\//i.test(normalizedUrl)) {
+    throw new Error(
+      'UPSTASH_REDIS_REST_URL must be the HTTPS REST endpoint, not a Redis CLI/redis:// connection string.'
+    );
+  }
+
+  return { url: normalizedUrl, token };
 }
 
 export function durableNavHistoryConfigured(): boolean {
