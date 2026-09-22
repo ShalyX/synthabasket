@@ -80,6 +80,15 @@ export interface BasketDefinition {
   createdAt: number;
 }
 
+export interface BasketCreationDraft {
+  name: string;
+  symbol: string;
+  description: string;
+  constituents: BasketConstituent[];
+  /** Indicative target-weight NAV at the time the draft is submitted. */
+  indicativeNavUsd: number;
+}
+
 export interface MeteoraDBCConfig {
   curveType: 'linear' | 'exponential' | 'equity_smoothed';
   initialPriceUsd: number;

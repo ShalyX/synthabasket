@@ -13,10 +13,10 @@ import { ProtocolProofModal } from '../../components/ProtocolProofModal';
 import {
   AssetQuote,
   BasketDefinition,
+  BasketCreationDraft,
   BasketMintQuote,
   BasketRedeemQuote,
   BasisMonitorItem,
-  MeteoraDBCConfig,
   TxLifecycleState,
 } from '../../lib/types';
 import { generateBasisMonitoringLedger } from '../../lib/services/valuation_engine';
@@ -27,7 +27,6 @@ import {
 } from '../../lib/client/nav_history';
 import { AllocationRouter } from '../../lib/execution/allocation_router';
 import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
-import { MeteoraDbcManager } from '../../lib/execution/meteora_dbc';
 import { waitForSignatureOutcome } from '../../lib/execution/confirmation';
 
 import { PublicKey } from '@solana/web3.js';
@@ -55,6 +54,7 @@ export default function AppPage() {
   const [basisItems, setBasisItems] = useState<BasisMonitorItem[]>([]);
   const [hydrationNonce, setHydrationNonce] = useState(0);
   const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [customRegistryConfigured, setCustomRegistryConfigured] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
   const [freshnessNow, setFreshnessNow] = useState<number>(() => Date.now());
   const [navHistory, setNavHistory] = useState<NavHistoryByBasket>({});
@@ -123,6 +123,7 @@ export default function AppPage() {
         setAvailableAssets(quotes);
         setBasisItems(generateBasisMonitoringLedger(quotes));
         setBaskets(hydrated);
+        setCustomRegistryConfigured(payload.customRegistryConfigured === true);
         setLastHydratedAt(Number(payload.generatedAt) || Date.now());
         setNavHistory(recordBasketNavHistory(hydrated));
         hasHydratedMarketplaceRef.current = true;
@@ -781,42 +782,71 @@ export default function AppPage() {
   };
 
   // Create Basket Flow
-  const handleDeployBasket = async (newBasket: BasketDefinition, dbcConfig?: MeteoraDBCConfig) => {
+  const handleDeployBasket = async (draft: BasketCreationDraft) => {
     const isDevnet = network === 'devnet';
+    const vaultClient = new SynthaBasketVaultClient(connection);
+    const [basketPda] = vaultClient.getBasketPda(draft.symbol);
+    const [basketMint] = vaultClient.getBasketMintPda(draft.symbol);
 
-    const initialSteps: Array<{
-      id: string;
-      label: string;
-      description: string;
-      status: 'pending' | 'active' | 'completed' | 'failed';
-      txSignature?: string;
-    }> = [
+    const newBasket: BasketDefinition = {
+      id: `custom-${draft.symbol.toLowerCase()}`,
+      name: draft.name,
+      symbol: draft.symbol,
+      description: draft.description,
+      category: 'custom',
+      providerMode: 'multi',
+      constituents: draft.constituents,
+      navUsd: draft.indicativeNavUsd,
+      navChange24h: 0,
+      navChange24hAvailable: false,
+      navSource: 'target_weights',
+      marketDataSource:
+        draft.constituents.every(
+          (constituent) => constituent.asset.quoteSource === 'live'
+        )
+          ? 'live'
+          : draft.constituents.every(
+              (constituent) => constituent.asset.quoteSource !== 'live'
+            )
+          ? 'snapshot'
+          : 'mixed',
+      onChainStateLoaded: false,
+      aumUsd: 0,
+      totalSharesMinted: 0,
+      vaultPda: basketPda.toBase58(),
+      basketMint: basketMint.toBase58(),
+      devnetExecutionSymbol: draft.symbol,
+      meteoraGraduated: false,
+      createdAt: Date.now(),
+    };
+
+    const initialSteps = [
       {
         id: 'initialize_basket',
-        label: `Initialize Basket State & SPL Mint ($${newBasket.symbol})`,
-        description: 'Broadcasting the Anchor initialize_basket instruction',
-        status: 'active',
+        label: `Initialize Basket State & Share Mint (${draft.symbol})`,
+        description:
+          'Creating the deterministic basket PDA and zero-supply SPL share mint',
+        status: 'active' as const,
       },
       {
         id: 'verify_basket',
         label: 'Verify On-Chain Basket Configuration',
-        description: 'Confirming program ownership, basket mint, constituents, and weights',
-        status: 'pending',
+        description:
+          'Checking program ownership, share mint, constituents, and exact target weights',
+        status: 'pending' as const,
+      },
+      {
+        id: 'register_basket',
+        label: 'Index Basket in Durable Registry',
+        description:
+          'Saving verified off-chain metadata so the basket survives refreshes and hydration',
+        status: 'pending' as const,
       },
     ];
 
-    if (dbcConfig) {
-      initialSteps.push({
-        id: 'configure_dbc',
-        label: 'Create Meteora DBC Configuration',
-        description: `Creating the curve config with a $${dbcConfig.graduationThresholdUsd.toLocaleString()} graduation threshold`,
-        status: 'pending',
-      });
-    }
-
     setTxLifecycle({
       isOpen: true,
-      title: `Deploying Basket: ${newBasket.name}`,
+      title: `Deploying Basket: ${draft.name}`,
       steps: initialSteps,
       currentStepIndex: 0,
       isCompleted: false,
@@ -824,13 +854,36 @@ export default function AppPage() {
       actionType: 'create_basket',
     });
 
+    if (!customRegistryConfigured) {
+      setTxLifecycle((prev) => ({
+        ...prev,
+        hasError: true,
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? {
+                ...step,
+                status: 'failed',
+                error:
+                  'Durable custom-basket storage is not configured. Deployment is blocked so a newly created basket cannot disappear on refresh.',
+              }
+            : step
+        ),
+      }));
+      return;
+    }
+
     if (!publicKey) {
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
         steps: prev.steps.map((step, index) =>
           index === 0
-            ? { ...step, status: 'failed', error: 'Wallet not connected. Connect your wallet to deploy the basket.' }
+            ? {
+                ...step,
+                status: 'failed',
+                error:
+                  'Wallet not connected. Connect your Solana wallet to deploy the basket.',
+              }
             : step
         ),
       }));
@@ -838,24 +891,95 @@ export default function AppPage() {
     }
 
     let activeStepIndex = 0;
-    let basketAdded = false;
+    let initSignature: string | undefined;
 
     try {
-      const vaultClient = new SynthaBasketVaultClient(connection);
-      const initTx = await vaultClient.buildInitializeBasketTransaction(
-        publicKey,
-        newBasket,
-        isDevnet,
-        0
+      const existingBasketAccount = await connection.getAccountInfo(
+        basketPda,
+        'confirmed'
       );
-      const initLatest = await connection.getLatestBlockhash('confirmed');
-      initTx.recentBlockhash = initLatest.blockhash;
-      initTx.feePayer = publicKey;
 
-      const initSignature = await sendTransaction(initTx, connection, {
-        skipPreflight: false,
-        maxRetries: 3,
-      });
+      if (!existingBasketAccount) {
+        const initTx = await vaultClient.buildInitializeBasketTransaction(
+          publicKey,
+          newBasket,
+          isDevnet,
+          0
+        );
+        const initLatest = await connection.getLatestBlockhash('confirmed');
+        initTx.recentBlockhash = initLatest.blockhash;
+        initTx.feePayer = publicKey;
+
+        const initSimulation = await connection.simulateTransaction(initTx);
+        if (initSimulation.value.err) {
+          const anchorErrorLog = (initSimulation.value.logs || []).find((line) =>
+            line.includes('Error Message:')
+          );
+          throw new Error(
+            anchorErrorLog
+              ? anchorErrorLog.replace(
+                  /^.*Error Message:\s*/,
+                  'Basket preflight failed: '
+                )
+              : `Basket preflight failed: ${JSON.stringify(
+                  initSimulation.value.err
+                )}`
+          );
+        }
+
+        initSignature = await sendTransaction(initTx, connection, {
+          skipPreflight: false,
+          maxRetries: 3,
+        });
+
+        setTxLifecycle((prev) => ({
+          ...prev,
+          currentStepIndex: 0,
+          steps: prev.steps.map((step, index) =>
+            index === 0
+              ? {
+                  ...step,
+                  status: 'submitted',
+                  txSignature: initSignature,
+                  statusMessage: 'Submitted; waiting for Solana confirmation.',
+                }
+              : step
+          ),
+        }));
+
+        const initOutcome = await waitForSignatureOutcome(
+          connection,
+          initSignature,
+          {
+            lastValidBlockHeight: initLatest.lastValidBlockHeight,
+            timeoutMs: 90_000,
+          }
+        );
+
+        if (initOutcome.state === 'unknown') {
+          setTxLifecycle((prev) => ({
+            ...prev,
+            hasPendingConfirmation: true,
+            steps: prev.steps.map((step, index) =>
+              index === 0
+                ? {
+                    ...step,
+                    status: 'submitted',
+                    txSignature: initSignature,
+                    statusMessage: initOutcome.error,
+                  }
+                : step
+            ),
+          }));
+          return;
+        }
+
+        if (initOutcome.state !== 'confirmed') {
+          throw new Error(
+            `Basket initialization ${initOutcome.state}: ${initOutcome.error}`
+          );
+        }
+      }
 
       activeStepIndex = 1;
       setTxLifecycle((prev) => ({
@@ -863,41 +987,21 @@ export default function AppPage() {
         currentStepIndex: 1,
         steps: prev.steps.map((step, index) =>
           index === 0
-            ? { ...step, status: 'completed', txSignature: initSignature }
+            ? {
+                ...step,
+                status: 'completed',
+                txSignature: initSignature,
+                statusMessage: existingBasketAccount
+                  ? 'Existing matching basket account found; reusing it for registration recovery.'
+                  : undefined,
+              }
             : index === 1
             ? { ...step, status: 'active' }
             : step
         ),
       }));
 
-      const initOutcome = await waitForSignatureOutcome(connection, initSignature, {
-        lastValidBlockHeight: initLatest.lastValidBlockHeight,
-        timeoutMs: 90_000,
-      });
-
-      if (initOutcome.state !== 'confirmed') {
-        throw new Error(`Basket initialization ${initOutcome.state}: ${initOutcome.error}`);
-      }
-
       await vaultClient.verifyBasketExecutionState(newBasket, isDevnet);
-
-      setBaskets((prev) => [newBasket, ...prev]);
-      basketAdded = true;
-
-      if (!dbcConfig) {
-        setTxLifecycle((prev) => ({
-          ...prev,
-          isCompleted: true,
-          finalSignature: initSignature,
-          steps: prev.steps.map((step, index) =>
-            index === 1
-              ? { ...step, status: 'completed', txSignature: initSignature }
-              : step
-          ),
-        }));
-        router.push('/app');
-        return;
-      }
 
       activeStepIndex = 2;
       setTxLifecycle((prev) => ({
@@ -905,52 +1009,65 @@ export default function AppPage() {
         currentStepIndex: 2,
         steps: prev.steps.map((step, index) =>
           index === 1
-            ? { ...step, status: 'completed', txSignature: initSignature }
+            ? { ...step, status: 'completed' }
             : index === 2
             ? { ...step, status: 'active' }
             : step
         ),
       }));
 
-      const dbcManager = new MeteoraDbcManager(connection);
-      const quoteMint = new PublicKey(
-        isDevnet
-          ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-          : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      const { transaction: configTx, configKeypair } =
-        await dbcManager.buildCreateConfigTransaction(publicKey, quoteMint, dbcConfig);
-
-      const dbcLatest = await connection.getLatestBlockhash('confirmed');
-      configTx.recentBlockhash = dbcLatest.blockhash;
-      configTx.feePayer = publicKey;
-
-      const dbcSignature = await sendTransaction(configTx, connection, {
-        signers: [configKeypair],
-        skipPreflight: false,
-        maxRetries: 3,
+      const registrationResponse = await fetch('/api/baskets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          basket: {
+            name: draft.name,
+            symbol: draft.symbol,
+            description: draft.description,
+            constituents: draft.constituents.map((constituent) => ({
+              tokenMint: constituent.asset.tokenMint,
+              targetWeightBps: constituent.targetWeightBps,
+            })),
+          },
+        }),
       });
 
-      const dbcOutcome = await waitForSignatureOutcome(connection, dbcSignature, {
-        lastValidBlockHeight: dbcLatest.lastValidBlockHeight,
-        timeoutMs: 90_000,
-      });
+      const registrationPayload = await registrationResponse
+        .json()
+        .catch(() => ({}));
 
-      if (dbcOutcome.state !== 'confirmed') {
-        throw new Error(`Meteora DBC configuration ${dbcOutcome.state}: ${dbcOutcome.error}`);
+      if (!registrationResponse.ok) {
+        throw new Error(
+          registrationPayload?.error ||
+            `Basket registry returned HTTP ${registrationResponse.status}.`
+        );
       }
+
+      const registeredBasket = registrationPayload?.basket as
+        | BasketDefinition
+        | undefined;
+
+      if (!registeredBasket?.id) {
+        throw new Error(
+          'Basket was verified on-chain but the durable registry returned an incomplete record.'
+        );
+      }
+
+      setBaskets((prev) => [
+        registeredBasket,
+        ...prev.filter((basket) => basket.id !== registeredBasket.id),
+      ]);
 
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
-        finalSignature: dbcSignature,
+        finalSignature: initSignature,
         steps: prev.steps.map((step, index) =>
-          index === 2
-            ? { ...step, status: 'completed', txSignature: dbcSignature }
-            : step
+          index === 2 ? { ...step, status: 'completed' } : step
         ),
       }));
 
+      setHydrationNonce((value) => value + 1);
       router.push('/app');
     } catch (err: any) {
       setTxLifecycle((prev) => ({
@@ -959,14 +1076,16 @@ export default function AppPage() {
         currentStepIndex: activeStepIndex,
         steps: prev.steps.map((step, index) =>
           index === activeStepIndex
-            ? { ...step, status: 'failed', error: err?.message || 'Basket deployment failed' }
+            ? {
+                ...step,
+                status: 'failed',
+                error:
+                  err?.message ||
+                  'Basket deployment failed before it could be fully indexed.',
+              }
             : step
         ),
       }));
-
-      if (basketAdded) {
-        router.push('/app');
-      }
     }
   };
 
@@ -1202,6 +1321,8 @@ export default function AppPage() {
         {activeTab === 'create_studio' && (
           <CreateBasketStudio
             availableAssets={availableAssets}
+            marketplaceStatus={marketplaceStatus}
+            registryReady={customRegistryConfigured}
             onDeployBasket={handleDeployBasket}
             onCancel={() => router.push('/app')}
           />

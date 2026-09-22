@@ -189,6 +189,32 @@ export class SynthaBasketVaultClient {
       throw new Error(`On-chain basket mint does not match the registry for ${basket.symbol}.`);
     }
 
+    const onChainSymbol = String(decoded.symbol || '').toUpperCase();
+    if (onChainSymbol !== executionSymbol.toUpperCase()) {
+      throw new Error(`On-chain basket symbol does not match ${executionSymbol}.`);
+    }
+
+    const expectedName = basket.name.slice(0, 32);
+    if (String(decoded.name || '') !== expectedName) {
+      throw new Error(`On-chain basket name does not match the submitted definition for ${basket.symbol}.`);
+    }
+
+    const onChainWeights = Array.isArray(decoded.weightsBps)
+      ? decoded.weightsBps.map((weight: any) => Number(weight))
+      : [];
+    const expectedWeights = basket.constituents.map(
+      (constituent) => constituent.targetWeightBps
+    );
+
+    if (
+      onChainWeights.length !== expectedWeights.length ||
+      onChainWeights.some((weight: number, index: number) => weight !== expectedWeights[index])
+    ) {
+      throw new Error(
+        `On-chain target weights for ${basket.symbol} do not match the submitted definition.`
+      );
+    }
+
     const expectedConstituents = basket.constituents.map((constituent) => {
       const mint = useDevnetMirrors
         ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
@@ -211,6 +237,25 @@ export class SynthaBasketVaultClient {
         `On-chain constituent configuration for ${basket.symbol} does not match the active execution mints.`
       );
     }
+  }
+
+
+  async getBasketAuthority(
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean = false
+  ): Promise<string> {
+    await this.verifyBasketExecutionState(basket, useDevnetMirrors);
+
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
+
+    if (!basketInfo) {
+      throw new Error(`Basket vault ${basket.symbol} is not initialized on the connected cluster.`);
+    }
+
+    const decoded: any = this.accountsCoder.decode('BasketState', basketInfo.data);
+    return new PublicKey(decoded.authority).toBase58();
   }
 
 
