@@ -164,25 +164,33 @@ export async function fetchPreStocksAssets(options?: { throwOnError?: boolean })
       return PRESTOCKS_VERIFIED_SNAPSHOT;
     }
 
-    return rawItems.map((item) => {
+    const liveAssets: AssetQuote[] = rawItems.map((item) => {
       const providerChange = [item.change24h, item.change24hPercent, item.priceChange24h]
         .find((value) => typeof value === 'number' && Number.isFinite(value));
 
       return {
         symbol: item.symbol,
         name: item.name,
-        provider: 'prestocks' as const,
+        provider: 'prestocks',
         tokenMint: item.contract_address,
         priceUsd: Number((item.markPrice || item.tokenPrice || 0).toFixed(2)),
         change24h: providerChange ?? 0,
         change24hAvailable: providerChange !== undefined,
-        quoteSource: 'live' as const,
+        quoteSource: 'live',
         marketCapUsd: item.markValuation || item.impliedValuation,
         description: item.description,
         logoUrl: item.image,
         lastUpdated: Date.now(),
       };
     });
+
+    const liveMints = new Set(liveAssets.map((asset) => asset.tokenMint));
+    return [
+      ...liveAssets,
+      ...PRESTOCKS_VERIFIED_SNAPSHOT.filter(
+        (asset) => !liveMints.has(asset.tokenMint)
+      ),
+    ];
   } catch (error: any) {
     if (options?.throwOnError) {
       throw new Error(`PreStocks API fetch failed: ${error.message}`);
