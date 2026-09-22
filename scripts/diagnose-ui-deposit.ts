@@ -5,7 +5,7 @@ import { calculateMintQuote } from '../src/lib/services/valuation_engine';
 import { getDevnetMirrorMint } from '../src/lib/execution/devnet_mirrors';
 import { SynthaBasketVaultClient } from '../src/lib/execution/vault_client';
 
-const signature = process.env.UI_ACQUISITION_SIGNATURE;
+const signature = process.env.UI_ACQUISITION_SIGNATURE || '';
 if (!signature) throw new Error('UI_ACQUISITION_SIGNATURE is required.');
 
 const connection = new Connection(
