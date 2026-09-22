@@ -92,6 +92,20 @@ export interface TxStep {
   statusMessage?: string;
 }
 
+export interface TxReceiptAsset {
+  symbol: string;
+  amount: number;
+}
+
+export interface TxReceipt {
+  spentUsdc?: number;
+  sharesReceived?: number;
+  sharesBurned?: number;
+  resultingShareBalance?: number;
+  assetsDeposited?: TxReceiptAsset[];
+  assetsReturned?: TxReceiptAsset[];
+}
+
 export interface TxLifecycleState {
   isOpen: boolean;
   title: string;
@@ -101,6 +115,7 @@ export interface TxLifecycleState {
   hasError: boolean;
   hasPendingConfirmation?: boolean;
   finalSignature?: string;
+  receipt?: TxReceipt;
   actionType: 'mint' | 'redeem' | 'create_basket' | 'launch_dbc';
 }
 
