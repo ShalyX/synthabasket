@@ -1,11 +1,12 @@
 # SynthaBasket — Verified Devnet Execution Receipts
 
-Generated only after the actual acquisition, Anchor deposit/mint, and Anchor burn/redeem transactions confirm on Solana Devnet. Simulations and unrelated transfer transactions are not counted as execution proof.
+Generated only after the actual acquisition, Anchor deposit/mint, basket-share balance verification, and Anchor burn/redeem transactions confirm on Solana Devnet. Simulations and unrelated transfer transactions are not counted as execution proof.
 
-**Execution Timestamp**: `2026-09-22T16:17:58.857Z`  
+**Execution Timestamp**: `2026-09-22T16:22:41.786Z`  
 **Runner Wallet**: [`Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR`](https://explorer.solana.com/address/Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR?cluster=devnet)  
 **Target Basket**: **AI Titans Index ($AIT)**  
 **Devnet Execution Basket**: **AITD**  
+**Devnet Basket Mint**: `3CLenKY9X1hniMKsTi2KPANfWi4C27qyus6HDknrZzUK`  
 **Program**: `4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA`
 
 ---
@@ -14,8 +15,7 @@ Generated only after the actual acquisition, Anchor deposit/mint, and Anchor bur
 
 - **Action**: Atomic Devnet USDC payment + mirror-asset issuance
 - **Status**: **CONFIRMED**
-- **Transaction**: [`ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS`](https://explorer.solana.com/tx/ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS?cluster=devnet)
-- **Details**:
+- **Transaction**: [`64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg`](https://explorer.solana.com/tx/64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg?cluster=devnet)
 
 ```json
 {
@@ -46,16 +46,22 @@ Generated only after the actual acquisition, Anchor deposit/mint, and Anchor bur
 
 - **Action**: Anchor `deposit_and_mint` with real SPL transfers
 - **Status**: **CONFIRMED**
-- **Transaction**: [`2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ`](https://explorer.solana.com/tx/2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ?cluster=devnet)
-- **Details**:
+- **Transaction**: [`eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8`](https://explorer.solana.com/tx/eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8?cluster=devnet)
 
 ```json
 {
   "basket": "AIT",
   "devnetExecutionSymbol": "AITD",
-  "expectedShares": 0.0125
+  "expectedShares": 0.0125,
+  "basketMint": "3CLenKY9X1hniMKsTi2KPANfWi4C27qyus6HDknrZzUK",
+  "userBasketTokenAccount": "HXVoNVp9gk4NjGTHFifVH4YVKdgUGquSrgv4kBus8e4J",
+  "sharesBeforeMintRaw": "6250",
+  "sharesAfterMintRaw": "18750",
+  "mintedDeltaRaw": "12500"
 }
 ```
+
+The confirmed transaction increased the runner's AITD token balance by exactly **12,500 raw units = 0.0125 AITD**.
 
 ---
 
@@ -63,12 +69,14 @@ Generated only after the actual acquisition, Anchor deposit/mint, and Anchor bur
 
 - **Action**: Anchor `burn_and_redeem` with proportional SPL release
 - **Status**: **CONFIRMED**
-- **Transaction**: [`4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5`](https://explorer.solana.com/tx/4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5?cluster=devnet)
-- **Details**:
+- **Transaction**: [`5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe`](https://explorer.solana.com/tx/5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe?cluster=devnet)
 
 ```json
 {
   "sharesBurned": 0.00625,
+  "sharesBeforeRedeemRaw": "18750",
+  "sharesAfterRedeemRaw": "12500",
+  "burnedDeltaRaw": "6250",
   "constituents": [
     { "symbol": "T-OpenAI" },
     { "symbol": "ANTHROPIC" },
@@ -76,6 +84,8 @@ Generated only after the actual acquisition, Anchor deposit/mint, and Anchor bur
   ]
 }
 ```
+
+The confirmed transaction reduced the runner's AITD token balance by exactly **6,250 raw units = 0.00625 AITD**.
 
 ---
 
