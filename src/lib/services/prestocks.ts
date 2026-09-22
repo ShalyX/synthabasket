@@ -127,6 +127,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 2_600_000_000,
     description: 'AI robotics company developing autonomous humanoid robots.',
     logoUrl: 'https://www.prestocks.com/logos/figureai.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   }
 ];
