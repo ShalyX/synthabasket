@@ -1,137 +1,191 @@
-# SynthaBasket — Pre-IPO Thematic Index Protocol on Solana
+# SynthaBasket — Asset-Backed Private-Market Indexes on Solana
 
 [![Solana](https://img.shields.io/badge/Solana-Devnet%20%2F%20Mainnet-14f195?style=flat-square&logo=solana)](https://solana.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Stocklana Hackathon](https://img.shields.io/badge/Hackathon-Stocklana%202026-9945ff?style=flat-square)](https://hackathons.solana.com/hackathons/stocklana)
 
-**SynthaBasket** is an institutional-grade, asset-backed thematic index and structured basket protocol on Solana. It enables retail and institutional allocators to gain 1-click diversified exposure to tokenized private equities and pre-IPO assets (OpenAI, SpaceX, Kalshi, Anthropic, Anduril, Stripe) with real-time Pyth-anchored NAV calculations, PreStocks & Tessera API integration, and Meteora Dynamic Bonding Curve (DBC) secondary liquidity.
+**SynthaBasket** is a multi-provider private-market index protocol on Solana. It bundles tokenized private-company assets from providers such as PreStocks and Tessera into thematic, redeemable basket tokens backed by constituent SPL assets held in program-controlled vault accounts.
+
+Market/provider data and Pyth are used for NAV and analytics. On-chain backing is determined by the actual constituent balances held by the vault.
 
 ---
 
-## 🏛️ System Architecture
+## Architecture
 
-```
-                    SYNTHABASKET
-
-        ┌────────── DATA / VALUATION ──────────┐
-        │                                      │
-   PreStocks API       Tessera API        Pyth Hermes
-        │                   │                  │
-        └──────────────┬────┴──────────────────┘
-                       ↓
-              Valuation / NAV Engine
-                       ↓
-               Basket Registry
-                       │
-          ┌────────────┴─────────────┐
-          ↓                          ↓
-    Basket Factory              Analytics & Basis Monitor
+```text
+PreStocks / Tessera / Pyth
           │
-          ↓
-    Allocation Engine
+          ▼
+ Valuation + NAV Engine
           │
-      Jupiter Router
+          ▼
+   Basket Registry
           │
-          ↓
-   Underlying SPL Assets
-          │
-          ↓
-     Basket Vault PDA
-          │
-          ↓
-   Basket SPL Token Mint
-          │
-   ┌──────┴─────────────┐
-   ↓                    ↓
-Redeem Engine      Meteora DBC
-                        │
-                        ↓
-                Secondary Liquidity
-                        │
-                        ↓
-                    DAMM v2
+          ▼
+   Allocation Engine
+      ┌───────────────┐
+      │               │
+Mainnet           Devnet demo
+Jupiter V2        mirror adapter
+      │               │
+      └───────┬───────┘
+              ▼
+      constituent SPLs
+              │
+              ▼
+       Basket Vault PDA
+              │
+              ▼
+       Basket SPL shares
+          ┌───┴────┐
+          ▼        ▼
+      Redeem    Meteora config
 ```
 
----
+### Mainnet execution
 
-## 🎯 Hackathon Sponsor Stacking Alignment
+For supported assets with live liquidity, SynthaBasket requests executable Jupiter Swap API V2 transactions, broadcasts each constituent acquisition, confirms each signature, and only then constructs the vault deposit.
 
-| Sponsor Track | Prize | How SynthaBasket Qualifies |
-| :--- | :--- | :--- |
-| **Solana Main Track** | **$100,000** | Best overall consumer & investing app for tokenized stocks on Solana (thematic baskets, 1-click USDC invest, physical vault backing, 24/7 basis monitor). |
-| **PreStocks Bounty** | **$10,000** | Direct integration of PreStocks API (`https://prestocks.com/api/prestocks`). Includes dedicated `PreStocks Pure` mode ensuring 100% compliance with non-compete rules. |
-| **Tessera Bounty** | **$6,000** | Primary constituent integration of Tessera OpenAI (`tOPENAI`) and Kalshi (`tKALSHI`) T-Tokens into the flagship `$AIT` (AI Titans) basket. |
-| **Meteora Bounty** | **$5,000** | Custom implementation of Meteora Dynamic Bonding Curves (DBC) for tokenized stock baskets with equity-smoothed polynomial curves and DAMM v2 migration. |
-| **Pyth Network** | **3 Mos Pro** | Ingests Pyth Hermes feeds for real-time benchmark pricing, continuous NAV computation, and 24/7 off-market basis monitoring. |
+### Devnet execution
 
----
+Canonical private-market provider mints are not treated as if they magically exist with Jupiter liquidity on Devnet.
 
-## ✨ Key Features
+The Devnet demo uses explicit mirror mints configured through `NEXT_PUBLIC_DEVNET_MIRROR_*`. A server-side Devnet-only adapter builds one atomic transaction that:
 
-1. **Curated Thematic Baskets**:
-   - **AI Titans (`$AIT`)**: 50% OpenAI (Tessera) + 30% Anthropic (PreStocks) + 20% Kalshi (Tessera).
-   - **Space & Defense (`$ORBIT`)**: 65% SpaceX (Tessera) + 35% Anduril (PreStocks).
-   - **FinTech Disruptors (`$FINX`)**: 50% Stripe (PreStocks) + 30% Kraken (PreStocks) + 20% Kalshi (Tessera).
-   - **PreStocks Sovereign Frontier (`$PREX`)**: 40% Anthropic + 30% Anduril + 30% Stripe (Pure PreStocks track).
-2. **1-Click USDC Allocation & Minting**:
-   - Converts deposited USDC into constituent allocations via Jupiter Swap API V2 routing.
-   - Deposits underlying tokens directly into on-chain `BasketState` Vault PDA.
-   - Mints synthetic Basket SPL tokens to the user's wallet with 100% physical backing.
-3. **Burn & Physical Redemption**:
-   - Burn Basket SPL tokens anytime to release proportional underlying assets from the Vault PDA.
-4. **Create Basket Studio**:
-   - 8-step creation wizard allowing users and fund managers to assemble custom baskets, validate weights ($\sum w_i = 100\%$), preview NAV, and launch a Meteora DBC pool using `@meteora-ag/dynamic-bonding-curve-sdk@1.5.12`.
-5. **24/7 Basis & Premium Monitor**:
-   - Real-time comparison between US market closing prices (Pyth benchmark) and 24/7 Solana DEX spot markets to capture basis arbitrage.
-6. **Bespoke Institutional Design**:
-   - Built to institutional fintech standards: JetBrains Mono tabular figures, obsidian neutral palette, zero generic templates or emojis.
+1. transfers Devnet USDC from the user to the Devnet mirror treasury; and
+2. issues the corresponding test mirror constituents to the user.
+
+Those test assets are then deposited into an isolated Devnet basket state (for example `AITD`) before basket shares are minted.
+
+This mirror path is test infrastructure only. Canonical provider mint addresses remain the asset identity used by the product and valuation layer.
 
 ---
 
-## 🚀 Quick Start
+## Core baskets
 
-### 1. Install Dependencies
+- **AI Titans (`$AIT`)** — OpenAI / Anthropic / Kalshi private-market exposure.
+- **Space & Defense (`$ORBIT`)** — SpaceX / Anduril exposure.
+- **FinTech Disruptors (`$FINX`)** — tokenized private-market fintech and event-market exposure.
+- **PreStocks Sovereign Frontier (`$PREX`)** — a focused basket composed of PreStocks-issued assets.
+
+SynthaBasket itself is provider-neutral: providers are constituent sources rather than separate product modes.
+
+---
+
+## Transaction guarantees in the current code
+
+The application does **not** mark a route or operation successful merely because a quote, simulation, or unrelated transaction exists.
+
+For Invest:
+
+1. every constituent must have an executable acquisition path;
+2. each acquisition transaction must confirm;
+3. exact acquired raw token amounts are passed to the vault instruction;
+4. the live basket PDA, SPL mint, and constituent configuration are checked;
+5. the actual Anchor `deposit_and_mint` transaction is broadcast; and
+6. Solana signature status is polled until confirmed, failed, expired, or explicitly unknown.
+
+For redemption, the actual Anchor `burn_and_redeem` transaction must confirm.
+
+The Anchor program additionally validates dynamic token accounts against the configured constituent mints and account authorities.
+
+---
+
+## Devnet setup
+
+Install dependencies:
+
 ```bash
 npm install --legacy-peer-deps
 ```
 
-### 2. Run Comprehensive Verification Suites
+Configure `.env.local` from `.env.example`.
+
+The hardened Anchor program must be deployed before provisioning mirrors.
+
+Provision Devnet mirror mints and mirror basket state:
+
 ```bash
-# 1. End-to-end pipeline & Anchor discriminator verification
-npx tsx scripts/test-e2e-pipeline.ts
-
-# 2. Strict live API, schema & Pyth diagnostic gate
-npx tsx scripts/verify-apis.ts
-
-# 3. On-chain vault share accounting & dilution resistance
-npx tsx scripts/verify-vault-math.ts
+npm run provision-devnet
 ```
 
-### 3. Production Build
+Copy the printed `NEXT_PUBLIC_DEVNET_MIRROR_*` values into the application/Vercel environment and configure the same authority secret as `DEVNET_MIRROR_AUTHORITY_SECRET` on the server.
+
+The investing wallet also needs Devnet SOL and Devnet USDC.
+
+Run the real execution proof only after provisioning:
+
 ```bash
-npm run build
+npx tsx scripts/execute-happy-path.ts
 ```
 
-### 4. Run Development Server
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+The proof runner exits with an error instead of manufacturing a receipt if acquisition, deposit/mint, or redemption cannot execute.
 
 ---
 
-## 🔒 Smart Contract Details
+## Verification
 
-- **Program ID**: `BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh`
-- **Seeds**:
-  - Basket PDA: `[b"basket", symbol.as_bytes()]`
-  - Basket Mint PDA: `[b"basket_mint", symbol.as_bytes()]`
-  - Associated Vault Accounts: `getAssociatedTokenAddressSync(constituentMint, basketPda, true)`
-- **Key Instructions**:
-  - `initialize_basket(symbol, name, constituents, weights_bps, protocol_fee_bps)`
-  - `deposit_and_mint(shares_to_mint, constituent_amounts_in)`
-  - `burn_and_redeem(shares_to_burn)`
-- **Meteora DBC Integration**:
-  - Program ID: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
-  - SDK Version: `@meteora-ag/dynamic-bonding-curve-sdk@1.5.12`
-  - Migration Target: Meteora DAMM v2 (`cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG`)
+```bash
+# Pipeline/schema checks
+npx tsx scripts/test-e2e-pipeline.ts
+
+# Provider/API diagnostics
+npx tsx scripts/verify-apis.ts
+
+# Share-accounting invariant checks
+npx tsx scripts/verify-vault-math.ts
+
+# Next.js production build
+npm run build
+```
+
+See `DEMO_RUN_RECEIPTS.md` for the current proof status.
+
+---
+
+## Anchor program
+
+**Program ID**
+
+```text
+BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh
+```
+
+**PDA seeds**
+
+- Basket state: `[b"basket", symbol.as_bytes()]`
+- Basket mint: `[b"basket_mint", symbol.as_bytes()]`
+- Constituent vault token account: ATA of `(constituentMint, basketPda)`
+
+**Instructions**
+
+- `initialize_basket(symbol, name, constituents, weights_bps, protocol_fee_bps)`
+- `deposit_and_mint(shares_to_mint, constituent_amounts_in)`
+- `burn_and_redeem(shares_to_burn)`
+
+The deposit invariant is:
+
+```text
+S_mint <= S_total * min_i(ΔA_i / A_i)
+```
+
+For first issuance, positive constituent reserves establish the initial basket state. Subsequent issuance is capped by the least-proportional constituent deposit so an underfunded leg cannot dilute existing holders.
+
+---
+
+## Integrations
+
+- **PreStocks** and **Tessera** — private-market asset/provider data.
+- **Pyth Hermes** — benchmark/oracle context used by NAV and basis analytics.
+- **Jupiter Swap API V2** — executable constituent acquisition on supported mainnet routes.
+- **Meteora DBC SDK** — optional basket-liquidity configuration path. A DBC pool is not described as active unless its deployment is actually verified.
+
+---
+
+## Proof integrity
+
+An earlier Devnet receipt set was retired after an audit found that setup/self-transfer signatures had been labeled as deposit and redemption proof while the Anchor operations were only simulated.
+
+Those historical signatures are not used as protocol execution evidence anymore.
+
+A receipt is now marked **CONFIRMED** only when the transaction performing the claimed operation itself confirms on-chain.
