@@ -112,22 +112,24 @@ export default function AppPage() {
         status: 'active' as const,
       },
       {
+        id: 'verify_custody',
+        label: 'Verify Live Vault & Execution Configuration',
+        description: isDevnet
+          ? 'Checking the initialized Devnet basket state and mirror constituent mints before any asset acquisition'
+          : 'Checking program ownership, basket mint, and constituent configuration before any asset acquisition',
+        status: 'pending' as const,
+      },
+      {
         id: 'acquire_underlying',
         label: 'Acquire Underlying Constituent Assets',
         description: isDevnet
-          ? 'Executing the explicit Devnet mirror acquisition path'
+          ? 'Exchanging Devnet USDC for explicit test-only mirror assets'
           : 'Broadcasting and confirming every Jupiter constituent swap',
         status: 'pending' as const,
       },
       {
-        id: 'verify_custody',
-        label: 'Verify Live Vault PDA & Basket Configuration',
-        description: `Checking program ownership, basket mint, and constituent configuration for ${basket.vaultPda.slice(0, 8)}...`,
-        status: 'pending' as const,
-      },
-      {
         id: 'deposit_and_mint',
-        label: `Deposit Underlying & Mint ${quote.expectedBasketTokens} $${basket.symbol}`,
+        label: `Deposit Underlying & Mint ${quote.expectedBasketTokens} ${basket.symbol}`,
         description: 'Broadcasting the Anchor deposit_and_mint instruction with the acquired token amounts',
         status: 'pending' as const,
       },
@@ -141,7 +143,7 @@ export default function AppPage() {
 
     setTxLifecycle({
       isOpen: true,
-      title: `Invest: ${basket.name} ($${basket.symbol})`,
+      title: `Invest: ${basket.name} (${basket.symbol})`,
       steps: initialSteps,
       currentStepIndex: 0,
       isCompleted: false,
@@ -202,9 +204,13 @@ export default function AppPage() {
         throw new Error('Investment stopped: no executable acquisition transaction was produced.');
       }
 
-      activateStep(1, 0);
+      // Step 2: Verify the live basket configuration before any swap or Devnet
+      // acquisition can consume user USDC.
+      const vaultClient = new SynthaBasketVaultClient(connection);
+      await vaultClient.verifyBasketExecutionState(basket, isDevnet);
+      activateStep(2, 1);
 
-      // Step 2: Execute every prepared constituent swap and require a confirmed result.
+      // Step 3: Execute every prepared constituent acquisition and require a confirmed result.
       const allocationSignatures: string[] = [];
       for (const prepared of allocationPlan.executionTransactions) {
         const signature = await sendTransaction(prepared.transaction, connection, {
@@ -225,9 +231,7 @@ export default function AppPage() {
         allocationSignatures.push(signature);
       }
 
-      activateStep(2, 1, allocationSignatures);
-
-      // Use exact quoted raw outputs for the vault deposit instead of price-estimated amounts.
+      // Use exact confirmed raw outputs for the vault deposit instead of price-estimated amounts.
       const executionQuote: BasketMintQuote = {
         ...quote,
         allocations: quote.allocations.map((allocation) => {
@@ -247,9 +251,16 @@ export default function AppPage() {
         }),
       };
 
-      // Step 3: Verify the actual live basket account before asking the user to deposit.
-      const vaultClient = new SynthaBasketVaultClient(connection);
-      await vaultClient.verifyBasketExecutionState(basket, isDevnet);
+      await vaultClient.verifyDepositBalances(
+        publicKey,
+        basket,
+        executionQuote,
+        isDevnet
+      );
+      activateStep(3, 2, allocationSignatures);
+
+      // Step 4: Build the actual Anchor deposit transaction only after all
+      // acquisition signatures are confirmed and token balances are present.
       const depositTx = await vaultClient.buildMintTransaction(
         publicKey,
         basket,
@@ -261,8 +272,6 @@ export default function AppPage() {
       const latestBlockhash = await connection.getLatestBlockhash('confirmed');
       depositTx.recentBlockhash = latestBlockhash.blockhash;
       depositTx.feePayer = publicKey;
-
-      activateStep(3, 2);
 
       // Step 4: Broadcast the actual Anchor deposit_and_mint transaction.
       const depositSignature = await sendTransaction(depositTx, connection, {
