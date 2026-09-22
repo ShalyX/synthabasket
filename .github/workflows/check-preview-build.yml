@@ -1,0 +1,27 @@
+name: Check Preview Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/check-preview-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/wider-shell
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
