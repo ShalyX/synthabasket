@@ -2,10 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../lib/types';
 import { calculateMintQuote, calculateRedeemQuote } from '../lib/services/valuation_engine';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getHistoryForRange, NavHistoryPoint } from '../lib/client/nav_history';
+import { SynthaBasketVaultClient } from '../lib/execution/vault_client';
 
 interface BasketDetailViewProps {
   basket: BasketDefinition;
@@ -31,6 +34,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   onExecuteRedeem,
   navHistory = [],
 }) => {
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
   const [activeTab, setActiveTab] = useState<'mint' | 'redeem'>(
     initialTab === 'redeem' ? 'redeem' : 'mint'
   );
@@ -40,10 +45,123 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
     useState<(typeof TIMEFRAMES)[number]['label']>('1H');
   const [durableHistory, setDurableHistory] = useState<NavHistoryPoint[]>([]);
   const [durableHistoryEnabled, setDurableHistoryEnabled] = useState(false);
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
+  const [basketBalance, setBasketBalance] = useState<number | null>(null);
+  const [liveRedeemQuote, setLiveRedeemQuote] = useState<BasketRedeemQuote | null>(null);
+  const [redeemQuoteLoading, setRedeemQuoteLoading] = useState(false);
 
   const mintQuote = calculateMintQuote(basket, usdcAmount || 0);
-  const redeemQuote = calculateRedeemQuote(basket, redeemShares || 0);
+  const fallbackRedeemQuote = calculateRedeemQuote(basket, redeemShares || 0);
+  const redeemQuote = liveRedeemQuote || fallbackRedeemQuote;
   const isPositive = basket.navChange24h >= 0;
+
+  const liveMintQuote = useMemo(() => {
+    if (
+      !basket.onChainStateLoaded ||
+      basket.totalSharesMinted <= 0 ||
+      !mintQuote.allocations.length
+    ) {
+      return mintQuote;
+    }
+
+    const totalSharesRaw = BigInt(Math.floor(basket.totalSharesMinted * 1_000_000));
+    let safeSharesRaw = BigInt(Math.floor(mintQuote.expectedBasketTokens * 1_000_000));
+    const allocations = mintQuote.allocations.map((allocation, index) => {
+      const reserve = basket.constituents[index]?.reserveBalance || 0;
+      const reserveRaw = BigInt(Math.floor(reserve * 1_000_000));
+      const acquiredRaw = BigInt(
+        Math.max(
+          1,
+          Math.floor(
+            (allocation.targetUsdAmount / allocation.asset.priceUsd) * 1_000_000
+          )
+        )
+      );
+
+      if (reserveRaw > 0n && totalSharesRaw > 0n) {
+        const mintable = (acquiredRaw * totalSharesRaw) / reserveRaw;
+        if (mintable < safeSharesRaw) safeSharesRaw = mintable;
+      }
+
+      return {
+        ...allocation,
+        rawTokenAmount: acquiredRaw.toString(),
+        estimatedTokensReceived: Number(acquiredRaw) / 1_000_000,
+      };
+    });
+
+    return {
+      ...mintQuote,
+      expectedBasketTokens: Number(safeSharesRaw) / 1_000_000,
+      allocations,
+    };
+  }, [basket, mintQuote]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWalletBalances() {
+      if (!publicKey) {
+        if (!cancelled) {
+          setUsdcBalance(null);
+          setBasketBalance(null);
+        }
+        return;
+      }
+
+      const vaultClient = new SynthaBasketVaultClient(connection);
+      const devnetUsdcMint = new PublicKey(
+        '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+      );
+
+      const [usdc, shares] = await Promise.all([
+        vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
+        vaultClient.getUserBasketBalance(publicKey, basket, true),
+      ]);
+
+      if (!cancelled) {
+        setUsdcBalance(usdc);
+        setBasketBalance(shares);
+      }
+    }
+
+    void loadWalletBalances();
+    const id = window.setInterval(loadWalletBalances, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [basket, connection, publicKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      if (!redeemShares || redeemShares <= 0) {
+        if (!cancelled) setLiveRedeemQuote(null);
+        return;
+      }
+
+      setRedeemQuoteLoading(true);
+      try {
+        const vaultClient = new SynthaBasketVaultClient(connection);
+        const quote = await vaultClient.prepareLiveRedeemQuote(
+          basket,
+          redeemShares,
+          true
+        );
+        if (!cancelled) setLiveRedeemQuote(quote);
+      } catch {
+        if (!cancelled) setLiveRedeemQuote(null);
+      } finally {
+        if (!cancelled) setRedeemQuoteLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [basket, connection, redeemShares]);
 
   const selectedRange =
     TIMEFRAMES.find((timeframe) => timeframe.label === chartTimeframe) ||
@@ -356,7 +474,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             </section>
 
             <div className="border-t border-border pt-4 text-xs text-ink-tertiary">
-              Market prices inform NAV. Your transaction verifies the live vault before funds move.
+              {basket.navSource === 'onchain_reserves'
+                ? 'NAV uses live vault reserves and current constituent prices.'
+                : 'NAV uses current constituent prices and target weights until the basket has live reserves.'}
             </div>
           </div>
 
@@ -387,7 +507,17 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             {activeTab === 'mint' && (
               <div className="mt-6 space-y-5">
                 <div>
-                  <label className="text-xs font-medium text-ink-secondary">Amount</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-ink-secondary">Amount</label>
+                    {usdcBalance !== null && (
+                      <button
+                        onClick={() => setUsdcAmount(Math.min(1000, usdcBalance))}
+                        className="text-xs text-ink-tertiary hover:text-brand-primary"
+                      >
+                        Balance {usdcBalance.toFixed(2)} USDC · Max
+                      </button>
+                    )}
+                  </div>
                   <div className="relative mt-2">
                     <input
                       type="number"
@@ -417,9 +547,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
                 <div className="border-y border-border py-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-ink-secondary">Estimated shares</span>
+                    <span className="text-sm text-ink-secondary">Live vault estimate</span>
                     <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
-                      {mintQuote.expectedBasketTokens} {basket.symbol}
+                      {liveMintQuote.expectedBasketTokens.toFixed(6)} {basket.symbol}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-ink-tertiary">
@@ -429,8 +559,12 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 <button
-                  onClick={() => onExecuteMint(basket, mintQuote)}
-                  disabled={!usdcAmount || usdcAmount <= 0}
+                  onClick={() => onExecuteMint(basket, liveMintQuote)}
+                  disabled={
+                    !usdcAmount ||
+                    usdcAmount <= 0 ||
+                    (usdcBalance !== null && usdcAmount > usdcBalance)
+                  }
                   className="w-full rounded-lg bg-brand-primary py-3 text-sm font-semibold text-black transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Invest {usdcAmount || 0} USDC
@@ -441,7 +575,17 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             {activeTab === 'redeem' && (
               <div className="mt-6 space-y-5">
                 <div>
-                  <label className="text-xs font-medium text-ink-secondary">Shares</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-ink-secondary">Shares</label>
+                    {basketBalance !== null && (
+                      <button
+                        onClick={() => setRedeemShares(basketBalance)}
+                        className="text-xs text-ink-tertiary hover:text-brand-primary"
+                      >
+                        Balance {basketBalance.toFixed(6)} {basket.symbol} · Max
+                      </button>
+                    )}
+                  </div>
                   <div className="relative mt-2">
                     <input
                       type="number"
@@ -459,14 +603,16 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
                 <div className="border-y border-border py-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-ink-secondary">Estimated value</span>
+                    <span className="text-sm text-ink-secondary">
+                      {redeemQuoteLoading ? 'Reading live vault…' : 'Live reserve value'}
+                    </span>
                     <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
                       $ {redeemQuote.expectedUsdcValue.toFixed(2)}
                     </span>
                   </div>
 
                   <div className="mt-4">
-                    <p className="mb-2 text-xs font-medium text-ink-secondary">Estimated return</p>
+                    <p className="mb-2 text-xs font-medium text-ink-secondary">You receive from the live vault</p>
                     <div className="space-y-2">
                       {redeemQuote.constituentsToReturn.map((item) => (
                         <div
@@ -485,7 +631,12 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
                 <button
                   onClick={() => onExecuteRedeem(basket, redeemQuote)}
-                  disabled={!redeemShares || redeemShares <= 0}
+                  disabled={
+                    redeemQuoteLoading ||
+                    !redeemShares ||
+                    redeemShares <= 0 ||
+                    (basketBalance !== null && redeemShares > basketBalance)
+                  }
                   className="w-full rounded-lg bg-ink-primary py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Redeem {redeemShares || 0} {basket.symbol}
