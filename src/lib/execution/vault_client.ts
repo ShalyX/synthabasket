@@ -201,6 +201,166 @@ export class SynthaBasketVaultClient {
 
 
   /**
+   * Returns true when the connected wallet already holds enough of every
+   * execution constituent for this quote. On Devnet this lets a failed
+   * post-acquisition attempt resume without charging USDC a second time.
+   */
+  async hasSufficientDepositBalances(
+    userPublicKey: PublicKey,
+    basket: BasketDefinition,
+    quote: BasketMintQuote,
+    useDevnetMirrors: boolean = false
+  ): Promise<boolean> {
+    for (const allocation of quote.allocations) {
+      const executionMint = useDevnetMirrors
+        ? allocation.asset.devnetMint || getDevnetMirrorMint(allocation.asset.symbol)
+        : allocation.asset.tokenMint;
+      if (!executionMint) return false;
+
+      const mint = new PublicKey(executionMint);
+      const userAta = this.getUserTokenAccount(userPublicKey, mint);
+      const account = await this.connection
+        .getTokenAccountBalance(userAta, 'confirmed')
+        .catch(() => null);
+      if (!account) return false;
+
+      const requiredRaw = allocation.rawTokenAmount
+        ? BigInt(allocation.rawTokenAmount)
+        : BigInt(
+            Math.floor(
+              allocation.estimatedTokensReceived *
+                10 ** (await this.getMintDecimals(mint))
+            )
+          );
+
+      if (BigInt(account.value.amount) < requiredRaw) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Converts an acquisition quote into the largest non-dilutive deposit that
+   * the live vault can accept. For existing baskets we derive mintable shares
+   * from current reserves, then trim each constituent deposit to the exact
+   * proportional amount needed. Any tiny rounding surplus stays in the user's
+   * wallet instead of being donated to the vault.
+   */
+  async prepareProportionalMintQuote(
+    basket: BasketDefinition,
+    quote: BasketMintQuote,
+    useDevnetMirrors: boolean = false
+  ): Promise<BasketMintQuote> {
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
+
+    if (!basketInfo) {
+      throw new Error(
+        `Basket vault ${basket.symbol} (${executionSymbol}) is not initialized on the connected cluster.`
+      );
+    }
+
+    const decoded: any = this.accountsCoder.decode('BasketState', basketInfo.data);
+    const totalShares = BigInt(decoded.totalSharesMinted.toString());
+
+    // First issuance establishes reserves, so the quoted basket amount can be
+    // used directly as long as every constituent amount is positive.
+    if (totalShares === 0n) return quote;
+
+    const reserves = (decoded.vaultReserves as any[]).map((value) =>
+      BigInt(value.toString())
+    );
+
+    if (reserves.length !== quote.allocations.length) {
+      throw new Error('Live vault reserve count does not match the basket quote.');
+    }
+
+    const basketDecimals = 6;
+    const quotedSharesRaw = BigInt(
+      Math.floor(quote.expectedBasketTokens * 10 ** basketDecimals)
+    );
+    if (quotedSharesRaw <= 0n) {
+      throw new Error('Quoted basket share amount is zero.');
+    }
+
+    let safeSharesRaw = quotedSharesRaw;
+    const acquiredRaw: bigint[] = [];
+
+    for (let i = 0; i < quote.allocations.length; i += 1) {
+      const allocation = quote.allocations[i];
+      const executionMint = useDevnetMirrors
+        ? allocation.asset.devnetMint || getDevnetMirrorMint(allocation.asset.symbol)
+        : allocation.asset.tokenMint;
+
+      if (!executionMint) {
+        throw new Error(
+          `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${allocation.asset.symbol}.`
+        );
+      }
+
+      const mint = new PublicKey(executionMint);
+      const rawAmount = allocation.rawTokenAmount
+        ? BigInt(allocation.rawTokenAmount)
+        : BigInt(
+            Math.floor(
+              allocation.estimatedTokensReceived *
+                10 ** (await this.getMintDecimals(mint))
+            )
+          );
+
+      const reserve = reserves[i];
+      if (reserve <= 0n || rawAmount <= 0n) {
+        throw new Error(
+          `Cannot prepare proportional deposit for ${allocation.asset.symbol}: reserve or acquired amount is zero.`
+        );
+      }
+
+      acquiredRaw.push(rawAmount);
+      const mintableFromLeg = (rawAmount * totalShares) / reserve;
+      if (mintableFromLeg < safeSharesRaw) safeSharesRaw = mintableFromLeg;
+    }
+
+    if (safeSharesRaw <= 0n) {
+      throw new Error('Acquired constituent amounts cannot mint any basket shares.');
+    }
+
+    const allocations = [];
+    for (let i = 0; i < quote.allocations.length; i += 1) {
+      const allocation = quote.allocations[i];
+      const reserve = reserves[i];
+
+      // ceil(safeShares * reserve / totalShares) so the contract's floor-based
+      // proportional-share calculation is guaranteed to accept the target.
+      const requiredRaw =
+        (safeSharesRaw * reserve + totalShares - 1n) / totalShares;
+
+      if (requiredRaw > acquiredRaw[i]) {
+        throw new Error(
+          `Proportional deposit requires more ${allocation.asset.symbol} than was acquired.`
+        );
+      }
+
+      const executionMint = useDevnetMirrors
+        ? allocation.asset.devnetMint || getDevnetMirrorMint(allocation.asset.symbol)
+        : allocation.asset.tokenMint;
+      const decimals = await this.getMintDecimals(new PublicKey(executionMint!));
+
+      allocations.push({
+        ...allocation,
+        rawTokenAmount: requiredRaw.toString(),
+        estimatedTokensReceived: Number(requiredRaw) / 10 ** decimals,
+      });
+    }
+
+    return {
+      ...quote,
+      expectedBasketTokens: Number(safeSharesRaw) / 10 ** basketDecimals,
+      allocations,
+    };
+  }
+
+  /**
    * Confirms the user actually holds every constituent amount that will be
    * transferred by deposit_and_mint. This runs after acquisition confirmation
    * and before asking the wallet to sign the vault deposit.
