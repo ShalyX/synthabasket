@@ -55,7 +55,7 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
                 </div>
                 <p className="mt-2 text-xs leading-5 text-ink-secondary">
                   A 10 USDC AITD execution completed through the real acquisition, Anchor deposit_and_mint,
-                  and Anchor burn_and_redeem path on Solana Devnet. The previous proxy receipts remain retired.
+                  explicit basket-share balance verification, and Anchor burn_and_redeem path on Solana Devnet.
                 </p>
               </div>
             </div>
@@ -67,9 +67,9 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
             </div>
             <div className="space-y-2 text-[11px]">
               {[
-                ['Acquire', 'ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS'],
-                ['Mint', '2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ'],
-                ['Redeem', '4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5'],
+                ['Acquire', '64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg'],
+                ['Mint', 'eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8'],
+                ['Redeem', '5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe'],
               ].map(([label, signature]) => (
                 <a
                   key={label}
