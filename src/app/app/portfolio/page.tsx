@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import {
   ArrowRight,
   ExternalLink,
@@ -12,8 +12,6 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Navbar } from '../../../components/Navbar';
-import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
-import { BasketDefinition } from '../../../lib/types';
 
 type Holding = {
   basketId: string;
@@ -29,7 +27,6 @@ type Holding = {
 };
 
 export default function PortfolioPage() {
-  const { connection } = useConnection();
   const { publicKey } = useWallet();
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,59 +45,40 @@ export default function PortfolioPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/baskets', { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Basket hydration request failed with HTTP ${response.status}.`);
-      }
-      const payload = await response.json();
-      const hydratedBaskets: BasketDefinition[] = Array.isArray(payload.baskets)
-        ? payload.baskets
-        : [];
-      if (hydratedBaskets.length === 0) {
-        throw new Error('Hydrated basket response contained no baskets.');
-      }
-
-      const vaultClient = new SynthaBasketVaultClient(connection);
-      const results = await Promise.all(
-        hydratedBaskets.map(async (basket) => {
-          try {
-            const executionSymbol = basket.devnetExecutionSymbol || `${basket.symbol}D`;
-            const [mint] = vaultClient.getBasketMintPda(executionSymbol);
-            const [vaultPda] = vaultClient.getBasketPda(executionSymbol);
-            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint });
-
-            const shares = tokenAccounts.value.reduce((total, account) => {
-              const parsed = account.account.data.parsed;
-              const amount = Number(parsed?.info?.tokenAmount?.uiAmountString ?? parsed?.info?.tokenAmount?.uiAmount ?? 0);
-              return total + (Number.isFinite(amount) ? amount : 0);
-            }, 0);
-
-            return {
-              basketId: basket.id,
-              symbol: basket.symbol,
-              name: basket.name,
-              shares,
-              navUsd: basket.navUsd,
-              valueUsd: shares * basket.navUsd,
-              change24h: basket.navChange24h,
-              change24hAvailable: basket.navChange24hAvailable === true,
-              basketMint: mint.toBase58(),
-              vaultPda: vaultPda.toBase58(),
-            } satisfies Holding;
-          } catch {
-            return null;
-          }
-        })
+      const response = await fetch(
+        `/api/portfolio?owner=${encodeURIComponent(publicKey.toBase58())}`,
+        { cache: 'no-store' }
       );
+      if (!response.ok) {
+        throw new Error(`Portfolio request failed with HTTP ${response.status}.`);
+      }
 
-      setHoldings(results.filter((holding): holding is Holding => Boolean(holding && holding.shares > 0)));
-      setLastUpdated(new Date());
+      const payload = await response.json();
+      const positions = Array.isArray(payload.positions) ? payload.positions : [];
+
+      const hydratedHoldings: Holding[] = positions
+        .filter((position: any) => Number(position.shares) > 0)
+        .map((position: any) => ({
+          basketId: position.basketId,
+          symbol: position.symbol,
+          name: position.name,
+          shares: Number(position.shares),
+          navUsd: Number(position.navUsd),
+          valueUsd: Number(position.valueUsd),
+          change24h: Number(position.change24h || 0),
+          change24hAvailable: position.change24hAvailable === true,
+          basketMint: position.basketMint,
+          vaultPda: position.vaultPda,
+        }));
+
+      setHoldings(hydratedHoldings);
+      setLastUpdated(new Date(payload.generatedAt || Date.now()));
     } catch (err: any) {
       setError(err?.message || 'Unable to load basket balances from Solana.');
     } finally {
       setLoading(false);
     }
-  }, [connection, publicKey]);
+  }, [publicKey]);
 
   useEffect(() => {
     loadPortfolio();
