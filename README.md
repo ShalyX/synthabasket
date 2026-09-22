@@ -139,16 +139,16 @@ npx tsx scripts/verify-vault-math.ts
 npm run build
 ```
 
-See `DEMO_RUN_RECEIPTS.md` for the current proof status.
+See `DEMO_RUN_RECEIPTS.md` for the verified Devnet execution receipts.
 
 ---
 
 ## Anchor program
 
-**Program ID**
+**Devnet hardened program ID**
 
 ```text
-BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh
+4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA
 ```
 
 **PDA seeds**
@@ -188,4 +188,6 @@ An earlier Devnet receipt set was retired after an audit found that setup/self-t
 
 Those historical signatures are not used as protocol execution evidence anymore.
 
-A receipt is now marked **CONFIRMED** only when the transaction performing the claimed operation itself confirms on-chain.
+The repaired Devnet happy path was subsequently executed successfully against the provisioned AITD basket. The confirmed proof now includes the actual USDC-backed mirror acquisition, the actual Anchor `deposit_and_mint`, and the actual Anchor `burn_and_redeem` transactions recorded in `DEMO_RUN_RECEIPTS.md`.
+
+A receipt is marked **CONFIRMED** only when the transaction performing the claimed operation itself confirms on-chain.
