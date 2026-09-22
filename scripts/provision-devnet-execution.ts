@@ -1,5 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import { createHash } from 'crypto';
+import { execFileSync } from 'child_process';
 import { Connection, Keypair, PublicKey, clusterApiUrl, sendAndConfirmTransaction } from '@solana/web3.js';
 import { createMint, getMint } from '@solana/spl-token';
 import bs58 from 'bs58';
@@ -49,6 +52,239 @@ const ENV_BY_SYMBOL: Record<string, string> = {
   NEURALINK: 'NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK',
   FIGUREAI: 'NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI',
 };
+
+function run(command: string, args: string[], cwd?: string) {
+  console.log('
+  const trimmed = value.trim();
+  if (trimmed.startsWith('[')) {
+    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed)));
+  }
+  return Keypair.fromSecretKey(bs58.decode(trimmed));
+}
+
+async function main() {
+  const secret = process.env.DEVNET_MIRROR_AUTHORITY_SECRET || process.env.RUNNER_PRIVATE_KEY;
+  if (!secret) {
+    throw new Error('Set DEVNET_MIRROR_AUTHORITY_SECRET or RUNNER_PRIVATE_KEY before provisioning.');
+  }
+
+  const authority = parseSecret(secret);
+  const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.SOLANA_RPC_URL || clusterApiUrl('devnet');
+  const connection = new Connection(endpoint, 'confirmed');
+  const balance = await connection.getBalance(authority.publicKey, 'confirmed');
+
+  if (balance < 0.05 * 1_000_000_000) {
+    throw new Error('Mirror authority needs at least 0.05 Devnet SOL for mint and basket initialization rent.');
+  }
+
+  console.log('Devnet execution authority:', authority.publicKey.toBase58());
+  console.log('RPC:', endpoint);
+
+  const allSymbols = Object.keys(ENV_BY_SYMBOL);
+  const mirrorMints = new Map<string, PublicKey>();
+
+  for (const symbol of allSymbols) {
+    const envName = ENV_BY_SYMBOL[symbol];
+    if (!envName) throw new Error('No mirror environment-variable mapping for ' + symbol);
+
+    const configured = process.env[envName] || KNOWN_DEVNET_MIRRORS[symbol];
+    if (configured) {
+      const mint = new PublicKey(configured);
+      const info = await getMint(connection, mint);
+      if (info.decimals !== 6) throw new Error(symbol + ' mirror must use 6 decimals.');
+      if (!info.mintAuthority || !info.mintAuthority.equals(authority.publicKey)) {
+        throw new Error(symbol + ' mirror mint authority does not match the configured execution authority.');
+      }
+      mirrorMints.set(symbol, mint);
+      console.log('Reusing', symbol, mint.toBase58());
+      continue;
+    }
+
+    const mint = await createMint(
+      connection,
+      authority,
+      authority.publicKey,
+      null,
+      6
+    );
+    mirrorMints.set(symbol, mint);
+    console.log('Created', symbol, mint.toBase58());
+  }
+
+  const programId = await ensureProgramDeployed(connection, authority, endpoint);
+  const vaultClient = new SynthaBasketVaultClient(connection, programId);
+
+  for (const basket of INITIAL_BASKETS) {
+    const mirroredBasket: BasketDefinition = {
+      ...basket,
+      constituents: basket.constituents.map((constituent) => ({
+        ...constituent,
+        asset: {
+          ...constituent.asset,
+          devnetMint: mirrorMints.get(constituent.asset.symbol)!.toBase58(),
+        },
+      })),
+    };
+
+    const executionSymbol = basket.devnetExecutionSymbol || basket.symbol + 'D';
+    const [basketPda] = vaultClient.getBasketPda(executionSymbol);
+    const existing = await connection.getAccountInfo(basketPda, 'confirmed');
+    if (existing) {
+      console.log('Basket already initialized:', executionSymbol, basketPda.toBase58());
+      await vaultClient.verifyBasketExecutionState(mirroredBasket, true);
+      continue;
+    }
+
+    const tx = await vaultClient.buildInitializeBasketTransaction(
+      authority.publicKey,
+      mirroredBasket,
+      true,
+      0
+    );
+    const signature = await sendAndConfirmTransaction(connection, tx, [authority], {
+      commitment: 'confirmed',
+    });
+    console.log('Initialized basket:', executionSymbol, signature);
+  }
+
+  console.log('\nNEXT_PUBLIC_PROGRAM_ID=' + programId.toBase58());
+  console.log('Add these values to local/Vercel environment settings:');
+  console.log('DEVNET_MIRROR_AUTHORITY_SECRET=<same server-side authority secret>');
+  for (const [symbol, mint] of mirrorMints.entries()) {
+    console.log(ENV_BY_SYMBOL[symbol] + '=' + mint.toBase58());
+  }
+  console.log('\nDo not expose DEVNET_MIRROR_AUTHORITY_SECRET as NEXT_PUBLIC_* or commit it.');
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+, command, args.join(' '));
+  execFileSync(command, args, {
+    cwd,
+    env: process.env,
+    stdio: 'inherit',
+  });
+}
+
+function ensureSolanaCli() {
+  try {
+    execFileSync('solana', ['--version'], { stdio: 'ignore' });
+    return;
+  } catch {
+    // Pin the historical toolchain used by this Anchor 0.30 / Solana 1.18 program.
+  }
+
+  const archive = path.join(os.tmpdir(), 'solana-release.tar.bz2');
+  const installDir = path.join(os.tmpdir(), 'solana-release');
+  run('curl', [
+    '-L',
+    '--fail',
+    '--retry',
+    '3',
+    '-o',
+    archive,
+    'https://github.com/solana-labs/solana/releases/download/v1.18.26/solana-release-x86_64-unknown-linux-gnu.tar.bz2',
+  ]);
+  fs.rmSync(installDir, { recursive: true, force: true });
+  fs.mkdirSync(installDir, { recursive: true });
+  run('tar', ['-xjf', archive, '--strip-components=1', '-C', installDir]);
+  process.env.PATH = path.join(installDir, 'bin') + path.delimiter + (process.env.PATH || '');
+  run('solana', ['--version']);
+}
+
+function deriveDevnetProgramKeypair(authority: Keypair): Keypair {
+  const seed = createHash('sha256')
+    .update('synthabasket-devnet-program-v1')
+    .update(Buffer.from(authority.secretKey))
+    .digest()
+    .subarray(0, 32);
+  return Keypair.fromSeed(seed);
+}
+
+async function ensureProgramDeployed(
+  connection: Connection,
+  authority: Keypair,
+  endpoint: string
+): Promise<PublicKey> {
+  const programKeypair = deriveDevnetProgramKeypair(authority);
+  const programId = programKeypair.publicKey;
+  const existing = await connection.getAccountInfo(programId, 'confirmed');
+
+  if (existing?.executable) {
+    console.log('Reusing deployed SynthaBasket program:', programId.toBase58());
+    return programId;
+  }
+
+  console.log('SynthaBasket program is not deployed; provisioning Devnet program:', programId.toBase58());
+  ensureSolanaCli();
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'synthabasket-program-'));
+  const authorityPath = path.join(tempDir, 'authority.json');
+  const programKeypairPath = path.join(tempDir, 'program-keypair.json');
+  fs.writeFileSync(authorityPath, JSON.stringify(Array.from(authority.secretKey)));
+  fs.writeFileSync(programKeypairPath, JSON.stringify(Array.from(programKeypair.secretKey)));
+  fs.chmodSync(authorityPath, 0o600);
+  fs.chmodSync(programKeypairPath, 0o600);
+
+  const contractDir = path.join(process.cwd(), 'contracts', 'synthabasket_vault');
+  const programDir = path.join(contractDir, 'programs', 'synthabasket_vault');
+  const libPath = path.join(programDir, 'src', 'lib.rs');
+  const anchorPath = path.join(contractDir, 'Anchor.toml');
+
+  const libSource = fs.readFileSync(libPath, 'utf8').replace(
+    /declare_id!\("[^"]+"\);/,
+    `declare_id!("${programId.toBase58()}");`
+  );
+  fs.writeFileSync(libPath, libSource);
+
+  const anchorSource = fs.readFileSync(anchorPath, 'utf8').replace(
+    /synthabasket_vault = "[^"]+"/g,
+    `synthabasket_vault = "${programId.toBase58()}"`
+  );
+  fs.writeFileSync(anchorPath, anchorSource);
+
+  let lamports = await connection.getBalance(authority.publicKey, 'confirmed');
+  if (lamports < 2.5 * 1_000_000_000) {
+    console.log('Requesting Devnet SOL for program deployment...');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        run('solana', ['airdrop', '2', authority.publicKey.toBase58(), '--url', endpoint]);
+      } catch {
+        console.warn('Devnet faucet request failed; continuing with current balance.');
+      }
+    }
+    lamports = await connection.getBalance(authority.publicKey, 'confirmed');
+    console.log('Authority balance after faucet attempts:', lamports / 1_000_000_000, 'SOL');
+  }
+
+  run('cargo', ['build-sbf'], programDir);
+  const soPath = path.join(programDir, 'target', 'deploy', 'synthabasket_vault.so');
+  if (!fs.existsSync(soPath)) {
+    throw new Error('cargo build-sbf completed but synthabasket_vault.so was not produced.');
+  }
+
+  run('solana', [
+    '--url',
+    endpoint,
+    '--keypair',
+    authorityPath,
+    'program',
+    'deploy',
+    soPath,
+    '--program-id',
+    programKeypairPath,
+  ]);
+
+  const deployed = await connection.getAccountInfo(programId, 'confirmed');
+  if (!deployed?.executable) {
+    throw new Error('Program deployment returned without an executable program account.');
+  }
+
+  console.log('PROGRAM_ID=' + programId.toBase58());
+  return programId;
+}
 
 function parseSecret(value: string): Keypair {
   const trimmed = value.trim();
