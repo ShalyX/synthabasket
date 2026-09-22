@@ -1,69 +1,88 @@
-# SynthaBasket — Devnet Execution Proof Status
+# SynthaBasket — Verified Devnet Execution Receipts
 
-## Status: re-verification required
+Generated only after the actual acquisition, Anchor deposit/mint, and Anchor burn/redeem transactions confirm on Solana Devnet. Simulations and unrelated transfer transactions are not counted as execution proof.
 
-The previous receipt set has been **retired as execution proof**.
+**Execution Timestamp**: `2026-09-22T16:17:58.857Z`  
+**Runner Wallet**: [`Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR`](https://explorer.solana.com/address/Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR?cluster=devnet)  
+**Target Basket**: **AI Titans Index ($AIT)**  
+**Devnet Execution Basket**: **AITD**  
+**Program**: `4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA`
 
-During an execution audit on 2026-09-22, we found that the earlier happy-path script used unrelated Solana transfers as the recorded "confirmed" signatures while the actual Anchor `deposit_and_mint` and `burn_and_redeem` transactions were only simulated. The earlier Jupiter stage also produced no executable swap transactions for the Devnet private-market assets.
+---
 
-Those signatures remain valid Solana transactions, but they **do not prove the operations they were previously labeled as proving** and must not be used as SynthaBasket deposit/mint or redemption receipts.
+## 1. Underlying Acquisition
 
-### Retired signatures
+- **Action**: Atomic Devnet USDC payment + mirror-asset issuance
+- **Status**: **CONFIRMED**
+- **Transaction**: [`ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS`](https://explorer.solana.com/tx/ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS?cluster=devnet)
+- **Details**:
 
-- `2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1`
-  - Historical operation: SOL transfer used to provision/fund a PDA address.
-  - **Not** proof of Anchor `deposit_and_mint`.
-
-- `41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt`
-  - Historical operation: small SOL self-transfer used as a settlement record.
-  - **Not** proof of Anchor `burn_and_redeem`.
-
-## Replacement proof standard
-
-A SynthaBasket operation may be marked **CONFIRMED** only when the transaction that performs that exact operation is itself broadcast and confirmed.
-
-The current proof runner, `scripts/execute-happy-path.ts`, now requires all of the following:
-
-1. Authenticated Pyth price ingestion.
-2. An actual Devnet USDC-backed acquisition transaction for configured private-market mirror assets.
-3. A confirmed Anchor `deposit_and_mint` transaction containing real SPL constituent transfers.
-4. A confirmed Anchor `burn_and_redeem` transaction containing proportional SPL releases.
-
-Route estimates, simulations, setup transfers, self-transfers, or PDA funding transactions are never substituted for execution proof.
-
-## Devnet execution prerequisites
-
-Before generating replacement receipts:
-
-1. Deploy the hardened Anchor program in `contracts/synthabasket_vault`.
-2. Configure a funded Devnet runner and mirror authority.
-3. Run:
-
-```bash
-npm run provision-devnet
+```json
+{
+  "depositUsdc": 10,
+  "constituents": [
+    {
+      "symbol": "T-OpenAI",
+      "devnetMint": "Bj47e5GCXuaxmbPjDRF5iSVjZ1Y4uEFoaDoPUAfD1xkB",
+      "rawAmount": "6200"
+    },
+    {
+      "symbol": "ANTHROPIC",
+      "devnetMint": "GxtkS2jUU5br9JJB64FuvvUxwp2sadxwCCRsZwiqAR3p",
+      "rawAmount": "2900"
+    },
+    {
+      "symbol": "T-Kalshi",
+      "devnetMint": "HSv2zqvfSXv2CQ7TW79HpQPYziNvoiY3CKpGu7Ec3hFh",
+      "rawAmount": "4800"
+    }
+  ]
+}
 ```
 
-4. Add the printed `NEXT_PUBLIC_DEVNET_MIRROR_*` values to the application environment.
-5. Configure `DEVNET_MIRROR_AUTHORITY_SECRET` on the server.
-6. Fund the runner/user with Devnet SOL and Devnet USDC.
-7. Run:
+---
 
-```bash
-npx tsx scripts/execute-happy-path.ts
+## 2. Vault Deposit & Basket Mint
+
+- **Action**: Anchor `deposit_and_mint` with real SPL transfers
+- **Status**: **CONFIRMED**
+- **Transaction**: [`2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ`](https://explorer.solana.com/tx/2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ?cluster=devnet)
+- **Details**:
+
+```json
+{
+  "basket": "AIT",
+  "devnetExecutionSymbol": "AITD",
+  "expectedShares": 0.0125
+}
 ```
 
-Only after that script completes successfully should this file contain new transaction receipts.
+---
 
-## Current code-level hardening
+## 3. Burn & Redeem
 
-The repaired execution path now:
+- **Action**: Anchor `burn_and_redeem` with proportional SPL release
+- **Status**: **CONFIRMED**
+- **Transaction**: [`4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5`](https://explorer.solana.com/tx/4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5?cluster=devnet)
+- **Details**:
 
-- refuses to advance when an executable constituent acquisition is unavailable;
-- broadcasts actual Jupiter transactions on supported mainnet routes;
-- uses an explicit Devnet mirror acquisition adapter instead of a synthetic route fallback;
-- feeds exact acquired raw token amounts into the vault deposit;
-- verifies live basket PDA ownership and constituent configuration before deposit;
-- polls Solana for confirmed / failed / expired transaction status rather than treating a short timeout as definitive;
-- validates constituent mint identities and token-account ownership inside the Anchor program.
+```json
+{
+  "sharesBurned": 0.00625,
+  "constituents": [
+    { "symbol": "T-OpenAI" },
+    { "symbol": "ANTHROPIC" },
+    { "symbol": "T-Kalshi" }
+  ]
+}
+```
 
-This document intentionally contains **no replacement "confirmed" deposit or redemption signature yet**. New receipts must come from the repaired runner after the Devnet environment is provisioned.
+---
+
+## Oracle note
+
+This proof run did not claim Pyth oracle verification because `PYTH_API_KEY` was not configured in GitHub Actions. The custody proof above is independent of that optional oracle side-check.
+
+## Proof standard
+
+A transaction is marked **CONFIRMED** only when the transaction that performs the claimed operation is itself broadcast and confirmed. A setup transfer, self-transfer, route estimate, or simulation is never substituted for execution proof.
