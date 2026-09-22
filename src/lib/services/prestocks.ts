@@ -1,5 +1,7 @@
 import { AssetQuote } from '../types';
 
+const VERIFIED_SNAPSHOT_AT = Date.UTC(2026, 8, 21, 0, 0, 0);
+
 export interface PreStocksApiItem {
   name: string;
   symbol: string;
@@ -31,7 +33,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/anduril.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'ANTHROPIC',
@@ -45,7 +47,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/anthropic.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'OPENAI',
@@ -59,7 +61,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/openai.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'SPACEX',
@@ -73,7 +75,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/spacex.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'KALSHI',
@@ -87,7 +89,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/kalshi.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'NEURALINK',
@@ -101,7 +103,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/neuralink.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'POLYMARKET',
@@ -115,7 +117,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/polymarket.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'FIGUREAI',
@@ -129,7 +131,7 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     logoUrl: 'https://www.prestocks.com/logos/figureai.png',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   }
 ];
 
