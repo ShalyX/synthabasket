@@ -1,4 +1,5 @@
 name: Provision SynthaBasket Devnet Execution
+# Provisioning trigger: authority configured
 
 on:
   push:
