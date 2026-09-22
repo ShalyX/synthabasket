@@ -45,7 +45,7 @@ pub mod synthabasket_vault {
     }
 
     pub fn deposit_and_mint<'info>(
-        ctx: Context<'_, '_, '_, 'info, DepositAndMint<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, DepositAndMint<'info>>,
         shares_to_mint: u64,
         constituent_amounts_in: Vec<u64>,
     ) -> Result<()> {
@@ -182,7 +182,7 @@ pub mod synthabasket_vault {
     }
 
     pub fn burn_and_redeem<'info>(
-        ctx: Context<'_, '_, '_, 'info, BurnAndRedeem<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, BurnAndRedeem<'info>>,
         shares_to_burn: u64,
     ) -> Result<()> {
         let basket = &mut ctx.accounts.basket;
@@ -212,12 +212,15 @@ pub mod synthabasket_vault {
             shares_to_burn,
         )?;
 
-        // Release proportional constituent tokens from Vault PDA to user
-        let symbol_bytes = basket.symbol.as_bytes();
+        // Release proportional constituent tokens from Vault PDA to user.
+        // Clone signer seed material so we do not keep an immutable borrow of
+        // basket alive while updating vault_reserves inside the loop.
+        let basket_symbol = basket.symbol.clone();
+        let basket_bump = basket.bump;
         let basket_seeds: &[&[u8]] = &[
             b"basket",
-            symbol_bytes,
-            &[basket.bump],
+            basket_symbol.as_bytes(),
+            &[basket_bump],
         ];
         let signer_seeds = &[&basket_seeds[..]];
 
