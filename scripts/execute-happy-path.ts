@@ -327,6 +327,24 @@ async function runHappyPath() {
     },
   });
 
+  const executionSymbol =
+    targetBasket.devnetExecutionSymbol || `${targetBasket.symbol}D`;
+  const [executionBasketMint] =
+    vaultClient.getBasketMintPda(executionSymbol);
+  const userBasketAta = vaultClient.getUserTokenAccount(
+    runner.publicKey,
+    executionBasketMint
+  );
+
+  const readBasketSharesRaw = async (): Promise<bigint> => {
+    const balance = await connection
+      .getTokenAccountBalance(userBasketAta, 'confirmed')
+      .catch(() => null);
+    return balance ? BigInt(balance.value.amount) : 0n;
+  };
+
+  const sharesBeforeMintRaw = await readBasketSharesRaw();
+
   const depositTx = await vaultClient.buildMintTransaction(
     runner.publicKey,
     targetBasket,
@@ -342,6 +360,14 @@ async function runHappyPath() {
     { commitment: 'confirmed' }
   );
 
+  const sharesAfterMintRaw = await readBasketSharesRaw();
+  const mintedDeltaRaw = sharesAfterMintRaw - sharesBeforeMintRaw;
+  if (mintedDeltaRaw <= 0n) {
+    throw new Error(
+      'deposit_and_mint confirmed but the runner basket-share balance did not increase.'
+    );
+  }
+
   receipts.push({
     step: 'Vault Deposit & Basket Mint',
     action: 'Anchor deposit_and_mint with real SPL transfers',
@@ -350,8 +376,13 @@ async function runHappyPath() {
     explorerUrl: explorer(depositSignature),
     details: {
       basket: targetBasket.symbol,
-      devnetExecutionSymbol: targetBasket.devnetExecutionSymbol,
+      devnetExecutionSymbol: executionSymbol,
       expectedShares: acquisition.executionQuote.expectedBasketTokens,
+      basketMint: executionBasketMint.toBase58(),
+      userBasketTokenAccount: userBasketAta.toBase58(),
+      sharesBeforeMintRaw: sharesBeforeMintRaw.toString(),
+      sharesAfterMintRaw: sharesAfterMintRaw.toString(),
+      mintedDeltaRaw: mintedDeltaRaw.toString(),
     },
   });
 
@@ -370,12 +401,22 @@ async function runHappyPath() {
     true
   );
 
+  const sharesBeforeRedeemRaw = await readBasketSharesRaw();
+
   const redeemSignature = await sendAndConfirmTransaction(
     connection,
     redeemTx,
     [runner],
     { commitment: 'confirmed' }
   );
+
+  const sharesAfterRedeemRaw = await readBasketSharesRaw();
+  const burnedDeltaRaw = sharesBeforeRedeemRaw - sharesAfterRedeemRaw;
+  if (burnedDeltaRaw <= 0n) {
+    throw new Error(
+      'burn_and_redeem confirmed but the runner basket-share balance did not decrease.'
+    );
+  }
 
   receipts.push({
     step: 'Burn & Redeem',
@@ -385,6 +426,9 @@ async function runHappyPath() {
     explorerUrl: explorer(redeemSignature),
     details: {
       sharesBurned: sharesToRedeem,
+      sharesBeforeRedeemRaw: sharesBeforeRedeemRaw.toString(),
+      sharesAfterRedeemRaw: sharesAfterRedeemRaw.toString(),
+      burnedDeltaRaw: burnedDeltaRaw.toString(),
       constituents: redeemQuote.constituentsToReturn.map((item) => ({
         symbol: item.asset.symbol,
       })),
