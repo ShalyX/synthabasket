@@ -1,7 +1,13 @@
 import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, BasisMonitorItem, ProviderMode } from '../types';
 import { fetchPreStocksAssets } from './prestocks';
 import { fetchTesseraAssets } from './tessera';
-import { computeBasisSpread, fetchPythPrices } from './pyth';
+import {
+  computeBasisSpread,
+  fetchPythPrices,
+  fetchPythPrivateIndexBenchmarks,
+  getPythPrivateIndexSymbol,
+  normalizePrivateMarketUnderlying,
+} from './pyth';
 import { withDevnetMirror } from '../execution/devnet_mirrors';
 
 export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promise<AssetQuote[]> {
@@ -11,28 +17,61 @@ export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promi
   const [prestocks, tessera] = await Promise.all([prestocksPromise, tesseraPromise]);
   const combined = [...prestocks, ...tessera].map(withDevnetMirror);
 
-  // Fetch Pyth benchmark prices for any assets with pythFeedId
   const feedIds = combined
-    .map(a => a.pythFeedId)
+    .map((asset) => asset.pythFeedId)
     .filter((id): id is string => Boolean(id));
+  const underlyings = combined.map((asset) => normalizePrivateMarketUnderlying(asset.symbol));
 
-  if (feedIds.length > 0) {
-    const pythPrices = await fetchPythPrices(feedIds);
-    return combined.map(asset => {
-      if (asset.pythFeedId && (pythPrices[asset.pythFeedId] || pythPrices[`0x${asset.pythFeedId}`])) {
-        const pythPrice = pythPrices[asset.pythFeedId] || pythPrices[`0x${asset.pythFeedId}`];
-        const { spreadBps } = computeBasisSpread(asset.priceUsd, pythPrice);
+  const [pythPrices, privateIndexBenchmarks] = await Promise.all([
+    feedIds.length > 0 ? fetchPythPrices(feedIds) : Promise.resolve<Record<string, number>>({}),
+    fetchPythPrivateIndexBenchmarks(underlyings),
+  ]);
+
+  return combined.map((asset) => {
+    const underlying = normalizePrivateMarketUnderlying(asset.symbol);
+    const privateIndex = privateIndexBenchmarks[underlying];
+    const privateIndexSymbol = getPythPrivateIndexSymbol(asset.symbol);
+
+    if (privateIndex) {
+      return {
+        ...asset,
+        pythBenchmarkSymbol: privateIndex.symbol,
+        pythBenchmarkPriceUsd: privateIndex.priceUsd,
+        pythBenchmarkSource: 'pyth_index' as const,
+        pythBenchmarkIndicative: true,
+        pythBenchmarkPublishedAt: privateIndex.publishedAt,
+        // Pyth explicitly describes the private-company indices as indicative
+        // company-level signals. Do not infer token-price basis from them.
+        pythBenchmarkComparable: false,
+        basisSpreadBps: undefined,
+      };
+    }
+
+    if (asset.pythFeedId) {
+      const pythPrice = pythPrices[asset.pythFeedId] || pythPrices[`0x${asset.pythFeedId}`];
+      if (pythPrice) {
+        const comparable = asset.pythBenchmarkComparable === true;
+        const spreadBps = comparable
+          ? computeBasisSpread(asset.priceUsd, pythPrice).spreadBps
+          : undefined;
         return {
           ...asset,
+          pythBenchmarkSymbol: asset.pythBenchmarkSymbol || asset.pythFeedId,
           pythBenchmarkPriceUsd: pythPrice,
+          pythBenchmarkSource: 'pyth_core' as const,
+          pythBenchmarkIndicative: false,
           basisSpreadBps: spreadBps,
         };
       }
-      return asset;
-    });
-  }
+    }
 
-  return combined;
+    return {
+      ...asset,
+      // Surface that an official Pyth Index exists even when the deployment has
+      // not yet been granted index access. This is metadata, not a live value.
+      pythBenchmarkSymbol: privateIndexSymbol || asset.pythBenchmarkSymbol,
+    };
+  });
 }
 
 export function calculateBasketNav(
@@ -128,9 +167,10 @@ export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonito
           ? asset.pythBenchmarkPriceUsd
           : undefined;
 
-      const benchmarkSpreadBps = benchmarkPrice
-        ? computeBasisSpread(asset.priceUsd, benchmarkPrice).spreadBps
-        : undefined;
+      const benchmarkSpreadBps =
+        benchmarkPrice && asset.pythBenchmarkComparable === true
+          ? computeBasisSpread(asset.priceUsd, benchmarkPrice).spreadBps
+          : undefined;
 
       return {
         symbol: asset.symbol,
@@ -142,7 +182,12 @@ export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonito
         change24h: asset.change24h,
         change24hAvailable: asset.change24hAvailable === true,
         quoteSource: asset.quoteSource || 'snapshot',
+        pythBenchmarkSymbol: asset.pythBenchmarkSymbol,
         pythBenchmarkPriceUsd: benchmarkPrice,
+        pythBenchmarkSource: asset.pythBenchmarkSource,
+        pythBenchmarkIndicative: asset.pythBenchmarkIndicative,
+        pythBenchmarkPublishedAt: asset.pythBenchmarkPublishedAt,
+        pythBenchmarkComparable: asset.pythBenchmarkComparable,
         benchmarkSpreadBps,
         lastUpdated: asset.lastUpdated,
       };

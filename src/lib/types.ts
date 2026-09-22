@@ -19,7 +19,16 @@ export interface AssetQuote {
   marketCapUsd?: number;
   volume24hUsd?: number;
   pythFeedId?: string;
+  /** Official Pyth Index symbol when one exists for the underlying company. */
+  pythBenchmarkSymbol?: string;
+  /** Pyth benchmark value when the application is entitled to fetch it. */
   pythBenchmarkPriceUsd?: number;
+  pythBenchmarkSource?: 'pyth_core' | 'pyth_index';
+  /** Pyth private-market indices are informational/indicative rather than executable prices. */
+  pythBenchmarkIndicative?: boolean;
+  pythBenchmarkPublishedAt?: number;
+  /** Only true when provider and benchmark values are known to use directly comparable units. */
+  pythBenchmarkComparable?: boolean;
   basisSpreadBps?: number;
   logoUrl?: string;
   description?: string;
@@ -161,7 +170,12 @@ export interface BasisMonitorItem {
   change24h: number;
   change24hAvailable: boolean;
   quoteSource: 'live' | 'snapshot';
+  pythBenchmarkSymbol?: string;
   pythBenchmarkPriceUsd?: number;
+  pythBenchmarkSource?: 'pyth_core' | 'pyth_index';
+  pythBenchmarkIndicative?: boolean;
+  pythBenchmarkPublishedAt?: number;
+  pythBenchmarkComparable?: boolean;
   benchmarkSpreadBps?: number;
   lastUpdated: number;
 }
