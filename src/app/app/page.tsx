@@ -56,7 +56,6 @@ export default function AppPage() {
   // Category filter for the basket cards
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [marketTab, setMarketTab] = useState<'top' | 'movers' | 'new'>('top');
 
   // Selected Basket Modal
   const [selectedBasket, setSelectedBasket] = useState<BasketDefinition | null>(null);
@@ -105,38 +104,32 @@ export default function AppPage() {
     const initialSteps = [
       {
         id: 'route_quote',
-        label: isDevnet ? 'Resolve Executable Devnet Asset Routes' : 'Prepare Multi-Asset Jupiter Routes',
-        description: isDevnet
-          ? `Checking executable Devnet mirror assets for ${basket.constituents.length} constituents`
-          : `Splitting ${quote.depositUsdcAmount} USDC into ${basket.constituents.length} constituent assets via Jupiter Swap API V2`,
+        label: 'Preparing your investment',
+        description: `Getting ${basket.constituents.length} underlying assets ready`,
         status: 'active' as const,
       },
       {
         id: 'verify_custody',
-        label: 'Verify Live Vault & Execution Configuration',
-        description: isDevnet
-          ? 'Checking the initialized Devnet basket state and mirror constituent mints before any asset acquisition'
-          : 'Checking program ownership, basket mint, and constituent configuration before any asset acquisition',
+        label: 'Checking the basket',
+        description: 'Verifying the live vault before any funds move',
         status: 'pending' as const,
       },
       {
         id: 'acquire_underlying',
-        label: 'Acquire Underlying Constituent Assets',
-        description: isDevnet
-          ? 'Exchanging Devnet USDC for explicit test-only mirror assets'
-          : 'Broadcasting and confirming every Jupiter constituent swap',
+        label: 'Buying the underlying assets',
+        description: `Converting ${quote.depositUsdcAmount} USDC into the basket constituents`,
         status: 'pending' as const,
       },
       {
         id: 'deposit_and_mint',
-        label: `Deposit Underlying & Mint ${quote.expectedBasketTokens} ${basket.symbol}`,
-        description: 'Broadcasting the Anchor deposit_and_mint instruction with the acquired token amounts',
+        label: `Minting ${quote.expectedBasketTokens} ${basket.symbol}`,
+        description: 'Moving the underlying assets into the vault and minting your shares',
         status: 'pending' as const,
       },
       {
         id: 'settlement',
-        label: 'Confirm On-Chain Settlement',
-        description: 'Polling Solana for a definitive confirmed, failed, or expired status',
+        label: 'Confirming',
+        description: 'Waiting for Solana to confirm your position',
         status: 'pending' as const,
       },
     ];
@@ -451,20 +444,20 @@ export default function AppPage() {
     const initialSteps = [
       {
         id: 'verify_redeem',
-        label: 'Verify Live Vault & Basket Shares',
-        description: 'Checking the live basket state and execution mints before redemption',
+        label: 'Checking your position',
+        description: 'Verifying your shares and the live basket vault',
         status: 'active' as const,
       },
       {
         id: 'burn_and_release',
-        label: `Burn ${quote.burnBasketTokensAmount} $${basket.symbol} & Release Underlying`,
-        description: 'Broadcasting the Anchor burn_and_redeem instruction',
+        label: `Redeeming ${quote.burnBasketTokensAmount} ${basket.symbol}`,
+        description: 'Burning your shares and releasing the underlying assets',
         status: 'pending' as const,
       },
       {
         id: 'confirm_redeem',
-        label: 'Confirm Redemption Settlement',
-        description: `Confirming proportional constituent settlement (~$${quote.expectedUsdcValue} NAV equivalent)`,
+        label: 'Confirming',
+        description: 'Waiting for the redeemed assets to settle in your wallet',
         status: 'pending' as const,
       },
     ];
@@ -832,13 +825,12 @@ export default function AppPage() {
         {/* ========================================================================= */}
         {activeTab === 'baskets' && (
           <div className="space-y-10">
-            <div className="flex flex-col gap-2 pt-2">
-              <span className="text-[12px] font-semibold text-brand-primary">Private-market indexes</span>
+            <div className="pt-2">
               <h1 className="text-2xl font-extrabold tracking-tight text-ink-primary sm:text-3xl">
-                Thematic Baskets
+                Baskets
               </h1>
-              <p className="max-w-2xl text-sm leading-6 text-ink-secondary">
-                Asset-backed baskets of tokenized private companies, sourced across multiple providers and settled on Solana.
+              <p className="mt-1 text-sm text-ink-secondary">
+                Private-market indexes you can invest in and redeem on Solana.
               </p>
             </div>
 
@@ -871,15 +863,13 @@ export default function AppPage() {
                     <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-tertiary" />
                     <input
                       type="text"
-                      placeholder="Search baskets, assets, or tickers..."
+                      placeholder="Search baskets"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-64 rounded-full border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-ink-primary placeholder-ink-tertiary focus:border-brand-primary focus:outline-none"
                     />
                   </div>
-                  <div className="px-2 py-1.5 text-xs font-medium text-ink-tertiary">
-                    Sort: AUM
-                  </div>
+
                 </div>
               </div>
 
@@ -911,23 +901,6 @@ export default function AppPage() {
                           </div>
                         </div>
 
-                        {/* Badges */}
-                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-brand-primary">
-                            <span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
-                            Physically Backed
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-cyan-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                            Redeemable 1:1
-                          </span>
-                        </div>
-
-                        {/* Description */}
-                        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-ink-secondary">
-                          {basket.description}
-                        </p>
-
                         {/* NAV & 24h Return */}
                         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-2.5">
                           <div>
@@ -940,7 +913,7 @@ export default function AppPage() {
                           </div>
                           <div className="text-right">
                             <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-ink-tertiary">
-                              24H RETURN
+                              24h
                             </span>
                             <span
                               className={`flex items-center justify-end font-mono text-xs font-bold tabular-nums ${
@@ -1000,180 +973,6 @@ export default function AppPage() {
               </div>
             </div>
 
-            {/* BOTTOM 3-COLUMN SECTION matching reference */}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 pt-4">
-              {/* Column 1: Market Overview */}
-              <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-ink-primary">Market Overview</span>
-                  <div className="flex gap-2 text-[10px] font-semibold text-ink-tertiary">
-                    <button
-                      onClick={() => setMarketTab('top')}
-                      className={marketTab === 'top' ? 'text-brand-primary font-bold' : 'hover:text-ink-secondary'}
-                    >
-                      Top Assets
-                    </button>
-                    <span>•</span>
-                    <button
-                      onClick={() => setMarketTab('movers')}
-                      className={marketTab === 'movers' ? 'text-brand-primary font-bold' : 'hover:text-ink-secondary'}
-                    >
-                      Top Movers
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border text-[10px] uppercase text-ink-tertiary font-sans">
-                        <th className="pb-1.5">Asset</th>
-                        <th className="pb-1.5 text-right">Price</th>
-                        <th className="pb-1.5 text-right">24h</th>
-                        <th className="pb-1.5 text-right font-sans">Provider</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle text-[11px]">
-                      {availableAssets.slice(0, 5).map((asset) => (
-                        <tr key={asset.tokenMint} className="hover:bg-surface-elevated/40 transition-colors">
-                          <td className="py-2 font-bold text-ink-primary">{asset.symbol}</td>
-                          <td className="py-2 text-right tabular-nums text-ink-secondary">
-                            ${asset.priceUsd.toFixed(2)}
-                          </td>
-                          <td className="py-2 text-right tabular-nums text-brand-primary font-semibold">
-                            +{(asset.change24h || 2.4).toFixed(2)}%
-                          </td>
-                          <td className="py-2 text-right font-sans text-ink-tertiary uppercase text-[9px]">
-                            {asset.provider}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Column 2: Basis & Premium Monitor */}
-              <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-ink-primary">Basis &amp; Premium Monitor</span>
-                  <button
-                    onClick={() => router.push('/app?view=markets')}
-                    className="text-[11px] font-semibold text-brand-primary hover:underline flex items-center gap-0.5"
-                  >
-                    View All →
-                  </button>
-                </div>
-
-                <div className="overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border text-[10px] uppercase text-ink-tertiary font-sans">
-                        <th className="pb-1.5">Asset</th>
-                        <th className="pb-1.5 text-right">DEX Price</th>
-                        <th className="pb-1.5 text-right">Pyth Ref</th>
-                        <th className="pb-1.5 text-right">Spread</th>
-                        <th className="pb-1.5 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle text-[11px]">
-                      {basisItems.slice(0, 5).map((item) => (
-                        <tr key={item.tokenMint} className="hover:bg-surface-elevated/40 transition-colors">
-                          <td className="py-2 font-bold text-ink-primary">{item.symbol}</td>
-                          <td className="py-2 text-right tabular-nums text-ink-secondary">
-                            ${item.solanaDexPriceUsd.toFixed(2)}
-                          </td>
-                          <td className="py-2 text-right tabular-nums text-ink-tertiary">
-                            ${item.pythBenchmarkPriceUsd.toFixed(2)}
-                          </td>
-                          <td className="py-2 text-right tabular-nums text-brand-primary font-semibold">
-                            {item.spreadBps > 0 ? `+${item.spreadBps}` : item.spreadBps} bps
-                          </td>
-                          <td className="py-2 text-right">
-                            <span className="rounded bg-brand-primary/10 px-1.5 py-0.2 text-[9px] text-brand-primary font-semibold">
-                              {item.spreadBps > 10 ? 'Premium' : item.spreadBps < -10 ? 'Discount' : 'Parity'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Column 3: Recent On-Chain Activity */}
-              <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-ink-primary">Recent On-Chain Activity</span>
-                  <button
-                    onClick={() => router.push('/app?proof=1')}
-                    className="text-[11px] font-semibold text-brand-primary hover:underline flex items-center gap-0.5"
-                  >
-                    View All →
-                  </button>
-                </div>
-
-                <div className="overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border text-[10px] uppercase text-ink-tertiary font-sans">
-                        <th className="pb-1.5">Type</th>
-                        <th className="pb-1.5">Basket</th>
-                        <th className="pb-1.5">Tx Signature</th>
-                        <th className="pb-1.5 text-right font-sans">Time</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle text-[11px]">
-                      <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-amber-400 font-semibold">Acquire</td>
-                        <td className="py-2 text-ink-primary font-bold">$AIT</td>
-                        <td className="py-2 text-ink-secondary">
-                          <a
-                            href="https://explorer.solana.com/tx/64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg?cluster=devnet"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-brand-primary hover:underline"
-                          >
-                            64MVX5hG...W77Yg
-                          </a>
-                        </td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
-                      </tr>
-                      <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-brand-primary font-semibold">Mint</td>
-                        <td className="py-2 text-ink-primary font-bold">$AIT</td>
-                        <td className="py-2 text-ink-secondary">
-                          <a
-                            href="https://explorer.solana.com/tx/eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8?cluster=devnet"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-brand-primary hover:underline"
-                          >
-                            eq7G23KV...SCrzN8
-                          </a>
-                        </td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
-                      </tr>
-                      <tr className="hover:bg-surface-elevated/40 transition-colors">
-                        <td className="py-2 text-cyan-400 font-semibold">Redeem</td>
-                        <td className="py-2 text-ink-primary font-bold">$AIT</td>
-                        <td className="py-2 text-ink-secondary">
-                          <a
-                            href="https://explorer.solana.com/tx/5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe?cluster=devnet"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-brand-primary hover:underline"
-                          >
-                            5bSV4hjn...Fe7fBe
-                          </a>
-                        </td>
-                        <td className="py-2 text-right font-sans text-ink-tertiary">Verified</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1223,8 +1022,7 @@ export default function AppPage() {
             </nav>
 
             <div className="text-xs text-ink-tertiary md:text-right">
-              <div className="font-medium text-ink-secondary">PreStocks + Tessera assets</div>
-              <div className="mt-1">Pyth data · Jupiter execution · Meteora liquidity</div>
+              Solana Devnet
             </div>
           </div>
         </div>
