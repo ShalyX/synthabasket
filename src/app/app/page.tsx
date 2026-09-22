@@ -344,6 +344,21 @@ export default function AppPage() {
       depositTx.recentBlockhash = latestBlockhash.blockhash;
       depositTx.feePayer = publicKey;
 
+      // Simulate the exact unsigned deposit before opening the wallet. This
+      // turns Anchor errors into useful UI messages instead of a wallet-level
+      // generic "Internal error".
+      const depositSimulation = await connection.simulateTransaction(depositTx);
+      if (depositSimulation.value.err) {
+        const anchorErrorLog = (depositSimulation.value.logs || []).find(
+          (line) => line.includes('Error Message:')
+        );
+        throw new Error(
+          anchorErrorLog
+            ? anchorErrorLog.replace(/^.*Error Message:\s*/, 'Vault preflight failed: ')
+            : `Vault preflight failed: ${JSON.stringify(depositSimulation.value.err)}`
+        );
+      }
+
       // Step 4: Broadcast the actual Anchor deposit_and_mint transaction.
       const depositSignature = await sendTransaction(depositTx, connection, {
         skipPreflight: false,
