@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { X, ArrowUpRight, ArrowDownRight, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../lib/types';
 import { calculateMintQuote } from '../lib/services/valuation_engine';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getHistoryForRange, NavHistoryPoint } from '../lib/client/nav_history';
-import { SynthaBasketVaultClient } from '../lib/execution/vault_client';
+import { SYNTHABASKET_PROGRAM_ID, SynthaBasketVaultClient } from '../lib/execution/vault_client';
 import { AllocationRouter } from '../lib/execution/allocation_router';
 
 interface BasketDetailViewProps {
@@ -61,7 +61,26 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   );
   const isPositive = basket.navChange24h >= 0;
 
+  const executionVerification = useMemo(() => {
+    const vaultClient = new SynthaBasketVaultClient(connection);
+    const executionSymbol =
+      basket.devnetExecutionSymbol || `${basket.symbol}D`;
+    const [expectedVaultPda] = vaultClient.getBasketPda(executionSymbol);
+    const [expectedBasketMint] = vaultClient.getBasketMintPda(executionSymbol);
+    const vaultPda = expectedVaultPda.toBase58();
+    const basketMint = expectedBasketMint.toBase58();
 
+    return {
+      executionSymbol,
+      vaultPda,
+      basketMint,
+      programId: SYNTHABASKET_PROGRAM_ID.toBase58(),
+      verified:
+        basket.onChainStateLoaded === true &&
+        basket.vaultPda === vaultPda &&
+        basket.basketMint === basketMint,
+    };
+  }, [basket, connection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -550,6 +569,95 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-surface-subtle p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-2.5">
+                  <ShieldCheck
+                    className={
+                      'mt-0.5 h-4 w-4 shrink-0 ' +
+                      (executionVerification.verified
+                        ? 'text-brand-primary'
+                        : 'text-ink-tertiary')
+                    }
+                  />
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink-primary">
+                      On-chain verification
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-ink-secondary">
+                      {executionVerification.verified
+                        ? `This refresh verified the ${executionVerification.executionSymbol} Devnet vault, deterministic share mint, and live reserve state.`
+                        : 'The deterministic execution addresses are shown below, but live basket state was not verified in this refresh. Invest and redeem remain gated by a fresh on-chain verification before signing.'}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={
+                    'w-fit rounded-full border px-2 py-1 font-mono text-[9px] font-bold tracking-wider ' +
+                    (executionVerification.verified
+                      ? 'border-brand-primary/30 bg-brand-primary/5 text-brand-primary'
+                      : 'border-border bg-surface text-ink-tertiary')
+                  }
+                >
+                  {executionVerification.verified
+                    ? 'VERIFIED LIVE'
+                    : 'NOT VERIFIED'}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-2 text-[11px] sm:grid-cols-3">
+                {[
+                  {
+                    label: 'Program',
+                    value: executionVerification.programId,
+                    address: executionVerification.programId,
+                  },
+                  {
+                    label: executionVerification.verified
+                      ? 'Vault PDA'
+                      : 'Expected vault PDA',
+                    value: executionVerification.vaultPda,
+                    address: executionVerification.vaultPda,
+                  },
+                  {
+                    label: executionVerification.verified
+                      ? 'Share mint'
+                      : 'Expected share mint',
+                    value: executionVerification.basketMint,
+                    address: executionVerification.basketMint,
+                  },
+                ].map((item) => (
+                  <a
+                    key={item.label}
+                    href={`https://explorer.solana.com/address/${item.address}?cluster=devnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-brand-primary"
+                  >
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-ink-tertiary">
+                      {item.label}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 font-mono text-[10px] text-ink-secondary">
+                      <span>
+                        {item.value.slice(0, 6)}...{item.value.slice(-5)}
+                      </span>
+                      <ExternalLink className="h-3 w-3" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+
+              <a
+                href="https://github.com/ShalyX/synthabasket/blob/ui/wider-shell/DEMO_RUN_RECEIPTS.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
+              >
+                Historical Devnet execution receipts
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </section>
 
             <div className="border-t border-border pt-4 text-xs text-ink-tertiary">

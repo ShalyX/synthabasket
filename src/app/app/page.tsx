@@ -8,7 +8,6 @@ import { BasketDetailView } from '../../components/BasketDetailView';
 import { CreateBasketStudio } from '../../components/CreateBasketStudio';
 import { BasisMonitor } from '../../components/BasisMonitor';
 import { TransactionLifecycleModal } from '../../components/TransactionLifecycleModal';
-import { ProtocolProofModal } from '../../components/ProtocolProofModal';
 
 import {
   AssetQuote,
@@ -67,9 +66,6 @@ export default function AppPage() {
   // Selected Basket Modal
   const [selectedBasket, setSelectedBasket] = useState<BasketDefinition | null>(null);
   const [detailInitialTab, setDetailInitialTab] = useState<'mint' | 'redeem' | 'inspect'>('mint');
-
-  // Proof Modal
-  const showProofModal = searchParams.get('proof') === '1';
 
   // Transaction Lifecycle Modal State
   const [txLifecycle, setTxLifecycle] = useState<TxLifecycleState>({
@@ -1350,6 +1346,14 @@ export default function AppPage() {
               <button onClick={() => router.push('/app?view=create')} className="transition-colors hover:text-brand-primary">Create</button>
               <button onClick={() => router.push('/app/portfolio')} className="transition-colors hover:text-brand-primary">Portfolio</button>
               <a
+                href="https://github.com/ShalyX/synthabasket/blob/ui/wider-shell/DEMO_RUN_RECEIPTS.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-brand-primary"
+              >
+                Verification log
+              </a>
+              <a
                 href="https://github.com/ShalyX/synthabasket"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1386,11 +1390,6 @@ export default function AppPage() {
         state={txLifecycle}
         onClose={() => setTxLifecycle((prev) => ({ ...prev, isOpen: false }))}
       />
-
-      {/* Protocol Proof & Audits Modal */}
-      {showProofModal && (
-        <ProtocolProofModal onClose={() => router.push('/app')} />
-      )}
     </main>
   );
 }

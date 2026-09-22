@@ -20,13 +20,12 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
   const searchParams = useSearchParams();
   const view = searchParams.get('view');
 
-  const isActive = (target: 'baskets' | 'markets' | 'create' | 'portfolio' | 'proof') => {
+  const isActive = (target: 'baskets' | 'markets' | 'create' | 'portfolio') => {
     if (target === 'portfolio') return pathname === '/app/portfolio';
     if (pathname !== '/app') return false;
     if (target === 'markets') return view === 'markets';
     if (target === 'create') return view === 'create';
-    if (target === 'proof') return searchParams.get('proof') === '1';
-    return !view && searchParams.get('proof') !== '1';
+    return !view;
   };
 
   const navClass = (active: boolean) =>
@@ -80,12 +79,6 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
           <Link href="/app/portfolio" className={navClass(isActive('portfolio'))}>
             Portfolio
             {isActive('portfolio') && (
-              <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
-            )}
-          </Link>
-          <Link href="/app?proof=1" className={navClass(isActive('proof'))}>
-            Proof &amp; Audits
-            {isActive('proof') && (
               <span className="absolute bottom-3 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-brand-primary" />
             )}
           </Link>
