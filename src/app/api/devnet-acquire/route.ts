@@ -15,6 +15,7 @@ import {
   getMint,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
+import { INITIAL_BASKETS } from '../../../lib/data/registry';
 
 const DEVNET_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
@@ -30,6 +31,15 @@ const MIRROR_MINTS: Record<string, string | undefined> = {
   NEURALINK: process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK,
   FIGUREAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI,
 };
+
+const PRICE_BY_SYMBOL = new Map<string, number>();
+for (const basket of INITIAL_BASKETS) {
+  for (const constituent of basket.constituents) {
+    if (!PRICE_BY_SYMBOL.has(constituent.asset.symbol)) {
+      PRICE_BY_SYMBOL.set(constituent.asset.symbol, constituent.asset.priceUsd);
+    }
+  }
+}
 
 function parseAuthoritySecret(value: string): Keypair {
   const trimmed = value.trim();
@@ -102,6 +112,7 @@ export async function POST(request: NextRequest) {
     );
 
     let totalUsdcRaw = 0n;
+    const issued: Array<{ symbol: string; mint: string; rawAmount: string; uiAmount: number }> = [];
 
     for (const allocation of allocations) {
       const symbol = String(allocation.symbol || '');
@@ -121,14 +132,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const rawAmount = BigInt(String(allocation.rawAmount || '0'));
       const usdcRaw = BigInt(String(allocation.usdcRaw || '0'));
-      if (rawAmount <= 0n || usdcRaw <= 0n) {
+      if (usdcRaw <= 0n) {
         return NextResponse.json(
-          { error: `Invalid acquisition amount for ${symbol}.` },
+          { error: `Invalid USDC acquisition amount for ${symbol}.` },
           { status: 400 }
         );
       }
+
+      const referencePrice = PRICE_BY_SYMBOL.get(symbol);
+      if (!referencePrice || referencePrice <= 0) {
+        return NextResponse.json(
+          { error: `No server-side Devnet reference price for ${symbol}.` },
+          { status: 500 }
+        );
+      }
+
+      const usdcAmount = Number(usdcRaw) / 1_000_000;
+      const uiMirrorAmount = usdcAmount / referencePrice;
+      const rawAmount = BigInt(Math.max(1, Math.floor(uiMirrorAmount * 1_000_000)));
 
       const mirrorMintInfo = await getMint(connection, requestedMint);
       if (mirrorMintInfo.decimals !== 6) {
@@ -148,6 +170,12 @@ export async function POST(request: NextRequest) {
       }
 
       totalUsdcRaw += usdcRaw;
+      issued.push({
+        symbol,
+        mint: requestedMint.toBase58(),
+        rawAmount: rawAmount.toString(),
+        uiAmount: Number(rawAmount) / 1_000_000,
+      });
 
       const userMirrorAta = getAssociatedTokenAddressSync(requestedMint, user);
       tx.add(
@@ -209,6 +237,7 @@ export async function POST(request: NextRequest) {
       lastValidBlockHeight: latest.lastValidBlockHeight,
       treasury: authority.publicKey.toBase58(),
       totalUsdcRaw: totalUsdcRaw.toString(),
+      issued,
     });
   } catch (error: any) {
     return NextResponse.json(
