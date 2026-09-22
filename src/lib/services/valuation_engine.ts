@@ -2,13 +2,14 @@ import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, Basis
 import { fetchPreStocksAssets } from './prestocks';
 import { fetchTesseraAssets } from './tessera';
 import { computeBasisSpread, fetchPythPrices } from './pyth';
+import { withDevnetMirror } from '../execution/devnet_mirrors';
 
 export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promise<AssetQuote[]> {
   const prestocksPromise = fetchPreStocksAssets();
   const tesseraPromise = mode === 'multi' ? fetchTesseraAssets() : Promise.resolve([]);
 
   const [prestocks, tessera] = await Promise.all([prestocksPromise, tesseraPromise]);
-  const combined = [...prestocks, ...tessera];
+  const combined = [...prestocks, ...tessera].map(withDevnetMirror);
 
   // Fetch Pyth benchmark prices for any assets with pythFeedId
   const feedIds = combined
@@ -66,7 +67,7 @@ export function calculateMintQuote(
     const targetUsd = netInvestAmount * (c.targetWeightBps / 10000);
     const estimatedTokens = c.asset.priceUsd > 0 ? targetUsd / c.asset.priceUsd : 0;
     return {
-      asset: c.asset,
+      asset: withDevnetMirror(c.asset),
       targetUsdAmount: Number(targetUsd.toFixed(2)),
       estimatedTokensReceived: Number(estimatedTokens.toFixed(4)),
     };
