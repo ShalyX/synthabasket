@@ -330,15 +330,20 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <h2 className="truncate text-base font-bold text-ink-primary sm:text-lg">
-                {basket.name}
-              </h2>
-              <span className="font-mono text-xs font-semibold text-brand-primary">
-                $ {basket.symbol}
+            <h2 className="truncate text-base font-bold text-ink-primary sm:text-lg">
+              {basket.name}
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-tertiary">
+              <span className="font-mono font-semibold text-brand-primary">
+                {basket.symbol}
+              </span>
+              <span>·</span>
+              <span>Solana Devnet</span>
+              <span>·</span>
+              <span>
+                {basket.navSource === 'onchain_reserves' ? 'Live vault' : 'Index pricing'}
               </span>
             </div>
-            <span className="text-xs text-ink-tertiary">Solana Devnet</span>
           </div>
           <button
             onClick={onClose}
@@ -612,7 +617,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     <button
                       key={amount}
                       onClick={() => setUsdcAmount(amount)}
-                      className="flex-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-ink-secondary transition-colors hover:border-border-strong hover:text-ink-primary"
+                      disabled={usdcBalance !== null && amount > Math.min(1000, usdcBalance)}
+                      className="flex-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-ink-secondary transition-colors hover:border-border-strong hover:text-ink-primary disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       {amount}
                     </button>
@@ -634,6 +640,26 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     <span>Live vault + current acquisition route</span>
                     <span>{basket.constituents.length} assets</span>
                   </div>
+                  {liveMintQuote && (
+                    <div className="mt-4 border-t border-border pt-3">
+                      <p className="mb-2 text-xs text-ink-tertiary">Vault deposit</p>
+                      <div className="space-y-1.5">
+                        {liveMintQuote.allocations.map((allocation) => (
+                          <div
+                            key={allocation.asset.tokenMint}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <span className="text-ink-secondary">
+                              {allocation.asset.symbol}
+                            </span>
+                            <span className="font-mono tabular-nums text-ink-primary">
+                              {allocation.estimatedTokensReceived.toFixed(6)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {mintQuoteError && (
                     <p className="mt-2 text-xs leading-5 text-semantic-negative">
                       {mintQuoteError}
@@ -705,7 +731,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   ) : liveRedeemQuote ? (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-ink-secondary">Estimated value</span>
+                        <span className="text-sm text-ink-secondary">Marked value</span>
                         <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
                           ${liveRedeemQuote.expectedUsdcValue.toFixed(2)}
                         </span>

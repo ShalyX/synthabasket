@@ -157,7 +157,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
               <div className="mt-4 border-y border-border py-4 text-sm">
                 {typeof state.receipt.spentUsdc === 'number' && (
                   <div className="flex items-center justify-between py-1">
-                    <span className="text-ink-secondary">USDC spent</span>
+                    <span className="text-ink-secondary">USDC spent this attempt</span>
                     <span className="font-mono tabular-nums text-ink-primary">
                       {state.receipt.spentUsdc.toFixed(6)} USDC
                     </span>
@@ -240,12 +240,29 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
               </a>
             )}
 
-            <button
-              onClick={onClose}
-              className="mt-5 w-full rounded-lg bg-brand-primary py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-95"
-            >
-              Done
-            </button>
+            {state.actionType === 'mint' || state.actionType === 'redeem' ? (
+              <div className="mt-5 flex gap-2">
+                <a
+                  href="/app/portfolio"
+                  className="flex-1 rounded-lg bg-brand-primary py-2.5 text-center text-sm font-semibold text-black transition-opacity hover:opacity-95"
+                >
+                  View portfolio
+                </a>
+                <button
+                  onClick={onClose}
+                  className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:text-ink-primary"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onClose}
+                className="mt-5 w-full rounded-lg bg-brand-primary py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-95"
+              >
+                Done
+              </button>
+            )}
           </div>
         )}
 

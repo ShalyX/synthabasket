@@ -56,6 +56,7 @@ export default function AppPage() {
   const [hydrationNonce, setHydrationNonce] = useState(0);
   const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
+  const [freshnessNow, setFreshnessNow] = useState<number>(() => Date.now());
   const [navHistory, setNavHistory] = useState<NavHistoryByBasket>({});
   const hasHydratedMarketplaceRef = useRef(false);
 
@@ -83,6 +84,11 @@ export default function AppPage() {
 
   useEffect(() => {
     setNavHistory(readNavHistory());
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setFreshnessNow(Date.now()), 5_000);
+    return () => window.clearInterval(id);
   }, []);
 
   // Hydrate mutable basket data from one server endpoint. Provider prices,
@@ -1006,11 +1012,12 @@ export default function AppPage() {
                 <span>Private-market indexes you can invest in and redeem on Solana.</span>
                 {lastHydratedAt && (
                   <span className="text-xs text-ink-tertiary">
-                    Updated {new Date(lastHydratedAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    })} · refreshes every 30s
+                    {Math.max(0, Math.floor((freshnessNow - lastHydratedAt) / 1000)) < 5
+                      ? 'Updated just now'
+                      : `Updated ${Math.max(
+                          0,
+                          Math.floor((freshnessNow - lastHydratedAt) / 1000)
+                        )}s ago`} · refreshes every 30s
                   </span>
                 )}
               </div>
@@ -1073,20 +1080,31 @@ export default function AppPage() {
                       className="flex flex-col justify-between rounded-xl border border-border bg-surface p-4 transition-all hover:border-border-strong hover:shadow-lg"
                     >
                       <div>
-                        {/* Header: Badge, Name, Category */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-elevated font-mono text-xs font-bold text-brand-primary">
-                              ${basket.symbol}
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-semibold leading-tight text-ink-primary">
-                                {basket.name}
-                              </h3>
-                              <span className="text-[11px] text-ink-tertiary">
-                                {categoryLabels[basket.category] ?? basket.category}
-                              </span>
-                            </div>
+                        {/* Basket identity: title first, ticker as metadata (not an avatar). */}
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold leading-tight text-ink-primary">
+                            {basket.name}
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px]">
+                            <span className="font-mono font-semibold text-brand-primary">
+                              {basket.symbol}
+                            </span>
+                            <span className="text-ink-tertiary">·</span>
+                            <span className="text-ink-tertiary">
+                              {categoryLabels[basket.category] ?? basket.category}
+                            </span>
+                            <span className="text-ink-tertiary">·</span>
+                            <span
+                              className={
+                                basket.navSource === 'onchain_reserves'
+                                  ? 'text-brand-primary'
+                                  : 'text-ink-tertiary'
+                              }
+                            >
+                              {basket.navSource === 'onchain_reserves'
+                                ? 'Live vault'
+                                : 'Index pricing'}
+                            </span>
                           </div>
                         </div>
 
@@ -1098,9 +1116,6 @@ export default function AppPage() {
                             </span>
                             <span className="font-mono text-base font-bold text-ink-primary tabular-nums">
                               ${basket.navUsd.toFixed(2)}
-                            </span>
-                            <span className="mt-0.5 block text-[10px] text-ink-tertiary">
-                              {basket.navSource === 'onchain_reserves' ? 'Vault NAV' : 'Index NAV'}
                             </span>
                           </div>
                           <div className="text-right">
