@@ -12,6 +12,10 @@ export interface AssetQuote {
   devnetMint?: string;
   priceUsd: number;
   change24h: number;
+  /** True only when the provider response supplied a real 24h change value. */
+  change24hAvailable?: boolean;
+  /** Whether this quote came from the live provider response or the verified fallback snapshot. */
+  quoteSource?: 'live' | 'snapshot';
   marketCapUsd?: number;
   volume24hUsd?: number;
   pythFeedId?: string;
@@ -42,6 +46,14 @@ export interface BasketDefinition {
   constituents: BasketConstituent[];
   navUsd: number;
   navChange24h: number;
+  /** Whether the displayed 24h basket change is backed by constituent 24h data. */
+  navChange24hAvailable?: boolean;
+  /** How the current basket NAV was derived. */
+  navSource?: 'onchain_reserves' | 'target_weights';
+  /** Aggregate provenance of the constituent market data. */
+  marketDataSource?: 'live' | 'snapshot' | 'mixed';
+  /** True when AUM/share supply were hydrated from the execution basket on-chain. */
+  onChainStateLoaded?: boolean;
   aumUsd: number;
   totalSharesMinted: number;
   vaultPda: string;
