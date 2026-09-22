@@ -52,6 +52,8 @@ export const TESSERA_VERIFIED_SNAPSHOT: AssetQuote[] = [
     change24h: 2.10,
     marketCapUsd: 210_000_000_000,
     description: 'Tessera tokenized private equity representing secondary market exposure to SpaceX.',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   }
 ];
