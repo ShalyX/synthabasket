@@ -1,0 +1,38 @@
+name: Diagnose UI Deposit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/diagnose-ui-deposit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
+      UI_ACQUISITION_SIGNATURE: 4HexLP9diHkCj4qSirvrYTwmJ6Hg1Drx1a7PAdwvRVU7gfcy5pGQrkJDMq3PbEA6YCwJhvjHuRcTreG4JpG7w4Ew
+
+    steps:
+      - name: Checkout current implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ui/wider-shell
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Diagnose UI deposit transaction
+        run: npx tsx scripts/diagnose-ui-deposit.ts
