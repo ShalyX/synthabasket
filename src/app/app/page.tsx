@@ -472,8 +472,7 @@ export default function AppPage() {
 
   // Create Basket Flow
   const handleDeployBasket = async (newBasket: BasketDefinition, dbcConfig?: MeteoraDBCConfig) => {
-    setBaskets([newBasket, ...baskets]);
-    router.push('/app');
+    const isDevnet = network === 'devnet';
 
     const initialSteps: Array<{
       id: string;
@@ -483,24 +482,24 @@ export default function AppPage() {
       txSignature?: string;
     }> = [
       {
-        id: 'init_basket',
-        label: `Derive Basket State PDA (${newBasket.symbol})`,
-        description: `Deterministic Anchor Vault PDA: ${newBasket.vaultPda.slice(0, 8)}...`,
+        id: 'initialize_basket',
+        label: `Initialize Basket State & SPL Mint ($${newBasket.symbol})`,
+        description: 'Broadcasting the Anchor initialize_basket instruction',
         status: 'active',
       },
       {
-        id: 'init_mint',
-        label: 'Derive Basket SPL Token Mint PDA',
-        description: `Deterministic Mint PDA: ${newBasket.basketMint.slice(0, 8)}...`,
+        id: 'verify_basket',
+        label: 'Verify On-Chain Basket Configuration',
+        description: 'Confirming program ownership, basket mint, constituents, and weights',
         status: 'pending',
       },
     ];
 
     if (dbcConfig) {
       initialSteps.push({
-        id: 'init_dbc',
-        label: 'Configure Meteora Dynamic Bonding Curve (1.5.12 SDK)',
-        description: `Building equity-smoothed curve config with $${dbcConfig.graduationThresholdUsd.toLocaleString()} graduation threshold`,
+        id: 'configure_dbc',
+        label: 'Create Meteora DBC Configuration',
+        description: `Creating the curve config with a $${dbcConfig.graduationThresholdUsd.toLocaleString()} graduation threshold`,
         status: 'pending',
       });
     }
@@ -515,77 +514,148 @@ export default function AppPage() {
       actionType: 'create_basket',
     });
 
-    setTxLifecycle((prev) => ({
-      ...prev,
-      currentStepIndex: 1,
-      steps: prev.steps.map((s, idx) =>
-        idx === 0 ? { ...s, status: 'completed' } : idx === 1 ? { ...s, status: 'active' } : s
-      ),
-    }));
+    if (!publicKey) {
+      setTxLifecycle((prev) => ({
+        ...prev,
+        hasError: true,
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? { ...step, status: 'failed', error: 'Wallet not connected. Connect your wallet to deploy the basket.' }
+            : step
+        ),
+      }));
+      return;
+    }
 
-    setTxLifecycle((prev) => ({
-      ...prev,
-      currentStepIndex: dbcConfig ? 2 : 1,
-      isCompleted: !dbcConfig,
-      steps: prev.steps.map((s, idx) =>
-        idx === 1
-          ? { ...s, status: 'completed' }
-          : idx === 2 && dbcConfig
-          ? { ...s, status: 'active' }
-          : s
-      ),
-    }));
+    let activeStepIndex = 0;
+    let basketAdded = false;
 
-    if (dbcConfig) {
-      if (!publicKey) {
-        setTxLifecycle((prev) => ({
-          ...prev,
-          hasError: true,
-          steps: prev.steps.map((s, idx) =>
-            idx === 2
-              ? { ...s, status: 'failed', error: 'Wallet not connected. Connect your wallet to broadcast the Meteora DBC configuration.' }
-              : s
-          ),
-        }));
-        return;
+    try {
+      const vaultClient = new SynthaBasketVaultClient(connection);
+      const initTx = await vaultClient.buildInitializeBasketTransaction(
+        publicKey,
+        newBasket,
+        isDevnet,
+        25
+      );
+      const initLatest = await connection.getLatestBlockhash('confirmed');
+      initTx.recentBlockhash = initLatest.blockhash;
+      initTx.feePayer = publicKey;
+
+      const initSignature = await sendTransaction(initTx, connection, {
+        skipPreflight: false,
+        maxRetries: 3,
+      });
+
+      activeStepIndex = 1;
+      setTxLifecycle((prev) => ({
+        ...prev,
+        currentStepIndex: 1,
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? { ...step, status: 'completed', txSignature: initSignature }
+            : index === 1
+            ? { ...step, status: 'active' }
+            : step
+        ),
+      }));
+
+      const initOutcome = await waitForSignatureOutcome(connection, initSignature, {
+        lastValidBlockHeight: initLatest.lastValidBlockHeight,
+        timeoutMs: 90_000,
+      });
+
+      if (initOutcome.state !== 'confirmed') {
+        throw new Error(`Basket initialization ${initOutcome.state}: ${initOutcome.error}`);
       }
 
-      try {
-        const dbcManager = new MeteoraDbcManager(connection);
-        const isDevnet = connection.rpcEndpoint.includes('devnet');
-        const quoteMint = new PublicKey(
-          isDevnet
-            ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-            : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-        );
-        const { transaction: configTx, configKeypair } = await dbcManager.buildCreateConfigTransaction(
-          publicKey,
-          quoteMint,
-          dbcConfig
-        );
-        const txSig = await sendTransaction(configTx, connection, { signers: [configKeypair] });
-        await connection.confirmTransaction(txSig, 'confirmed');
+      await vaultClient.verifyBasketExecutionState(newBasket, isDevnet);
 
+      setBaskets((prev) => [newBasket, ...prev]);
+      basketAdded = true;
+
+      if (!dbcConfig) {
         setTxLifecycle((prev) => ({
           ...prev,
           isCompleted: true,
-          finalSignature: txSig,
-          steps: prev.steps.map((s, idx) =>
-            idx === 2
-              ? { ...s, status: 'completed', txSignature: txSig }
-              : s
+          finalSignature: initSignature,
+          steps: prev.steps.map((step, index) =>
+            index === 1
+              ? { ...step, status: 'completed', txSignature: initSignature }
+              : step
           ),
         }));
-      } catch (err: any) {
-        setTxLifecycle((prev) => ({
-          ...prev,
-          hasError: true,
-          steps: prev.steps.map((s, idx) =>
-            idx === 2
-              ? { ...s, status: 'failed', error: err.message || 'Meteora DBC deployment failed' }
-              : s
-          ),
-        }));
+        router.push('/app');
+        return;
+      }
+
+      activeStepIndex = 2;
+      setTxLifecycle((prev) => ({
+        ...prev,
+        currentStepIndex: 2,
+        steps: prev.steps.map((step, index) =>
+          index === 1
+            ? { ...step, status: 'completed', txSignature: initSignature }
+            : index === 2
+            ? { ...step, status: 'active' }
+            : step
+        ),
+      }));
+
+      const dbcManager = new MeteoraDbcManager(connection);
+      const quoteMint = new PublicKey(
+        isDevnet
+          ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+          : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      );
+      const { transaction: configTx, configKeypair } =
+        await dbcManager.buildCreateConfigTransaction(publicKey, quoteMint, dbcConfig);
+
+      const dbcLatest = await connection.getLatestBlockhash('confirmed');
+      configTx.recentBlockhash = dbcLatest.blockhash;
+      configTx.feePayer = publicKey;
+
+      const dbcSignature = await sendTransaction(configTx, connection, {
+        signers: [configKeypair],
+        skipPreflight: false,
+        maxRetries: 3,
+      });
+
+      const dbcOutcome = await waitForSignatureOutcome(connection, dbcSignature, {
+        lastValidBlockHeight: dbcLatest.lastValidBlockHeight,
+        timeoutMs: 90_000,
+      });
+
+      if (dbcOutcome.state !== 'confirmed') {
+        throw new Error(`Meteora DBC configuration ${dbcOutcome.state}: ${dbcOutcome.error}`);
+      }
+
+      setTxLifecycle((prev) => ({
+        ...prev,
+        isCompleted: true,
+        finalSignature: dbcSignature,
+        steps: prev.steps.map((step, index) =>
+          index === 2
+            ? { ...step, status: 'completed', txSignature: dbcSignature }
+            : step
+        ),
+      }));
+
+      router.push('/app');
+    } catch (err: any) {
+      setTxLifecycle((prev) => ({
+        ...prev,
+        hasError: true,
+        currentStepIndex: activeStepIndex,
+        steps: prev.steps.map((step, index) =>
+          index === activeStepIndex
+            ? { ...step, status: 'failed', error: err?.message || 'Basket deployment failed' }
+            : step
+        ),
+      }));
+
+      if (basketAdded) {
+        router.push('/app');
       }
     }
   };
