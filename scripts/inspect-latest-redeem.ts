@@ -20,6 +20,16 @@ function keyAt(message:any, i:number): PublicKey {
 }
 
 async function main() {
+  const aitMint = new PublicKey('3CLenKY9X1hniMKsTi2KPANfWi4C27qyus6HDknrZzUK');
+  const aitAccounts = await connection.getParsedTokenAccountsByOwner(WALLET, { mint: aitMint });
+  const aitShares = aitAccounts.value.reduce((total, account) => {
+    const parsed:any = account.account.data;
+    const ui = Number(parsed.parsed?.info?.tokenAmount?.uiAmountString ?? parsed.parsed?.info?.tokenAmount?.uiAmount ?? 0);
+    return total + (Number.isFinite(ui) ? ui : 0);
+  }, 0);
+  console.log('CURRENT_AITD_BALANCE', aitShares);
+  console.log('AITD_ACCOUNT_COUNT', aitAccounts.value.length);
+
   const sigs = await connection.getSignaturesForAddress(WALLET, { limit: 12 }, 'confirmed');
   for (const s of sigs) {
     const tx = await connection.getTransaction(s.signature, {
