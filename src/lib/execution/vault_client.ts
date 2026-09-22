@@ -5,6 +5,7 @@ import {
   TransactionInstruction,
   SystemProgram,
   ComputeBudgetProgram,
+  SYSVAR_RENT_PUBKEY,
 } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
@@ -75,6 +76,57 @@ export class SynthaBasketVaultClient {
       // Default to 6 decimals if offline or uninitialized
       return 6;
     }
+  }
+
+  async buildInitializeBasketTransaction(
+    authority: PublicKey,
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean = false,
+    protocolFeeBps: number = 25
+  ): Promise<Transaction> {
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const [basketMint] = this.getBasketMintPda(executionSymbol);
+
+    const constituentMints = basket.constituents.map((constituent) => {
+      const mint = useDevnetMirrors
+        ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
+        : constituent.asset.tokenMint;
+      if (!mint) {
+        throw new Error(
+          `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`
+        );
+      }
+      return new PublicKey(mint);
+    });
+
+    const encodedData = this.instructionCoder.encode('initializeBasket', {
+      symbol: executionSymbol,
+      name: basket.name.slice(0, 32),
+      constituents: constituentMints,
+      weightsBps: basket.constituents.map((constituent) => constituent.targetWeightBps),
+      protocolFeeBps,
+    });
+
+    const tx = new Transaction().add(
+      new TransactionInstruction({
+        programId: this.programId,
+        keys: [
+          { pubkey: authority, isSigner: true, isWritable: true },
+          { pubkey: basketPda, isSigner: false, isWritable: true },
+          { pubkey: basketMint, isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+        ],
+        data: encodedData,
+      })
+    );
+
+    const latest = await this.connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = latest.blockhash;
+    tx.feePayer = authority;
+    return tx;
   }
 
   /**
