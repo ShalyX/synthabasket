@@ -198,17 +198,15 @@ export default function AppPage() {
         );
       }
 
-      if (allocationPlan.preparedSwaps.length !== quote.allocations.length) {
-        throw new Error(
-          `Investment stopped: expected ${quote.allocations.length} executable constituent routes but received ${allocationPlan.preparedSwaps.length}.`
-        );
+      if (allocationPlan.executionTransactions.length < 1) {
+        throw new Error('Investment stopped: no executable acquisition transaction was produced.');
       }
 
       activateStep(1, 0);
 
       // Step 2: Execute every prepared constituent swap and require a confirmed result.
       const allocationSignatures: string[] = [];
-      for (const prepared of allocationPlan.preparedSwaps) {
+      for (const prepared of allocationPlan.executionTransactions) {
         const signature = await sendTransaction(prepared.transaction, connection, {
           skipPreflight: false,
           maxRetries: 3,
@@ -221,7 +219,7 @@ export default function AppPage() {
 
         if (outcome.state !== 'confirmed') {
           throw new Error(
-            `${prepared.symbol} acquisition ${outcome.state}: ${outcome.error}`
+            `${prepared.label} ${outcome.state}: ${outcome.error}`
           );
         }
         allocationSignatures.push(signature);
@@ -232,22 +230,32 @@ export default function AppPage() {
       // Use exact quoted raw outputs for the vault deposit instead of price-estimated amounts.
       const executionQuote: BasketMintQuote = {
         ...quote,
-        allocations: quote.allocations.map((allocation, index) => ({
-          ...allocation,
-          estimatedTokensReceived: allocationPlan.preparedSwaps[index].quotedOutAmountUi,
-          rawTokenAmount: allocationPlan.preparedSwaps[index].rawOutAmount,
-        })),
+        allocations: quote.allocations.map((allocation) => {
+          const executed = allocationPlan.breakdown.find(
+            (item) => item.symbol === allocation.asset.symbol
+          );
+          if (!executed?.rawOutAmount || executed.actualQuotedOutAmount === null) {
+            throw new Error(
+              `Missing confirmed execution amount for ${allocation.asset.symbol}.`
+            );
+          }
+          return {
+            ...allocation,
+            estimatedTokensReceived: executed.actualQuotedOutAmount,
+            rawTokenAmount: executed.rawOutAmount,
+          };
+        }),
       };
 
       // Step 3: Verify the actual live basket account before asking the user to deposit.
       const vaultClient = new SynthaBasketVaultClient(connection);
-      await vaultClient.verifyBasketExecutionState(basket, false);
+      await vaultClient.verifyBasketExecutionState(basket, isDevnet);
       const depositTx = await vaultClient.buildMintTransaction(
         publicKey,
         basket,
         executionQuote,
         50_000,
-        false
+        isDevnet
       );
 
       const latestBlockhash = await connection.getLatestBlockhash('confirmed');
