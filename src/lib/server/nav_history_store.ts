@@ -9,6 +9,7 @@ export interface DurableNavHistoryPoint {
 }
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+// Vercel preview envs are read at runtime; a redeploy is required after adding them.
 const KEY_PREFIX = 'synthabasket:nav-history:v1';
 
 function getRedisConfig(): { url: string; token: string } | null {
