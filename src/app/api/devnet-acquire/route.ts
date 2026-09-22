@@ -49,6 +49,20 @@ function parseAuthoritySecret(value: string): Keypair {
   return Keypair.fromSecretKey(bs58.decode(trimmed));
 }
 
+export async function GET() {
+  const configuredMirrors = Object.fromEntries(
+    Object.entries(MIRROR_MINTS).map(([symbol, value]) => [symbol, Boolean(value && value.trim())])
+  );
+
+  return NextResponse.json({
+    network: process.env.NEXT_PUBLIC_SOLANA_NETWORK || process.env.NEXT_PUBLIC_NETWORK || 'devnet',
+    authorityConfigured: Boolean(
+      process.env.DEVNET_MIRROR_AUTHORITY_SECRET || process.env.RUNNER_PRIVATE_KEY
+    ),
+    configuredMirrors,
+  });
+}
+
 export async function POST(request: NextRequest) {
   if ((process.env.NEXT_PUBLIC_SOLANA_NETWORK || process.env.NEXT_PUBLIC_NETWORK || 'devnet') !== 'devnet') {
     return NextResponse.json(
