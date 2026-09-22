@@ -156,9 +156,12 @@ export interface BasisMonitorItem {
   name: string;
   tokenMint: string;
   provider: AssetProvider;
-  solanaDexPriceUsd: number;
-  pythBenchmarkPriceUsd: number;
-  spreadBps: number; // ((dex - pyth) / pyth) * 10000
-  arbitrageDirection: 'solana_premium' | 'solana_discount' | 'parity';
+  providerMarkPriceUsd: number;
+  impliedValuationUsd?: number;
+  change24h: number;
+  change24hAvailable: boolean;
+  quoteSource: 'live' | 'snapshot';
+  pythBenchmarkPriceUsd?: number;
+  benchmarkSpreadBps?: number;
   lastUpdated: number;
 }

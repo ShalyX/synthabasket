@@ -1190,7 +1190,12 @@ export default function AppPage() {
 
         {/* TAB 2: BASIS & ORACLES MONITOR */}
         {activeTab === 'basis_monitor' && (
-          <BasisMonitor items={basisItems} />
+          <BasisMonitor
+            items={basisItems}
+            status={marketplaceStatus}
+            lastRefreshedAt={lastHydratedAt}
+            now={freshnessNow}
+          />
         )}
 
         {/* TAB 3: CREATE BASKET STUDIO */}

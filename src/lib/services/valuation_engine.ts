@@ -120,20 +120,45 @@ export function calculateRedeemQuote(
 
 export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonitorItem[] {
   return assets
-    .filter(a => a.pythBenchmarkPriceUsd && a.pythBenchmarkPriceUsd > 0)
-    .map(a => {
-      const { spreadBps, direction } = computeBasisSpread(a.priceUsd, a.pythBenchmarkPriceUsd!);
+    .map((asset) => {
+      const benchmarkPrice =
+        typeof asset.pythBenchmarkPriceUsd === 'number' &&
+        Number.isFinite(asset.pythBenchmarkPriceUsd) &&
+        asset.pythBenchmarkPriceUsd > 0
+          ? asset.pythBenchmarkPriceUsd
+          : undefined;
+
+      const benchmarkSpreadBps = benchmarkPrice
+        ? computeBasisSpread(asset.priceUsd, benchmarkPrice).spreadBps
+        : undefined;
+
       return {
-        symbol: a.symbol,
-        name: a.name,
-        tokenMint: a.tokenMint,
-        provider: a.provider,
-        solanaDexPriceUsd: a.priceUsd,
-        pythBenchmarkPriceUsd: a.pythBenchmarkPriceUsd!,
-        spreadBps,
-        arbitrageDirection: direction,
-        lastUpdated: a.lastUpdated,
+        symbol: asset.symbol,
+        name: asset.name,
+        tokenMint: asset.tokenMint,
+        provider: asset.provider,
+        providerMarkPriceUsd: asset.priceUsd,
+        impliedValuationUsd: asset.marketCapUsd,
+        change24h: asset.change24h,
+        change24hAvailable: asset.change24hAvailable === true,
+        quoteSource: asset.quoteSource || 'snapshot',
+        pythBenchmarkPriceUsd: benchmarkPrice,
+        benchmarkSpreadBps,
+        lastUpdated: asset.lastUpdated,
       };
     })
-    .sort((a, b) => Math.abs(b.spreadBps) - Math.abs(a.spreadBps));
+    .sort((a, b) => {
+      const aUnderlying = a.symbol.replace(/^T-/i, '').toUpperCase();
+      const bUnderlying = b.symbol.replace(/^T-/i, '').toUpperCase();
+
+      if (aUnderlying !== bUnderlying) {
+        return aUnderlying.localeCompare(bUnderlying);
+      }
+
+      if (a.quoteSource !== b.quoteSource) {
+        return a.quoteSource === 'live' ? -1 : 1;
+      }
+
+      return a.provider.localeCompare(b.provider);
+    });
 }
