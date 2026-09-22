@@ -38,20 +38,27 @@ export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promi
 export function calculateBasketNav(
   basket: BasketDefinition,
   liveAssetMap: Map<string, AssetQuote>
-): { navUsd: number; navChange24h: number } {
+): { navUsd: number; navChange24h: number; navChange24hAvailable: boolean } {
   let totalNav = 0;
   let weightedChange = 0;
+  let hasComplete24hData = true;
 
   for (const constituent of basket.constituents) {
     const liveAsset = liveAssetMap.get(constituent.asset.tokenMint) || constituent.asset;
     const weightFraction = constituent.targetWeightBps / 10000;
     totalNav += liveAsset.priceUsd * weightFraction;
-    weightedChange += (liveAsset.change24h || 0) * weightFraction;
+
+    if (liveAsset.change24hAvailable === true) {
+      weightedChange += liveAsset.change24h * weightFraction;
+    } else {
+      hasComplete24hData = false;
+    }
   }
 
   return {
     navUsd: Number(totalNav.toFixed(2)),
-    navChange24h: Number(weightedChange.toFixed(2)),
+    navChange24h: hasComplete24hData ? Number(weightedChange.toFixed(2)) : 0,
+    navChange24hAvailable: hasComplete24hData,
   };
 }
 
