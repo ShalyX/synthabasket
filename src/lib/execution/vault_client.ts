@@ -12,7 +12,7 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   getMint,
 } from '@solana/spl-token';
-import { BN, BorshInstructionCoder, Idl } from '@coral-xyz/anchor';
+import { BN, BorshAccountsCoder, BorshInstructionCoder, Idl } from '@coral-xyz/anchor';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../types';
 import { SYNTHABASKET_IDL } from './idl';
 
@@ -22,11 +22,14 @@ export class SynthaBasketVaultClient {
   private connection: Connection;
   private programId: PublicKey;
   private instructionCoder: BorshInstructionCoder;
+  private accountsCoder: BorshAccountsCoder;
 
   constructor(connection: Connection, programId: PublicKey = SYNTHABASKET_PROGRAM_ID) {
     this.connection = connection;
     this.programId = programId;
-    this.instructionCoder = new BorshInstructionCoder(SYNTHABASKET_IDL as unknown as Idl);
+    const idl = SYNTHABASKET_IDL as unknown as Idl;
+    this.instructionCoder = new BorshInstructionCoder(idl);
+    this.accountsCoder = new BorshAccountsCoder(idl);
   }
 
   getBasketPda(symbol: string): [PublicKey, number] {
@@ -61,6 +64,71 @@ export class SynthaBasketVaultClient {
     } catch {
       // Default to 6 decimals if offline or uninitialized
       return 6;
+    }
+  }
+
+  /**
+   * Verifies the live on-chain basket state before a user is asked to deposit.
+   * This prevents the UI from treating a derived PDA or stale registry entry as custody proof.
+   */
+  async verifyBasketExecutionState(
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean = false
+  ): Promise<void> {
+    const [basketPda] = this.getBasketPda(basket.symbol);
+    const [basketMint] = this.getBasketMintPda(basket.symbol);
+
+    if (basketPda.toBase58() !== basket.vaultPda) {
+      throw new Error(`Registry vault PDA mismatch for ${basket.symbol}.`);
+    }
+    if (basketMint.toBase58() !== basket.basketMint) {
+      throw new Error(`Registry basket mint mismatch for ${basket.symbol}.`);
+    }
+
+    const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
+    if (!basketInfo) {
+      throw new Error(`Basket vault ${basket.symbol} is not initialized on the connected cluster.`);
+    }
+    if (!basketInfo.owner.equals(this.programId)) {
+      throw new Error(`Basket vault ${basket.symbol} is not owned by the SynthaBasket program.`);
+    }
+
+    const mintInfo = await this.connection.getAccountInfo(basketMint, 'confirmed');
+    if (!mintInfo || !mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+      throw new Error(`Basket mint ${basket.symbol} is not initialized as an SPL mint on this cluster.`);
+    }
+
+    let decoded: any;
+    try {
+      decoded = this.accountsCoder.decode('BasketState', basketInfo.data);
+    } catch {
+      throw new Error(`Unable to decode live basket state for ${basket.symbol}; IDL/program version mismatch.`);
+    }
+
+    const onChainBasketMint = new PublicKey(decoded.basketMint).toBase58();
+    if (onChainBasketMint !== basketMint.toBase58()) {
+      throw new Error(`On-chain basket mint does not match the registry for ${basket.symbol}.`);
+    }
+
+    const expectedConstituents = basket.constituents.map((constituent) => {
+      const mint = useDevnetMirrors ? constituent.asset.devnetMint : constituent.asset.tokenMint;
+      if (!mint) {
+        throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`);
+      }
+      return new PublicKey(mint).toBase58();
+    });
+
+    const onChainConstituents = (decoded.constituents as PublicKey[]).map((mint) =>
+      new PublicKey(mint).toBase58()
+    );
+
+    if (
+      onChainConstituents.length !== expectedConstituents.length ||
+      onChainConstituents.some((mint, index) => mint !== expectedConstituents[index])
+    ) {
+      throw new Error(
+        `On-chain constituent configuration for ${basket.symbol} does not match the active execution mints.`
+      );
     }
   }
 
