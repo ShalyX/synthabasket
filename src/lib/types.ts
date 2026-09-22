@@ -67,7 +67,7 @@ export interface MeteoraDBCConfig {
   quoteToken: 'USDC' | 'SOL';
 }
 
-export type TxStepStatus = 'pending' | 'active' | 'completed' | 'failed';
+export type TxStepStatus = 'pending' | 'active' | 'submitted' | 'completed' | 'failed';
 
 export interface TxStep {
   id: string;
@@ -77,6 +77,7 @@ export interface TxStep {
   txSignature?: string;
   txSignatures?: string[];
   error?: string;
+  statusMessage?: string;
 }
 
 export interface TxLifecycleState {
@@ -86,6 +87,7 @@ export interface TxLifecycleState {
   currentStepIndex: number;
   isCompleted: boolean;
   hasError: boolean;
+  hasPendingConfirmation?: boolean;
   finalSignature?: string;
   actionType: 'mint' | 'redeem' | 'create_basket' | 'launch_dbc';
 }
