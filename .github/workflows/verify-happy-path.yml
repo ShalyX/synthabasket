@@ -1,0 +1,55 @@
+name: Verify SynthaBasket Real Devnet Happy Path
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/verify-happy-path.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEVNET_MIRROR_AUTHORITY_SECRET: ${{ secrets.DEVNET_MIRROR_AUTHORITY_SECRET }}
+      RUNNER_PRIVATE_KEY: ${{ secrets.RUNNER_PRIVATE_KEY }}
+      PYTH_API_KEY: ${{ secrets.PYTH_API_KEY }}
+      NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
+      DEMO_DEPOSIT_USDC: "50"
+
+    steps:
+      - name: Checkout repaired execution implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ui/wider-shell
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Check execution authority
+        run: |
+          if [ -z "$DEVNET_MIRROR_AUTHORITY_SECRET" ] && [ -z "$RUNNER_PRIVATE_KEY" ]; then
+            echo "::error::Missing Devnet runner authority."
+            exit 1
+          fi
+
+      - name: Run real Devnet happy path
+        run: npm run execute-happy-path
+
+      - name: Upload verified receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthabasket-real-devnet-receipts
+          path: DEMO_RUN_RECEIPTS.md
+          if-no-files-found: error
