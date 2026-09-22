@@ -12,6 +12,9 @@ export interface PreStocksApiItem {
   tokenPrice: number;
   impliedValuation: number;
   supply: number;
+  change24h?: number;
+  change24hPercent?: number;
+  priceChange24h?: number;
 }
 
 // Fallback verified snapshot from live PreStocks API (updated 2026-09-21)
@@ -26,6 +29,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 136_625_480_204,
     description: 'Anduril builds AI-driven defense systems, autonomous drones, and Lattice OS.',
     logoUrl: 'https://www.prestocks.com/logos/anduril.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -38,6 +43,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 185_000_000_000,
     description: 'Anthropic PBC is an AI safety and research company, creators of Claude.',
     logoUrl: 'https://www.prestocks.com/logos/anthropic.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -50,6 +57,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 950_000_000_000,
     description: 'Creator of ChatGPT and frontier artificial general intelligence models.',
     logoUrl: 'https://www.prestocks.com/logos/openai.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -62,6 +71,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 210_000_000_000,
     description: 'Aerospace manufacturer and satellite constellation operator.',
     logoUrl: 'https://www.prestocks.com/logos/spacex.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -74,6 +85,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 1_200_000_000,
     description: 'CFTC-regulated financial exchange for event and prediction contracts.',
     logoUrl: 'https://www.prestocks.com/logos/kalshi.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -86,6 +99,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 8_500_000_000,
     description: 'Brain-computer interface developer developing neural implants.',
     logoUrl: 'https://www.prestocks.com/logos/neuralink.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -98,6 +113,8 @@ export const PRESTOCKS_VERIFIED_SNAPSHOT: AssetQuote[] = [
     marketCapUsd: 2_100_000_000,
     description: 'Decentralized information markets and prediction platform.',
     logoUrl: 'https://www.prestocks.com/logos/polymarket.png',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -145,18 +162,25 @@ export async function fetchPreStocksAssets(options?: { throwOnError?: boolean })
       return PRESTOCKS_VERIFIED_SNAPSHOT;
     }
 
-    return rawItems.map((item) => ({
-      symbol: item.symbol,
-      name: item.name,
-      provider: 'prestocks',
-      tokenMint: item.contract_address,
-      priceUsd: Number((item.markPrice || item.tokenPrice || 0).toFixed(2)),
-      change24h: 1.5, // Computed or default
-      marketCapUsd: item.markValuation || item.impliedValuation,
-      description: item.description,
-      logoUrl: item.image,
-      lastUpdated: Date.now(),
-    }));
+    return rawItems.map((item) => {
+      const providerChange = [item.change24h, item.change24hPercent, item.priceChange24h]
+        .find((value) => typeof value === 'number' && Number.isFinite(value));
+
+      return {
+        symbol: item.symbol,
+        name: item.name,
+        provider: 'prestocks' as const,
+        tokenMint: item.contract_address,
+        priceUsd: Number((item.markPrice || item.tokenPrice || 0).toFixed(2)),
+        change24h: providerChange ?? 0,
+        change24hAvailable: providerChange !== undefined,
+        quoteSource: 'live' as const,
+        marketCapUsd: item.markValuation || item.impliedValuation,
+        description: item.description,
+        logoUrl: item.image,
+        lastUpdated: Date.now(),
+      };
+    });
   } catch (error: any) {
     if (options?.throwOnError) {
       throw new Error(`PreStocks API fetch failed: ${error.message}`);
