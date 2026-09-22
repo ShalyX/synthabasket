@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import bs58 from 'bs58';
 import {
   Connection,
