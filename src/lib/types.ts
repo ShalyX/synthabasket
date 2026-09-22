@@ -5,6 +5,11 @@ export interface AssetQuote {
   name: string;
   provider: AssetProvider;
   tokenMint: string;
+  /**
+   * Optional Devnet mirror mint used only for executable test flows.
+   * The canonical provider mint remains tokenMint.
+   */
+  devnetMint?: string;
   priceUsd: number;
   change24h: number;
   marketCapUsd?: number;
@@ -65,6 +70,7 @@ export interface TxStep {
   description: string;
   status: TxStepStatus;
   txSignature?: string;
+  txSignatures?: string[];
   error?: string;
 }
 
@@ -83,6 +89,10 @@ export interface AllocationRouteItem {
   asset: AssetQuote;
   targetUsdAmount: number;
   estimatedTokensReceived: number;
+  /**
+   * Exact raw token amount acquired by the execution layer, when known.
+   */
+  rawTokenAmount?: string;
   jupiterRoute?: unknown;
 }
 
