@@ -26,6 +26,17 @@ function loadLocalEnv() {
 
 loadLocalEnv();
 
+const KNOWN_DEVNET_MIRRORS: Record<string, string> = {
+  'T-OpenAI': 'Bj47e5GCXuaxmbPjDRF5iSVjZ1Y4uEFoaDoPUAfD1xkB',
+  ANTHROPIC: 'GxtkS2jUU5br9JJB64FuvvUxwp2sadxwCCRsZwiqAR3p',
+  'T-Kalshi': 'HSv2zqvfSXv2CQ7TW79HpQPYziNvoiY3CKpGu7Ec3hFh',
+  'T-SpaceX': 'B5SFgwf1nMGPAid4ngWWtn1fxpL2wTSbibmzsQzp4oaq',
+  ANDURIL: 'F2ynAT6rER45pQPh62P63TLmDqhByepTJfDaypeETBJZ',
+  KALSHI: '41ZBu1Frvec4r7TeQjYP4PnMSviU8vwd1wo5SZZZ5wMn',
+  POLYMARKET: '9qHJAujJTHxwn6gTzmwQKJZYDsoQGsBxAw1ygvtFboTN',
+  OPENAI: 'JBk4GN6xhW9rmu5pAM1Ub2pdgCZs3Bkc7xBAxbvH9Rr6',
+};
+
 const ENV_BY_SYMBOL: Record<string, string> = {
   'T-OpenAI': 'NEXT_PUBLIC_DEVNET_MIRROR_T_OPENAI',
   ANTHROPIC: 'NEXT_PUBLIC_DEVNET_MIRROR_ANTHROPIC',
@@ -74,7 +85,7 @@ async function main() {
     const envName = ENV_BY_SYMBOL[symbol];
     if (!envName) throw new Error('No mirror environment-variable mapping for ' + symbol);
 
-    const configured = process.env[envName];
+    const configured = process.env[envName] || KNOWN_DEVNET_MIRRORS[symbol];
     if (configured) {
       const mint = new PublicKey(configured);
       const info = await getMint(connection, mint);
