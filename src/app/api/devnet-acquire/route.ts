@@ -167,6 +167,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userUsdcBalance = await connection.getTokenAccountBalance(userUsdcAta, 'confirmed');
+    if (BigInt(userUsdcBalance.value.amount) < totalUsdcRaw) {
+      return NextResponse.json(
+        {
+          error:
+            `Insufficient Devnet USDC. Need ${Number(totalUsdcRaw) / 1_000_000} USDC, wallet has ${userUsdcBalance.value.uiAmountString || '0'}.`,
+        },
+        { status: 400 }
+      );
+    }
+
     // Hard cap the demo adapter to $1,000 USDC per transaction.
     if (totalUsdcRaw > 1_000_000_000n) {
       return NextResponse.json(
