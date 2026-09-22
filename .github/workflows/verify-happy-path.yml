@@ -20,7 +20,7 @@ jobs:
       RUNNER_PRIVATE_KEY: ${{ secrets.RUNNER_PRIVATE_KEY }}
       PYTH_API_KEY: ${{ secrets.PYTH_API_KEY }}
       NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
-      DEMO_DEPOSIT_USDC: "50"
+      DEMO_DEPOSIT_USDC: "10"
 
     steps:
       - name: Checkout repaired execution implementation
