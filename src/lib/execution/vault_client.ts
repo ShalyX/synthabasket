@@ -275,6 +275,107 @@ export class SynthaBasketVaultClient {
     };
   }
 
+  async getUserTokenBalance(
+    userPublicKey: PublicKey,
+    mint: PublicKey
+  ): Promise<number> {
+    const ata = this.getUserTokenAccount(userPublicKey, mint);
+    const balance = await this.connection
+      .getTokenAccountBalance(ata, 'confirmed')
+      .catch(() => null);
+    return balance ? Number(balance.value.uiAmountString || '0') : 0;
+  }
+
+  async getUserBasketBalance(
+    userPublicKey: PublicKey,
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean = false
+  ): Promise<number> {
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketMint] = this.getBasketMintPda(executionSymbol);
+    return this.getUserTokenBalance(userPublicKey, basketMint);
+  }
+
+  /**
+   * Calculates the same pro-rata constituent outputs the vault will release
+   * for a redemption, directly from the current on-chain reserve state.
+   */
+  async prepareLiveRedeemQuote(
+    basket: BasketDefinition,
+    sharesToBurn: number,
+    useDevnetMirrors: boolean = false
+  ): Promise<BasketRedeemQuote> {
+    if (!Number.isFinite(sharesToBurn) || sharesToBurn <= 0) {
+      return {
+        basketId: basket.id,
+        burnBasketTokensAmount: 0,
+        expectedUsdcValue: 0,
+        constituentsToReturn: basket.constituents.map((constituent) => ({
+          asset: constituent.asset,
+          tokenAmount: 0,
+          valueUsd: 0,
+        })),
+      };
+    }
+
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
+    if (!basketInfo) {
+      throw new Error(`Basket vault ${basket.symbol} is not initialized.`);
+    }
+
+    const decoded: any = this.accountsCoder.decode('BasketState', basketInfo.data);
+    const totalSharesRaw = BigInt(decoded.totalSharesMinted.toString());
+    const sharesRaw = BigInt(Math.floor(sharesToBurn * 1_000_000));
+
+    if (sharesRaw <= 0n) {
+      throw new Error('Redemption amount is below the basket precision.');
+    }
+    if (totalSharesRaw <= 0n || sharesRaw > totalSharesRaw) {
+      throw new Error('Redemption amount exceeds the live basket supply.');
+    }
+
+    const reserves = (decoded.vaultReserves as any[]).map((value) =>
+      BigInt(value.toString())
+    );
+
+    if (reserves.length !== basket.constituents.length) {
+      throw new Error('Live vault reserve count does not match basket constituents.');
+    }
+
+    const constituentsToReturn = [];
+    for (let i = 0; i < basket.constituents.length; i += 1) {
+      const constituent = basket.constituents[i];
+      const executionMint = useDevnetMirrors
+        ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
+        : constituent.asset.tokenMint;
+      if (!executionMint) {
+        throw new Error(`No execution mint configured for ${constituent.asset.symbol}.`);
+      }
+
+      const decimals = await this.getMintDecimals(new PublicKey(executionMint));
+      const rawOut = (reserves[i] * sharesRaw) / totalSharesRaw;
+      const tokenAmount = Number(rawOut) / 10 ** decimals;
+
+      constituentsToReturn.push({
+        asset: constituent.asset,
+        tokenAmount,
+        valueUsd: tokenAmount * constituent.asset.priceUsd,
+      });
+    }
+
+    return {
+      basketId: basket.id,
+      burnBasketTokensAmount: Number(sharesRaw) / 1_000_000,
+      expectedUsdcValue: constituentsToReturn.reduce(
+        (sum, item) => sum + item.valueUsd,
+        0
+      ),
+      constituentsToReturn,
+    };
+  }
+
   /**
    * Returns true when the connected wallet already holds enough of every
    * execution constituent for this quote. On Devnet this lets a failed
