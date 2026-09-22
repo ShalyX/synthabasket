@@ -10,7 +10,7 @@ export const SYNTHABASKET_IDL = {
   "instructions": [
     {
       "name": "initializeBasket",
-      "discriminator": [121, 65, 140, 240, 64, 48, 118, 14],
+      "discriminator": [246, 234, 106, 12, 103, 95, 178, 166],
       "accounts": [
         { "name": "authority", "isMut": true, "isSigner": true },
         { "name": "basket", "isMut": true, "isSigner": false },
