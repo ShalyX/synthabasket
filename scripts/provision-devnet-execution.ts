@@ -127,19 +127,43 @@ async function ensureProgramDeployed(
 ): Promise<PublicKey> {
   const programKeypair = deriveDevnetProgramKeypair(authority);
   const programId = programKeypair.publicKey;
-  const existing = await connection.getAccountInfo(programId, 'confirmed');
+  let existing: Awaited<ReturnType<Connection['getAccountInfo']>> = null;
+  try {
+    existing = await connection.getAccountInfo(programId, 'confirmed');
+  } catch (error) {
+    console.warn(
+      'web3.js could not verify the Devnet program account; falling back to Solana CLI.'
+    );
+  }
 
   if (existing?.executable) {
     console.log('Reusing deployed SynthaBasket program:', programId.toBase58());
     return programId;
   }
 
+  ensureSolanaCli();
+
+  // GitHub-hosted runners occasionally hit transient fetch failures through
+  // web3.js while the Solana CLI remains healthy. Verify with the CLI before
+  // assuming the program needs to be deployed again.
+  try {
+    run('solana', [
+      'program',
+      'show',
+      programId.toBase58(),
+      '--url',
+      endpoint,
+    ]);
+    console.log('Reusing deployed SynthaBasket program:', programId.toBase58());
+    return programId;
+  } catch {
+    // Not deployed yet; continue with build + deployment.
+  }
+
   console.log(
     'SynthaBasket program is not deployed; provisioning Devnet program:',
     programId.toBase58()
   );
-
-  ensureSolanaCli();
 
   const tempDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'synthabasket-program-')
@@ -258,16 +282,16 @@ async function ensureProgramDeployed(
     programKeypairPath,
   ]);
 
-  const deployed = await connection.getAccountInfo(
-    programId,
-    'confirmed'
-  );
-
-  if (!deployed?.executable) {
-    throw new Error(
-      'Program deployment returned without an executable program account.'
-    );
-  }
+  // The deploy command itself returns the program ID and confirmed signature.
+  // Use the CLI for the post-deploy verification as well, avoiding transient
+  // web3.js fetch failures on public Devnet RPC.
+  run('solana', [
+    'program',
+    'show',
+    programId.toBase58(),
+    '--url',
+    endpoint,
+  ]);
 
   console.log('PROGRAM_ID=' + programId.toBase58());
   return programId;
