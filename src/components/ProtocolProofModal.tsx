@@ -2,7 +2,6 @@
 
 import React from 'react';
 import {
-  AlertTriangle,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -42,24 +41,47 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
         </div>
 
         <div className="space-y-6 overflow-y-auto p-6">
-          <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <section className="rounded-xl border border-brand-primary/30 bg-brand-primary/5 p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-bold text-ink-primary">
-                    Devnet receipts are being re-verified
+                    Real Devnet happy path verified
                   </h3>
-                  <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
-                    PROOF PENDING
+                  <span className="rounded bg-brand-primary/10 px-2 py-0.5 text-[10px] font-semibold text-brand-primary">
+                    CONFIRMED
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-5 text-ink-secondary">
-                  An execution audit found that the previous public receipt set used setup/self-transfer
-                  signatures while the actual Anchor deposit and redemption instructions were only simulated.
-                  Those signatures have been retired as protocol execution proof.
+                  A 10 USDC AITD execution completed through the real acquisition, Anchor deposit_and_mint,
+                  and Anchor burn_and_redeem path on Solana Devnet. The previous proxy receipts remain retired.
                 </p>
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface-subtle p-4">
+            <div className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-primary">
+              Verified execution receipts
+            </div>
+            <div className="space-y-2 text-[11px]">
+              {[
+                ['Acquire', 'ux7dGVzci5sGpKJpMUTeMWtJSkjD4fiQa9MGps35wF78544wNwe2m4WVAxiDSXVdP2EAFvbKU9ypfC1dZZQtRdS'],
+                ['Mint', '2VftJP3hy5AVjjxHtD4snSAPQUzqxtBdPEGNq35EfxCjgpAuv88PT2DR8nrPsSv6kBKxTVADfjdrvWyn5YTJhPtJ'],
+                ['Redeem', '4C8hAJ8Kmagm9V5jXSYEpwFfDdXaEvS6XMQV7Fk4PB6gM2UJHP7Cu5rBTomjhFCnzR5mHCiGtvxQGmSi9mod2zJ5'],
+              ].map(([label, signature]) => (
+                <a
+                  key={label}
+                  href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-lg bg-surface p-3 transition-colors hover:text-brand-primary"
+                >
+                  <span className="font-semibold text-ink-primary">{label}</span>
+                  <span className="font-mono text-ink-tertiary">{signature.slice(0, 8)}...{signature.slice(-6)}</span>
+                </a>
+              ))}
             </div>
           </section>
 
@@ -106,7 +128,7 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
             <div className="rounded-xl border border-border bg-surface p-4">
               <div className="text-[10px] uppercase tracking-wider text-ink-tertiary">Anchor Program</div>
               <div className="mt-2 break-all font-mono text-[11px] font-semibold text-ink-primary">
-                BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh
+                4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA
               </div>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
@@ -121,7 +143,7 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
             <div className="rounded-xl border border-border bg-surface p-4">
               <div className="text-[10px] uppercase tracking-wider text-ink-tertiary">Market data</div>
               <div className="mt-2 text-xs font-semibold text-ink-primary">
-                PreStocks + Tessera + authenticated Pyth
+                PreStocks + Tessera; Pyth available when authenticated
               </div>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
@@ -136,7 +158,7 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
           </section>
 
           <a
-            href="https://github.com/ShalyX/synthabasket/blob/main/DEMO_RUN_RECEIPTS.md"
+            href="https://github.com/ShalyX/synthabasket/blob/ui/wider-shell/DEMO_RUN_RECEIPTS.md"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-brand-primary"
@@ -146,7 +168,7 @@ export const ProtocolProofModal: React.FC<ProtocolProofModalProps> = ({ onClose 
               <div>
                 <div className="text-xs font-semibold text-ink-primary">Execution proof log</div>
                 <div className="mt-0.5 text-[11px] text-ink-tertiary">
-                  Review the retired receipts and replacement proof requirements.
+                  Review the confirmed Devnet acquisition, mint, and redemption receipts.
                 </div>
               </div>
             </div>
