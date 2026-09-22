@@ -61,6 +61,28 @@ export const SYNTHABASKET_IDL = {
   "accounts": [
     {
       "name": "BasketState",
+      "discriminator": [208, 226, 245, 245, 230, 31, 153, 253],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "pubkey" },
+          { "name": "symbol", "type": "string" },
+          { "name": "name", "type": "string" },
+          { "name": "basketMint", "type": "pubkey" },
+          { "name": "constituents", "type": { "vec": "pubkey" } },
+          { "name": "weightsBps", "type": { "vec": "u16" } },
+          { "name": "protocolFeeBps", "type": "u16" },
+          { "name": "totalSharesMinted", "type": "u64" },
+          { "name": "vaultReserves", "type": { "vec": "u64" } },
+          { "name": "bump", "type": "u8" },
+          { "name": "mintBump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "BasketState",
       "type": {
         "kind": "struct",
         "fields": [
