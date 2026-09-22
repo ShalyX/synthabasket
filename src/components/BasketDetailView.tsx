@@ -76,20 +76,24 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     $ {basket.navUsd.toFixed(2)}
                   </p>
                 </div>
-                <div
-                  className={`flex items-center font-mono text-sm font-semibold tabular-nums ${
-                    isPositive ? 'text-brand-primary' : 'text-semantic-negative'
-                  }`}
-                >
-                  {isPositive ? '+' : ''}
-                  {basket.navChange24h.toFixed(2)}%
-                  {isPositive ? (
-                    <ArrowUpRight className="ml-0.5 h-4 w-4" />
-                  ) : (
-                    <ArrowDownRight className="ml-0.5 h-4 w-4" />
-                  )}
-                  <span className="ml-1 font-sans text-xs font-normal text-ink-tertiary">24h</span>
-                </div>
+                {basket.navChange24hAvailable ? (
+                  <div
+                    className={`flex items-center font-mono text-sm font-semibold tabular-nums ${
+                      isPositive ? 'text-brand-primary' : 'text-semantic-negative'
+                    }`}
+                  >
+                    {isPositive ? '+' : ''}
+                    {basket.navChange24h.toFixed(2)}%
+                    {isPositive ? (
+                      <ArrowUpRight className="ml-0.5 h-4 w-4" />
+                    ) : (
+                      <ArrowDownRight className="ml-0.5 h-4 w-4" />
+                    )}
+                    <span className="ml-1 font-sans text-xs font-normal text-ink-tertiary">24h</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-ink-tertiary">24h change unavailable</span>
+                )}
               </div>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-ink-secondary">
                 {basket.description}
