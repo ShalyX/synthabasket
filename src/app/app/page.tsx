@@ -55,6 +55,7 @@ export default function AppPage() {
   const [basisItems, setBasisItems] = useState<BasisMonitorItem[]>([]);
   const [hydrationNonce, setHydrationNonce] = useState(0);
   const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
   const [navHistory, setNavHistory] = useState<NavHistoryByBasket>({});
   const hasHydratedMarketplaceRef = useRef(false);
 
@@ -116,6 +117,7 @@ export default function AppPage() {
         setAvailableAssets(quotes);
         setBasisItems(generateBasisMonitoringLedger(quotes));
         setBaskets(hydrated);
+        setLastHydratedAt(Number(payload.generatedAt) || Date.now());
         setNavHistory(recordBasketNavHistory(hydrated));
         hasHydratedMarketplaceRef.current = true;
         setMarketplaceStatus('ready');
@@ -249,6 +251,15 @@ export default function AppPage() {
     };
 
     try {
+      const vaultClient = new SynthaBasketVaultClient(connection);
+      const devnetUsdcMint = new PublicKey(
+        '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+      );
+      const [beforeUsdcBalance, beforeBasketBalance] = await Promise.all([
+        vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
+        vaultClient.getUserBasketBalance(publicKey, basket, isDevnet),
+      ]);
+
       // Step 1: Produce an execution plan. Estimates are never treated as executable routes.
       const router = new AllocationRouter(connection);
       const allocationPlan = await router.prepareAllocationSwaps(publicKey, quote, isDevnet);
@@ -268,7 +279,6 @@ export default function AppPage() {
 
       // Step 2: Verify the live basket configuration before any swap or Devnet
       // acquisition can consume user USDC.
-      const vaultClient = new SynthaBasketVaultClient(connection);
       await vaultClient.verifyBasketExecutionState(basket, isDevnet);
       activateStep(2, 1);
 
@@ -458,10 +468,24 @@ export default function AppPage() {
         throw new Error(`Vault deposit ${depositOutcome.state}: ${depositOutcome.error}`);
       }
 
+      const [afterUsdcBalance, afterBasketBalance] = await Promise.all([
+        vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
+        vaultClient.getUserBasketBalance(publicKey, basket, isDevnet),
+      ]);
+
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
         finalSignature: depositSignature,
+        receipt: {
+          spentUsdc: Math.max(0, beforeUsdcBalance - afterUsdcBalance),
+          sharesReceived: Math.max(0, afterBasketBalance - beforeBasketBalance),
+          resultingShareBalance: afterBasketBalance,
+          assetsDeposited: depositQuote.allocations.map((allocation) => ({
+            symbol: allocation.asset.symbol,
+            amount: allocation.estimatedTokensReceived,
+          })),
+        },
         currentStepIndex: 4,
         steps: prev.steps.map((step, index) =>
           index === 4
@@ -546,6 +570,25 @@ export default function AppPage() {
       const vaultClient = new SynthaBasketVaultClient(connection);
       await vaultClient.verifyBasketExecutionState(basket, isDevnet);
 
+      const beforeBasketBalance = await vaultClient.getUserBasketBalance(
+        publicKey,
+        basket,
+        isDevnet
+      );
+      const beforeConstituentBalances = await Promise.all(
+        quote.constituentsToReturn.map(async (item) => {
+          const mint = new PublicKey(
+            isDevnet
+              ? item.asset.devnetMint || item.asset.tokenMint
+              : item.asset.tokenMint
+          );
+          return {
+            symbol: item.asset.symbol,
+            balance: await vaultClient.getUserTokenBalance(publicKey, mint),
+          };
+        })
+      );
+
       const redeemTx = await vaultClient.buildRedeemTransaction(
         publicKey,
         basket,
@@ -617,10 +660,44 @@ export default function AppPage() {
         throw new Error(`Redemption ${outcome.state}: ${outcome.error}`);
       }
 
+      const afterBasketBalance = await vaultClient.getUserBasketBalance(
+        publicKey,
+        basket,
+        isDevnet
+      );
+      const afterConstituentBalances = await Promise.all(
+        quote.constituentsToReturn.map(async (item) => {
+          const mint = new PublicKey(
+            isDevnet
+              ? item.asset.devnetMint || item.asset.tokenMint
+              : item.asset.tokenMint
+          );
+          return {
+            symbol: item.asset.symbol,
+            balance: await vaultClient.getUserTokenBalance(publicKey, mint),
+          };
+        })
+      );
+
+      const assetsReturned = afterConstituentBalances.map((after) => {
+        const before = beforeConstituentBalances.find(
+          (item) => item.symbol === after.symbol
+        );
+        return {
+          symbol: after.symbol,
+          amount: Math.max(0, after.balance - (before?.balance || 0)),
+        };
+      });
+
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
         finalSignature: signature,
+        receipt: {
+          sharesBurned: Math.max(0, beforeBasketBalance - afterBasketBalance),
+          resultingShareBalance: afterBasketBalance,
+          assetsReturned,
+        },
         steps: prev.steps.map((step, index) =>
           index === 2
             ? { ...step, status: 'completed', txSignature: signature }
@@ -873,9 +950,18 @@ export default function AppPage() {
               <h1 className="text-2xl font-extrabold tracking-tight text-ink-primary sm:text-3xl">
                 Baskets
               </h1>
-              <p className="mt-1 text-sm text-ink-secondary">
-                Private-market indexes you can invest in and redeem on Solana.
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-secondary">
+                <span>Private-market indexes you can invest in and redeem on Solana.</span>
+                {lastHydratedAt && (
+                  <span className="text-xs text-ink-tertiary">
+                    Updated {new Date(lastHydratedAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })} · refreshes every 30s
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* THEMATIC BASKETS SECTION */}
