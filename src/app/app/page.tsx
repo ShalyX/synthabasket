@@ -303,17 +303,50 @@ export default function AppPage() {
         }),
       };
 
+      // Compute the exact non-dilutive deposit from the current live reserves
+      // BEFORE any acquisition signature is requested. This is the executable
+      // share amount for this route, not a price-derived UI estimate.
+      const depositQuote = await vaultClient.prepareProportionalMintQuote(
+        basket,
+        executionQuote,
+        isDevnet
+      );
+
+      setTxLifecycle((prev) => ({
+        ...prev,
+        steps: prev.steps.map((step, index) =>
+          index === 3
+            ? {
+                ...step,
+                label: `Deposit Underlying & Mint ${depositQuote.expectedBasketTokens} ${basket.symbol}`,
+                description:
+                  depositQuote.expectedBasketTokens < quote.expectedBasketTokens
+                    ? 'Mint amount adjusted to the live vault reserve ratio; any rounding surplus remains in your wallet.'
+                    : 'Exact mint amount derived from the live vault reserve ratio.',
+              }
+            : step
+        ),
+      }));
+
       // A retry after a post-acquisition failure must never charge Devnet USDC
-      // a second time. If the wallet already holds this exact execution basket,
-      // reuse those assets and resume directly at the vault deposit.
+      // a second time. Only the exact deposit legs are required for a resume.
       const canReuseExistingAcquisition =
         isDevnet &&
         (await vaultClient.hasSufficientDepositBalances(
           publicKey,
           basket,
-          executionQuote,
+          depositQuote,
           true
         ));
+
+      if (
+        !canReuseExistingAcquisition &&
+        beforeUsdcBalance + 1e-9 < quote.depositUsdcAmount
+      ) {
+        throw new Error(
+          `Insufficient Devnet USDC. Need ${quote.depositUsdcAmount.toFixed(2)} USDC, wallet has ${beforeUsdcBalance.toFixed(2)}.`
+        );
+      }
 
       const allocationSignatures: string[] = [];
       if (!canReuseExistingAcquisition) {
@@ -372,33 +405,9 @@ export default function AppPage() {
       await vaultClient.verifyDepositBalances(
         publicKey,
         basket,
-        executionQuote,
+        depositQuote,
         isDevnet
       );
-
-      // Derive the largest non-dilutive mint from the live vault reserves and
-      // exact acquired amounts. Tiny rounding surplus remains in the wallet.
-      const depositQuote = await vaultClient.prepareProportionalMintQuote(
-        basket,
-        executionQuote,
-        isDevnet
-      );
-
-      setTxLifecycle((prev) => ({
-        ...prev,
-        steps: prev.steps.map((step, index) =>
-          index === 3
-            ? {
-                ...step,
-                label: `Deposit Underlying & Mint ${depositQuote.expectedBasketTokens} ${basket.symbol}`,
-                description:
-                  depositQuote.expectedBasketTokens < quote.expectedBasketTokens
-                    ? 'Mint amount adjusted to the live vault reserve ratio; any rounding surplus remains in your wallet.'
-                    : step.description,
-              }
-            : step
-        ),
-      }));
 
       activateStep(3, 2, allocationSignatures);
 
@@ -478,6 +487,7 @@ export default function AppPage() {
         isCompleted: true,
         finalSignature: depositSignature,
         receipt: {
+          basketSymbol: basket.symbol,
           spentUsdc: Math.max(0, beforeUsdcBalance - afterUsdcBalance),
           sharesReceived: Math.max(0, afterBasketBalance - beforeBasketBalance),
           resultingShareBalance: afterBasketBalance,
@@ -694,6 +704,7 @@ export default function AppPage() {
         isCompleted: true,
         finalSignature: signature,
         receipt: {
+          basketSymbol: basket.symbol,
           sharesBurned: Math.max(0, beforeBasketBalance - afterBasketBalance),
           resultingShareBalance: afterBasketBalance,
           assetsReturned,
@@ -996,7 +1007,7 @@ export default function AppPage() {
                       placeholder="Search baskets"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-64 rounded-full border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-ink-primary placeholder-ink-tertiary focus:border-brand-primary focus:outline-none"
+                      className="w-full rounded-full border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-ink-primary placeholder-ink-tertiary focus:border-brand-primary focus:outline-none sm:w-64"
                     />
                   </div>
 
@@ -1046,6 +1057,9 @@ export default function AppPage() {
                             </span>
                             <span className="font-mono text-base font-bold text-ink-primary tabular-nums">
                               ${basket.navUsd.toFixed(2)}
+                            </span>
+                            <span className="mt-0.5 block text-[10px] text-ink-tertiary">
+                              {basket.navSource === 'onchain_reserves' ? 'Vault NAV' : 'Index NAV'}
                             </span>
                           </div>
                           <div className="text-right">

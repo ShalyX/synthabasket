@@ -168,7 +168,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   <div className="flex items-center justify-between py-1">
                     <span className="text-ink-secondary">Shares received</span>
                     <span className="font-mono tabular-nums text-ink-primary">
-                      +{state.receipt.sharesReceived.toFixed(6)}
+                      +{state.receipt.sharesReceived.toFixed(6)}{state.receipt.basketSymbol ? ` ${state.receipt.basketSymbol}` : ''}
                     </span>
                   </div>
                 )}
@@ -177,7 +177,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   <div className="flex items-center justify-between py-1">
                     <span className="text-ink-secondary">Shares burned</span>
                     <span className="font-mono tabular-nums text-ink-primary">
-                      -{state.receipt.sharesBurned.toFixed(6)}
+                      -{state.receipt.sharesBurned.toFixed(6)}{state.receipt.basketSymbol ? ` ${state.receipt.basketSymbol}` : ''}
                     </span>
                   </div>
                 )}
@@ -222,7 +222,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                     <span className="text-ink-secondary">Share balance</span>
                     <span className="font-mono tabular-nums text-ink-primary">
-                      {state.receipt.resultingShareBalance.toFixed(6)}
+                      {state.receipt.resultingShareBalance.toFixed(6)}{state.receipt.basketSymbol ? ` ${state.receipt.basketSymbol}` : ''}
                     </span>
                   </div>
                 )}

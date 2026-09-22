@@ -5,10 +5,11 @@ import { X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../lib/types';
-import { calculateMintQuote, calculateRedeemQuote } from '../lib/services/valuation_engine';
+import { calculateMintQuote } from '../lib/services/valuation_engine';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getHistoryForRange, NavHistoryPoint } from '../lib/client/nav_history';
 import { SynthaBasketVaultClient } from '../lib/execution/vault_client';
+import { AllocationRouter } from '../lib/execution/allocation_router';
 
 interface BasketDetailViewProps {
   basket: BasketDefinition;
@@ -47,55 +48,19 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   const [durableHistoryEnabled, setDurableHistoryEnabled] = useState(false);
   const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
   const [basketBalance, setBasketBalance] = useState<number | null>(null);
+  const [liveMintQuote, setLiveMintQuote] = useState<BasketMintQuote | null>(null);
+  const [mintQuoteLoading, setMintQuoteLoading] = useState(false);
+  const [mintQuoteError, setMintQuoteError] = useState<string | null>(null);
   const [liveRedeemQuote, setLiveRedeemQuote] = useState<BasketRedeemQuote | null>(null);
   const [redeemQuoteLoading, setRedeemQuoteLoading] = useState(false);
 
-  const mintQuote = calculateMintQuote(basket, usdcAmount || 0);
-  const fallbackRedeemQuote = calculateRedeemQuote(basket, redeemShares || 0);
-  const redeemQuote = liveRedeemQuote || fallbackRedeemQuote;
+  const mintQuote = useMemo(
+    () => calculateMintQuote(basket, usdcAmount || 0),
+    [basket, usdcAmount]
+  );
   const isPositive = basket.navChange24h >= 0;
 
-  const liveMintQuote = useMemo(() => {
-    if (
-      !basket.onChainStateLoaded ||
-      basket.totalSharesMinted <= 0 ||
-      !mintQuote.allocations.length
-    ) {
-      return mintQuote;
-    }
 
-    const totalSharesRaw = BigInt(Math.floor(basket.totalSharesMinted * 1_000_000));
-    let safeSharesRaw = BigInt(Math.floor(mintQuote.expectedBasketTokens * 1_000_000));
-    const allocations = mintQuote.allocations.map((allocation, index) => {
-      const reserve = basket.constituents[index]?.reserveBalance || 0;
-      const reserveRaw = BigInt(Math.floor(reserve * 1_000_000));
-      const acquiredRaw = BigInt(
-        Math.max(
-          1,
-          Math.floor(
-            (allocation.targetUsdAmount / allocation.asset.priceUsd) * 1_000_000
-          )
-        )
-      );
-
-      if (reserveRaw > 0n && totalSharesRaw > 0n) {
-        const mintable = (acquiredRaw * totalSharesRaw) / reserveRaw;
-        if (mintable < safeSharesRaw) safeSharesRaw = mintable;
-      }
-
-      return {
-        ...allocation,
-        rawTokenAmount: acquiredRaw.toString(),
-        estimatedTokensReceived: Number(acquiredRaw) / 1_000_000,
-      };
-    });
-
-    return {
-      ...mintQuote,
-      expectedBasketTokens: Number(safeSharesRaw) / 1_000_000,
-      allocations,
-    };
-  }, [basket, mintQuote]);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +97,87 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       window.clearInterval(id);
     };
   }, [basket, connection, publicKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      if (
+        !publicKey ||
+        !usdcAmount ||
+        usdcAmount <= 0 ||
+        (usdcBalance !== null && usdcAmount > usdcBalance)
+      ) {
+        if (!cancelled) {
+          setLiveMintQuote(null);
+          setMintQuoteError(null);
+          setMintQuoteLoading(false);
+        }
+        return;
+      }
+
+      setMintQuoteLoading(true);
+      setMintQuoteError(null);
+
+      try {
+        const router = new AllocationRouter(connection);
+        const allocationPlan = await router.prepareAllocationSwaps(
+          publicKey,
+          mintQuote,
+          true
+        );
+
+        if (allocationPlan.unavailable.length > 0) {
+          throw new Error(
+            allocationPlan.unavailable.map((item) => item.reason).join(' ')
+          );
+        }
+        if (allocationPlan.executionTransactions.length < 1) {
+          throw new Error('No executable acquisition route is available.');
+        }
+
+        const executionQuote: BasketMintQuote = {
+          ...mintQuote,
+          allocations: mintQuote.allocations.map((allocation) => {
+            const executed = allocationPlan.breakdown.find(
+              (item) => item.symbol === allocation.asset.symbol
+            );
+            if (!executed?.rawOutAmount || executed.actualQuotedOutAmount === null) {
+              throw new Error(
+                `Missing executable amount for ${allocation.asset.symbol}.`
+              );
+            }
+            return {
+              ...allocation,
+              estimatedTokensReceived: executed.actualQuotedOutAmount,
+              rawTokenAmount: executed.rawOutAmount,
+            };
+          }),
+        };
+
+        const vaultClient = new SynthaBasketVaultClient(connection);
+        await vaultClient.verifyBasketExecutionState(basket, true);
+        const proportionalQuote = await vaultClient.prepareProportionalMintQuote(
+          basket,
+          executionQuote,
+          true
+        );
+
+        if (!cancelled) setLiveMintQuote(proportionalQuote);
+      } catch (error: any) {
+        if (!cancelled) {
+          setLiveMintQuote(null);
+          setMintQuoteError(error?.message || 'Live executable quote unavailable.');
+        }
+      } finally {
+        if (!cancelled) setMintQuoteLoading(false);
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [basket, connection, mintQuote, publicKey, usdcAmount, usdcBalance]);
 
   useEffect(() => {
     let cancelled = false;
@@ -547,20 +593,31 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
                 <div className="border-y border-border py-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-ink-secondary">Live vault estimate</span>
+                    <span className="text-sm text-ink-secondary">
+                      {mintQuoteLoading ? 'Preparing executable quote…' : 'Executable shares'}
+                    </span>
                     <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
-                      {liveMintQuote.expectedBasketTokens.toFixed(6)} {basket.symbol}
+                      {liveMintQuote
+                        ? `${liveMintQuote.expectedBasketTokens.toFixed(6)} ${basket.symbol}`
+                        : '—'}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-ink-tertiary">
-                    <span>Underlying assets</span>
-                    <span>{basket.constituents.length}</span>
+                    <span>Live vault + current acquisition route</span>
+                    <span>{basket.constituents.length} assets</span>
                   </div>
+                  {mintQuoteError && (
+                    <p className="mt-2 text-xs leading-5 text-semantic-negative">
+                      {mintQuoteError}
+                    </p>
+                  )}
                 </div>
 
                 <button
-                  onClick={() => onExecuteMint(basket, liveMintQuote)}
+                  onClick={() => liveMintQuote && onExecuteMint(basket, liveMintQuote)}
                   disabled={
+                    mintQuoteLoading ||
+                    !liveMintQuote ||
                     !usdcAmount ||
                     usdcAmount <= 0 ||
                     (usdcBalance !== null && usdcAmount > usdcBalance)
@@ -611,16 +668,21 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                         : 'Live quote unavailable'}
                     </span>
                     <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
-                      $ {redeemQuote.expectedUsdcValue.toFixed(2)}
+                      {liveRedeemQuote ? `${liveRedeemQuote.expectedUsdcValue.toFixed(2)}` : '—'}
                     </span>
                   </div>
 
                   <div className="mt-4">
                     <p className="mb-2 text-xs font-medium text-ink-secondary">
-                      {liveRedeemQuote ? 'You receive from the live vault' : 'Estimated return'}
+                      You receive from the live vault
                     </p>
+                    {!redeemQuoteLoading && !liveRedeemQuote && (
+                      <p className="mb-2 text-xs leading-5 text-semantic-negative">
+                        A live vault quote is required before redemption.
+                      </p>
+                    )}
                     <div className="space-y-2">
-                      {redeemQuote.constituentsToReturn.map((item) => (
+                      {liveRedeemQuote?.constituentsToReturn.map((item) => (
                         <div
                           key={item.asset.tokenMint}
                           className="flex items-center justify-between text-sm"
@@ -636,7 +698,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 <button
-                  onClick={() => onExecuteRedeem(basket, redeemQuote)}
+                  onClick={() => liveRedeemQuote && onExecuteRedeem(basket, liveRedeemQuote)}
                   disabled={
                     redeemQuoteLoading ||
                     !liveRedeemQuote ||

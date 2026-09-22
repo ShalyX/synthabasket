@@ -98,17 +98,6 @@ export async function POST(request: NextRequest) {
     const connection = new Connection(endpoint, 'confirmed');
 
     const userUsdcAta = getAssociatedTokenAddressSync(DEVNET_USDC_MINT, user);
-    const userUsdcInfo = await connection.getAccountInfo(userUsdcAta, 'confirmed');
-    if (!userUsdcInfo || !userUsdcInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-      return NextResponse.json(
-        {
-          error:
-            'Connected wallet has no Devnet USDC token account. Fund it with Devnet USDC before investing.',
-        },
-        { status: 400 }
-      );
-    }
-
     const treasuryUsdcAta = getAssociatedTokenAddressSync(
       DEVNET_USDC_MINT,
       authority.publicKey
@@ -208,16 +197,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userUsdcBalance = await connection.getTokenAccountBalance(userUsdcAta, 'confirmed');
-    if (BigInt(userUsdcBalance.value.amount) < totalUsdcRaw) {
-      return NextResponse.json(
-        {
-          error:
-            `Insufficient Devnet USDC. Need ${Number(totalUsdcRaw) / 1_000_000} USDC, wallet has ${userUsdcBalance.value.uiAmountString || '0'}.`,
-        },
-        { status: 400 }
-      );
-    }
+    const userUsdcBalance = await connection
+      .getTokenAccountBalance(userUsdcAta, 'confirmed')
+      .catch(() => null);
+    const userUsdcRaw = userUsdcBalance ? BigInt(userUsdcBalance.value.amount) : 0n;
 
     // Hard cap the demo adapter to $1,000 USDC per transaction.
     if (totalUsdcRaw > 1_000_000_000n) {
@@ -250,6 +233,8 @@ export async function POST(request: NextRequest) {
       lastValidBlockHeight: latest.lastValidBlockHeight,
       treasury: authority.publicKey.toBase58(),
       totalUsdcRaw: totalUsdcRaw.toString(),
+      userUsdcRaw: userUsdcRaw.toString(),
+      hasSufficientUsdc: userUsdcRaw >= totalUsdcRaw,
       issued,
     });
   } catch (error: any) {

@@ -98,6 +98,7 @@ export interface TxReceiptAsset {
 }
 
 export interface TxReceipt {
+  basketSymbol?: string;
   spentUsdc?: number;
   sharesReceived?: number;
   sharesBurned?: number;
