@@ -10,6 +10,9 @@ export interface TesseraApiItem {
   markPrice: number;
   holders: number;
   markValuation: number;
+  change24h?: number;
+  change24hPercent?: number;
+  priceChange24h?: number;
 }
 
 // Fallback verified snapshot from live Tessera API (updated 2026-09-21)
@@ -23,6 +26,8 @@ export const TESSERA_VERIFIED_SNAPSHOT: AssetQuote[] = [
     change24h: 4.80,
     marketCapUsd: 950_000_000_000,
     description: 'Tessera tokenized private equity representing synthetic exposure to OpenAI Inc.',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -34,6 +39,8 @@ export const TESSERA_VERIFIED_SNAPSHOT: AssetQuote[] = [
     change24h: 3.90,
     marketCapUsd: 1_500_000_000,
     description: 'Tessera tokenized equity for Kalshi, the CFTC-regulated prediction exchange.',
+    change24hAvailable: false,
+    quoteSource: 'snapshot',
     lastUpdated: Date.now(),
   },
   {
@@ -80,17 +87,24 @@ export async function fetchTesseraAssets(options?: { throwOnError?: boolean }): 
       return TESSERA_VERIFIED_SNAPSHOT;
     }
 
-    return rawTokens.map((item) => ({
-      symbol: item.symbol,
-      name: item.name,
-      provider: 'tessera',
-      tokenMint: item.mint,
-      priceUsd: Number(item.markPrice.toFixed(2)),
-      change24h: 2.8,
-      marketCapUsd: item.markValuation,
-      description: `Tessera tokenized ${item.sector} equity: ${item.name}`,
-      lastUpdated: Date.now(),
-    }));
+    return rawTokens.map((item) => {
+      const providerChange = [item.change24h, item.change24hPercent, item.priceChange24h]
+        .find((value) => typeof value === 'number' && Number.isFinite(value));
+
+      return {
+        symbol: item.symbol,
+        name: item.name,
+        provider: 'tessera' as const,
+        tokenMint: item.mint,
+        priceUsd: Number(item.markPrice.toFixed(2)),
+        change24h: providerChange ?? 0,
+        change24hAvailable: providerChange !== undefined,
+        quoteSource: 'live' as const,
+        marketCapUsd: item.markValuation,
+        description: `Tessera tokenized ${item.sector} equity: ${item.name}`,
+        lastUpdated: Date.now(),
+      };
+    });
   } catch (error: any) {
     if (options?.throwOnError) {
       throw new Error(`Tessera API fetch failed: ${error.message}`);
