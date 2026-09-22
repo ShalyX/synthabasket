@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { Navbar } from '../../components/Navbar';
@@ -50,6 +50,7 @@ export default function AppPage() {
   const [basisItems, setBasisItems] = useState<BasisMonitorItem[]>([]);
   const [hydrationNonce, setHydrationNonce] = useState(0);
   const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const hasHydratedMarketplaceRef = useRef(false);
 
   // Category filter for the basket cards
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -75,11 +76,16 @@ export default function AppPage() {
 
   // Hydrate mutable basket data from one server endpoint. Provider prices,
   // live vault reserves, basket supply, and execution addresses are resolved
-  // before the marketplace renders.
+  // before the marketplace renders. Once loaded, refresh silently every 30s
+  // while the tab is visible and immediately when the window regains focus.
   useEffect(() => {
     let cancelled = false;
+    let requestInFlight = false;
 
     async function hydrateMarketplace() {
+      if (requestInFlight) return;
+      requestInFlight = true;
+
       try {
         const response = await fetch('/api/baskets', { cache: 'no-store' });
         if (!response.ok) {
@@ -100,16 +106,41 @@ export default function AppPage() {
         setAvailableAssets(quotes);
         setBasisItems(generateBasisMonitoringLedger(quotes));
         setBaskets(hydrated);
+        hasHydratedMarketplaceRef.current = true;
         setMarketplaceStatus('ready');
       } catch (error) {
         console.error('[Marketplace hydration]', error);
-        setMarketplaceStatus('error');
+        if (!cancelled && !hasHydratedMarketplaceRef.current) {
+          setMarketplaceStatus('error');
+        }
+      } finally {
+        requestInFlight = false;
       }
     }
 
-    hydrateMarketplace();
+    const refreshIfActive = () => {
+      if (document.visibilityState === 'visible') {
+        void hydrateMarketplace();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void hydrateMarketplace();
+      }
+    };
+
+    void hydrateMarketplace();
+
+    const intervalId = window.setInterval(refreshIfActive, 30_000);
+    window.addEventListener('focus', refreshIfActive);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshIfActive);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [hydrationNonce]);
 
