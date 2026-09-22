@@ -46,6 +46,11 @@ export interface BasketDefinition {
   totalSharesMinted: number;
   vaultPda: string;
   basketMint: string;
+  /**
+   * Separate seed symbol for the Devnet mirror basket state. This keeps
+   * executable test custody isolated from canonical provider-mint metadata.
+   */
+  devnetExecutionSymbol?: string;
   meteoraDbcPoolAddress?: string;
   meteoraDammPoolAddress?: string;
   meteoraGraduated: boolean;
