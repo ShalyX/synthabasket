@@ -1,10 +1,30 @@
-import 'dotenv/config';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Connection, Keypair, PublicKey, clusterApiUrl, sendAndConfirmTransaction } from '@solana/web3.js';
 import { createMint, getMint } from '@solana/spl-token';
 import bs58 from 'bs58';
 import { INITIAL_BASKETS } from '../src/lib/data/registry';
 import { BasketDefinition } from '../src/lib/types';
 import { SynthaBasketVaultClient } from '../src/lib/execution/vault_client';
+
+function loadLocalEnv() {
+  const envPath = path.join(process.cwd(), '.env.local');
+  if (!fs.existsSync(envPath)) return;
+
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const separator = trimmed.indexOf('=');
+    if (separator < 1) continue;
+
+    const key = trimmed.slice(0, separator).trim();
+    const rawValue = trimmed.slice(separator + 1).trim();
+    const value = rawValue.replace(/^['"]|['"]$/g, '');
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadLocalEnv();
 
 const ENV_BY_SYMBOL: Record<string, string> = {
   'T-OpenAI': 'NEXT_PUBLIC_DEVNET_MIRROR_T_OPENAI',
