@@ -210,46 +210,8 @@ export default function AppPage() {
       await vaultClient.verifyBasketExecutionState(basket, isDevnet);
       activateStep(2, 1);
 
-      // Step 3: Execute every prepared constituent acquisition and require a confirmed result.
-      const allocationSignatures: string[] = [];
-      for (const prepared of allocationPlan.executionTransactions) {
-        const signature = await sendTransaction(prepared.transaction, connection, {
-          skipPreflight: false,
-          maxRetries: 3,
-        });
-
-        const outcome = await waitForSignatureOutcome(connection, signature, {
-          lastValidBlockHeight: prepared.lastValidBlockHeight,
-          timeoutMs: 90_000,
-        });
-
-        if (outcome.state === 'unknown') {
-          setTxLifecycle((prev) => ({
-            ...prev,
-            hasPendingConfirmation: true,
-            currentStepIndex: 2,
-            steps: prev.steps.map((step, index) =>
-              index === 2
-                ? {
-                    ...step,
-                    status: 'submitted',
-                    txSignature: signature,
-                    statusMessage: outcome.error,
-                  }
-                : step
-            ),
-          }));
-          return;
-        }
-        if (outcome.state !== 'confirmed') {
-          throw new Error(
-            `${prepared.label} ${outcome.state}: ${outcome.error}`
-          );
-        }
-        allocationSignatures.push(signature);
-      }
-
-      // Use exact confirmed raw outputs for the vault deposit instead of price-estimated amounts.
+      // Use the server-produced exact raw outputs. Devnet mirror issuance is
+      // intentionally not derived from the rounded display estimates.
       const executionQuote: BasketMintQuote = {
         ...quote,
         allocations: quote.allocations.map((allocation) => {
@@ -258,7 +220,7 @@ export default function AppPage() {
           );
           if (!executed?.rawOutAmount || executed.actualQuotedOutAmount === null) {
             throw new Error(
-              `Missing confirmed execution amount for ${allocation.asset.symbol}.`
+              `Missing executable amount for ${allocation.asset.symbol}.`
             );
           }
           return {
@@ -269,12 +231,103 @@ export default function AppPage() {
         }),
       };
 
+      // A retry after a post-acquisition failure must never charge Devnet USDC
+      // a second time. If the wallet already holds this exact execution basket,
+      // reuse those assets and resume directly at the vault deposit.
+      const canReuseExistingAcquisition =
+        isDevnet &&
+        (await vaultClient.hasSufficientDepositBalances(
+          publicKey,
+          basket,
+          executionQuote,
+          true
+        ));
+
+      const allocationSignatures: string[] = [];
+      if (!canReuseExistingAcquisition) {
+        // Step 3: Execute every prepared constituent acquisition and require a confirmed result.
+        for (const prepared of allocationPlan.executionTransactions) {
+          const signature = await sendTransaction(prepared.transaction, connection, {
+            skipPreflight: false,
+            maxRetries: 3,
+          });
+
+          const outcome = await waitForSignatureOutcome(connection, signature, {
+            lastValidBlockHeight: prepared.lastValidBlockHeight,
+            timeoutMs: 90_000,
+          });
+
+          if (outcome.state === 'unknown') {
+            setTxLifecycle((prev) => ({
+              ...prev,
+              hasPendingConfirmation: true,
+              currentStepIndex: 2,
+              steps: prev.steps.map((step, index) =>
+                index === 2
+                  ? {
+                      ...step,
+                      status: 'submitted',
+                      txSignature: signature,
+                      statusMessage: outcome.error,
+                    }
+                  : step
+              ),
+            }));
+            return;
+          }
+          if (outcome.state !== 'confirmed') {
+            throw new Error(
+              `${prepared.label} ${outcome.state}: ${outcome.error}`
+            );
+          }
+          allocationSignatures.push(signature);
+        }
+      } else {
+        setTxLifecycle((prev) => ({
+          ...prev,
+          steps: prev.steps.map((step, index) =>
+            index === 2
+              ? {
+                  ...step,
+                  statusMessage:
+                    'Existing confirmed Devnet mirror assets detected. Reusing them; no additional USDC acquisition was sent.',
+                }
+              : step
+          ),
+        }));
+      }
+
       await vaultClient.verifyDepositBalances(
         publicKey,
         basket,
         executionQuote,
         isDevnet
       );
+
+      // Derive the largest non-dilutive mint from the live vault reserves and
+      // exact acquired amounts. Tiny rounding surplus remains in the wallet.
+      const depositQuote = await vaultClient.prepareProportionalMintQuote(
+        basket,
+        executionQuote,
+        isDevnet
+      );
+
+      setTxLifecycle((prev) => ({
+        ...prev,
+        steps: prev.steps.map((step, index) =>
+          index === 3
+            ? {
+                ...step,
+                label: `Deposit Underlying & Mint ${depositQuote.expectedBasketTokens} ${basket.symbol}`,
+                description:
+                  depositQuote.expectedBasketTokens < quote.expectedBasketTokens
+                    ? 'Mint amount adjusted to the live vault reserve ratio; any rounding surplus remains in your wallet.'
+                    : step.description,
+              }
+            : step
+        ),
+      }));
+
       activateStep(3, 2, allocationSignatures);
 
       // Step 4: Build the actual Anchor deposit transaction only after all
@@ -282,7 +335,7 @@ export default function AppPage() {
       const depositTx = await vaultClient.buildMintTransaction(
         publicKey,
         basket,
-        executionQuote,
+        depositQuote,
         50_000,
         isDevnet
       );
@@ -345,9 +398,14 @@ export default function AppPage() {
           existingBasket.id === basket.id
             ? {
                 ...existingBasket,
-                aumUsd: existingBasket.aumUsd + quote.depositUsdcAmount,
+                aumUsd:
+                  existingBasket.aumUsd +
+                  quote.depositUsdcAmount *
+                    (quote.expectedBasketTokens > 0
+                      ? depositQuote.expectedBasketTokens / quote.expectedBasketTokens
+                      : 1),
                 totalSharesMinted:
-                  existingBasket.totalSharesMinted + quote.expectedBasketTokens,
+                  existingBasket.totalSharesMinted + depositQuote.expectedBasketTokens,
               }
             : existingBasket
         )
