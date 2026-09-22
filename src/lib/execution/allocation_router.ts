@@ -3,6 +3,7 @@ import {
   PublicKey,
   VersionedTransaction,
 } from '@solana/web3.js';
+import { getMint } from '@solana/spl-token';
 import { BasketMintQuote } from '../types';
 
 export interface JupiterSwapV2QuoteResponse {
@@ -18,9 +19,35 @@ export interface JupiterSwapV2QuoteResponse {
 }
 
 export interface JupiterSwapV2BuildResponse {
-  swapTransaction: string; // base64 encoded VersionedTransaction
+  swapTransaction: string;
   lastValidBlockHeight: number;
   prioritizationFeeLamports?: number;
+}
+
+export interface PreparedAllocationSwap {
+  symbol: string;
+  outputMint: string;
+  transaction: VersionedTransaction;
+  lastValidBlockHeight: number;
+  rawOutAmount: string;
+  quotedOutAmountUi: number;
+}
+
+export interface AllocationUnavailableItem {
+  symbol: string;
+  reason: string;
+}
+
+export interface AllocationPlan {
+  preparedSwaps: PreparedAllocationSwap[];
+  estimatedFeeLamports: number;
+  unavailable: AllocationUnavailableItem[];
+  breakdown: Array<{
+    symbol: string;
+    inUsdcAmount: number;
+    actualQuotedOutAmount: number | null;
+    routeSource: 'jupiter_v2' | 'unavailable';
+  }>;
 }
 
 export const USDC_MINT_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -35,9 +62,6 @@ export class AllocationRouter {
     this.jupiterBaseUrl = jupiterBaseUrl || '/api/jupiter';
   }
 
-  /**
-   * Queries Jupiter Swap API V2 for quotes with instructionVersion=V2.
-   */
   async getQuote(
     inputMint: string,
     outputMint: string,
@@ -66,23 +90,18 @@ export class AllocationRouter {
 
       const res = await fetch(url, { headers });
       if (!res.ok) {
-        console.warn(`[Jupiter Swap V2] Quote returned status: ${res.status}`);
         return null;
       }
       return await res.json();
-    } catch (e: any) {
-      console.warn('[Jupiter Swap V2] Quote fetch failed:', e.message);
+    } catch {
       return null;
     }
   }
 
-  /**
-   * Builds an executable VersionedTransaction using Jupiter Swap API V2 /build.
-   */
   async buildSwapTransaction(
     quoteResponse: JupiterSwapV2QuoteResponse,
     userPublicKey: PublicKey
-  ): Promise<VersionedTransaction | null> {
+  ): Promise<{ transaction: VersionedTransaction; lastValidBlockHeight: number } | null> {
     try {
       const isServer = typeof window === 'undefined';
       const url = isServer ? 'https://api.jup.ag/swap/v2/build' : this.jupiterBaseUrl;
@@ -111,69 +130,119 @@ export class AllocationRouter {
       });
 
       if (!res.ok) {
-        console.warn(`[Jupiter Swap V2 /build] returned status: ${res.status}`);
         return null;
       }
 
       const json: JupiterSwapV2BuildResponse = await res.json();
-      const swapTxBuffer = Buffer.from(json.swapTransaction, 'base64');
-      return VersionedTransaction.deserialize(swapTxBuffer);
-    } catch (e: any) {
-      console.warn('[Jupiter Swap V2 /build] Failed to build transaction:', e.message);
+      if (!json.swapTransaction || typeof json.lastValidBlockHeight !== 'number') {
+        return null;
+      }
+
+      return {
+        transaction: VersionedTransaction.deserialize(Buffer.from(json.swapTransaction, 'base64')),
+        lastValidBlockHeight: json.lastValidBlockHeight,
+      };
+    } catch {
       return null;
     }
   }
 
+  private async rawAmountToUiAmount(mint: string, rawAmount: string): Promise<number> {
+    try {
+      const mintInfo = await getMint(this.connection, new PublicKey(mint));
+      return Number(rawAmount) / 10 ** mintInfo.decimals;
+    } catch {
+      return Number(rawAmount);
+    }
+  }
+
   /**
-   * Prepares multi-asset allocation swaps.
-   * Feeds actual quoted output amounts into the downstream execution pipeline.
+   * Prepares only executable allocation transactions.
+   *
+   * Important: there is deliberately no synthetic/estimated fallback here. If a
+   * constituent cannot be acquired on the active cluster, the plan reports it
+   * as unavailable and callers must stop before vault deposit.
    */
   async prepareAllocationSwaps(
     userPublicKey: PublicKey,
     mintQuote: BasketMintQuote,
     isDevnet: boolean = true
-  ): Promise<{
-    versionedTransactions: VersionedTransaction[];
-    estimatedFeeLamports: number;
-    breakdown: Array<{
-      symbol: string;
-      inUsdcAmount: number;
-      actualQuotedOutAmount: number;
-      routeSource: 'jupiter_v2' | 'devnet_synthetic_pool';
-    }>;
-  }> {
-    const usdcMint = isDevnet ? USDC_MINT_DEVNET : USDC_MINT_MAINNET;
-    const versionedTransactions: VersionedTransaction[] = [];
-    const breakdown = [];
+  ): Promise<AllocationPlan> {
+    const preparedSwaps: PreparedAllocationSwap[] = [];
+    const unavailable: AllocationUnavailableItem[] = [];
+    const breakdown: AllocationPlan['breakdown'] = [];
 
     for (const alloc of mintQuote.allocations) {
-      const rawUsdcAmount = BigInt(Math.floor(alloc.targetUsdAmount * 1_000_000));
-      let routeSource: 'jupiter_v2' | 'devnet_synthetic_pool' = 'devnet_synthetic_pool';
-      let actualQuotedOutAmount = alloc.estimatedTokensReceived;
-
-      // On Mainnet (or Devnet with real route), query Jupiter V2
-      const quote = await this.getQuote(usdcMint, alloc.asset.tokenMint, rawUsdcAmount);
-      if (quote) {
-        routeSource = 'jupiter_v2';
-        actualQuotedOutAmount = Number(quote.outAmount) / 1_000_000;
-
-        const swapTx = await this.buildSwapTransaction(quote, userPublicKey);
-        if (swapTx) {
-          versionedTransactions.push(swapTx);
-        }
+      if (isDevnet) {
+        unavailable.push({
+          symbol: alloc.asset.symbol,
+          reason: alloc.asset.devnetMint
+            ? 'Devnet mirror exists but must be acquired through the explicit Devnet mirror execution adapter, not Jupiter.'
+            : 'No Devnet mirror mint is configured for this private-market asset.',
+        });
+        breakdown.push({
+          symbol: alloc.asset.symbol,
+          inUsdcAmount: alloc.targetUsdAmount,
+          actualQuotedOutAmount: null,
+          routeSource: 'unavailable',
+        });
+        continue;
       }
 
+      const rawUsdcAmount = BigInt(Math.floor(alloc.targetUsdAmount * 1_000_000));
+      const outputMint = alloc.asset.tokenMint;
+      const quote = await this.getQuote(USDC_MINT_MAINNET, outputMint, rawUsdcAmount);
+
+      if (!quote || !quote.outAmount) {
+        unavailable.push({
+          symbol: alloc.asset.symbol,
+          reason: 'Jupiter returned no executable route for this constituent.',
+        });
+        breakdown.push({
+          symbol: alloc.asset.symbol,
+          inUsdcAmount: alloc.targetUsdAmount,
+          actualQuotedOutAmount: null,
+          routeSource: 'unavailable',
+        });
+        continue;
+      }
+
+      const built = await this.buildSwapTransaction(quote, userPublicKey);
+      if (!built) {
+        unavailable.push({
+          symbol: alloc.asset.symbol,
+          reason: 'Jupiter quoted the route but did not return an executable transaction.',
+        });
+        breakdown.push({
+          symbol: alloc.asset.symbol,
+          inUsdcAmount: alloc.targetUsdAmount,
+          actualQuotedOutAmount: null,
+          routeSource: 'unavailable',
+        });
+        continue;
+      }
+
+      const quotedOutAmountUi = await this.rawAmountToUiAmount(outputMint, quote.outAmount);
+      preparedSwaps.push({
+        symbol: alloc.asset.symbol,
+        outputMint,
+        transaction: built.transaction,
+        lastValidBlockHeight: built.lastValidBlockHeight,
+        rawOutAmount: quote.outAmount,
+        quotedOutAmountUi,
+      });
       breakdown.push({
         symbol: alloc.asset.symbol,
         inUsdcAmount: alloc.targetUsdAmount,
-        actualQuotedOutAmount,
-        routeSource,
+        actualQuotedOutAmount: quotedOutAmountUi,
+        routeSource: 'jupiter_v2',
       });
     }
 
     return {
-      versionedTransactions,
-      estimatedFeeLamports: 5000 * mintQuote.allocations.length,
+      preparedSwaps,
+      estimatedFeeLamports: 5000 * preparedSwaps.length,
+      unavailable,
       breakdown,
     };
   }
