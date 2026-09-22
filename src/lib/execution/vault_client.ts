@@ -72,7 +72,8 @@ export class SynthaBasketVaultClient {
     userPublicKey: PublicKey,
     basket: BasketDefinition,
     quote: BasketMintQuote,
-    priorityFeeMicroLamports: number = 50_000
+    priorityFeeMicroLamports: number = 50_000,
+    useDevnetMirrors: boolean = false
   ): Promise<Transaction> {
     const tx = new Transaction();
 
@@ -99,7 +100,11 @@ export class SynthaBasketVaultClient {
     const constituentAmountsIn: BN[] = [];
 
     for (const alloc of quote.allocations) {
-      const mintPubkey = new PublicKey(alloc.asset.tokenMint);
+      const executionMint = useDevnetMirrors ? alloc.asset.devnetMint : alloc.asset.tokenMint;
+      if (!executionMint) {
+        throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${alloc.asset.symbol}.`);
+      }
+      const mintPubkey = new PublicKey(executionMint);
       const userAta = this.getUserTokenAccount(userPublicKey, mintPubkey);
       const vaultAta = this.getVaultTokenAccount(basketPda, mintPubkey);
 
@@ -119,8 +124,13 @@ export class SynthaBasketVaultClient {
       );
 
       // Dynamic decimals lookup
-      const decimals = await this.getMintDecimals(mintPubkey);
-      const rawAmount = BigInt(Math.floor(alloc.estimatedTokensReceived * 10 ** decimals));
+      const rawAmount = alloc.rawTokenAmount
+        ? BigInt(alloc.rawTokenAmount)
+        : BigInt(
+            Math.floor(
+              alloc.estimatedTokensReceived * 10 ** (await this.getMintDecimals(mintPubkey))
+            )
+          );
       constituentAmountsIn.push(new BN(rawAmount.toString()));
     }
 
@@ -166,7 +176,8 @@ export class SynthaBasketVaultClient {
     userPublicKey: PublicKey,
     basket: BasketDefinition,
     quote: BasketRedeemQuote,
-    priorityFeeMicroLamports: number = 50_000
+    priorityFeeMicroLamports: number = 50_000,
+    useDevnetMirrors: boolean = false
   ): Promise<Transaction> {
     const tx = new Transaction();
 
@@ -180,7 +191,11 @@ export class SynthaBasketVaultClient {
     const remainingAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
 
     for (const item of quote.constituentsToReturn) {
-      const mintPubkey = new PublicKey(item.asset.tokenMint);
+      const executionMint = useDevnetMirrors ? item.asset.devnetMint : item.asset.tokenMint;
+      if (!executionMint) {
+        throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${item.asset.symbol}.`);
+      }
+      const mintPubkey = new PublicKey(executionMint);
       const userAta = this.getUserTokenAccount(userPublicKey, mintPubkey);
       const vaultAta = this.getVaultTokenAccount(basketPda, mintPubkey);
 
