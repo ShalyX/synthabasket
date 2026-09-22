@@ -15,6 +15,7 @@ import {
 import { BN, BorshAccountsCoder, BorshInstructionCoder, Idl } from '@coral-xyz/anchor';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../types';
 import { SYNTHABASKET_IDL } from './idl';
+import { getDevnetMirrorMint } from './devnet_mirrors';
 
 export const SYNTHABASKET_PROGRAM_ID = new PublicKey('BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh');
 
@@ -30,6 +31,15 @@ export class SynthaBasketVaultClient {
     const idl = SYNTHABASKET_IDL as unknown as Idl;
     this.instructionCoder = new BorshInstructionCoder(idl);
     this.accountsCoder = new BorshAccountsCoder(idl);
+  }
+
+  private getExecutionSymbol(
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean
+  ): string {
+    return useDevnetMirrors
+      ? basket.devnetExecutionSymbol || `${basket.symbol}D`
+      : basket.symbol;
   }
 
   getBasketPda(symbol: string): [PublicKey, number] {
@@ -75,22 +85,25 @@ export class SynthaBasketVaultClient {
     basket: BasketDefinition,
     useDevnetMirrors: boolean = false
   ): Promise<void> {
-    const [basketPda] = this.getBasketPda(basket.symbol);
-    const [basketMint] = this.getBasketMintPda(basket.symbol);
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const [basketMint] = this.getBasketMintPda(executionSymbol);
 
-    if (basketPda.toBase58() !== basket.vaultPda) {
-      throw new Error(`Registry vault PDA mismatch for ${basket.symbol}.`);
-    }
-    if (basketMint.toBase58() !== basket.basketMint) {
-      throw new Error(`Registry basket mint mismatch for ${basket.symbol}.`);
+    if (!useDevnetMirrors) {
+      if (basketPda.toBase58() !== basket.vaultPda) {
+        throw new Error(`Registry vault PDA mismatch for ${basket.symbol}.`);
+      }
+      if (basketMint.toBase58() !== basket.basketMint) {
+        throw new Error(`Registry basket mint mismatch for ${basket.symbol}.`);
+      }
     }
 
     const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
     if (!basketInfo) {
-      throw new Error(`Basket vault ${basket.symbol} is not initialized on the connected cluster.`);
+      throw new Error(`Basket vault ${basket.symbol} (${executionSymbol}) is not initialized on the connected cluster.`);
     }
     if (!basketInfo.owner.equals(this.programId)) {
-      throw new Error(`Basket vault ${basket.symbol} is not owned by the SynthaBasket program.`);
+      throw new Error(`Basket vault ${basket.symbol} (${executionSymbol}) is not owned by the SynthaBasket program.`);
     }
 
     const mintInfo = await this.connection.getAccountInfo(basketMint, 'confirmed');
@@ -111,7 +124,9 @@ export class SynthaBasketVaultClient {
     }
 
     const expectedConstituents = basket.constituents.map((constituent) => {
-      const mint = useDevnetMirrors ? constituent.asset.devnetMint : constituent.asset.tokenMint;
+      const mint = useDevnetMirrors
+        ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
+        : constituent.asset.tokenMint;
       if (!mint) {
         throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`);
       }
@@ -149,8 +164,9 @@ export class SynthaBasketVaultClient {
     tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
     tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFeeMicroLamports }));
 
-    const [basketPda] = this.getBasketPda(basket.symbol);
-    const [basketMint] = this.getBasketMintPda(basket.symbol);
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const [basketMint] = this.getBasketMintPda(executionSymbol);
     const userBasketAta = this.getUserTokenAccount(userPublicKey, basketMint);
 
     // 2. Ensure User's Basket Token ATA exists
@@ -168,7 +184,9 @@ export class SynthaBasketVaultClient {
     const constituentAmountsIn: BN[] = [];
 
     for (const alloc of quote.allocations) {
-      const executionMint = useDevnetMirrors ? alloc.asset.devnetMint : alloc.asset.tokenMint;
+      const executionMint = useDevnetMirrors
+        ? alloc.asset.devnetMint || getDevnetMirrorMint(alloc.asset.symbol)
+        : alloc.asset.tokenMint;
       if (!executionMint) {
         throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${alloc.asset.symbol}.`);
       }
@@ -252,14 +270,17 @@ export class SynthaBasketVaultClient {
     tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
     tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFeeMicroLamports }));
 
-    const [basketPda] = this.getBasketPda(basket.symbol);
-    const [basketMint] = this.getBasketMintPda(basket.symbol);
+    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+    const [basketPda] = this.getBasketPda(executionSymbol);
+    const [basketMint] = this.getBasketMintPda(executionSymbol);
     const userBasketAta = this.getUserTokenAccount(userPublicKey, basketMint);
 
     const remainingAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
 
     for (const item of quote.constituentsToReturn) {
-      const executionMint = useDevnetMirrors ? item.asset.devnetMint : item.asset.tokenMint;
+      const executionMint = useDevnetMirrors
+        ? item.asset.devnetMint || getDevnetMirrorMint(item.asset.symbol)
+        : item.asset.tokenMint;
       if (!executionMint) {
         throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${item.asset.symbol}.`);
       }
