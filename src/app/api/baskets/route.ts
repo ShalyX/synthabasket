@@ -3,6 +3,10 @@ import { Connection } from '@solana/web3.js';
 import { INITIAL_BASKETS } from '../../../lib/data/registry';
 import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
 import { hydrateBaskets } from '../../../lib/services/basket_hydration';
+import {
+  durableNavHistoryConfigured,
+  recordDurableNavHistory,
+} from '../../../lib/server/nav_history_store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -21,12 +25,22 @@ export async function GET() {
       true
     );
 
+    const generatedAt = Date.now();
+    let durableHistory = false;
+    try {
+      durableHistory = await recordDurableNavHistory(baskets, generatedAt);
+    } catch (error) {
+      console.warn('[Basket hydration] Durable NAV history write failed:', error);
+      durableHistory = durableNavHistoryConfigured();
+    }
+
     return NextResponse.json(
       {
-        generatedAt: Date.now(),
+        generatedAt,
         network: 'devnet',
         assets,
         baskets,
+        durableHistory,
       },
       {
         headers: {
