@@ -58,7 +58,7 @@ export function calculateBasketNav(
 export function calculateMintQuote(
   basket: BasketDefinition,
   depositUsdcAmount: number,
-  protocolFeeBps: number = 25 // 0.25% protocol fee
+  protocolFeeBps: number = 0 // disabled until an on-chain fee collector is implemented
 ): BasketMintQuote {
   const protocolFeeUsdc = (depositUsdcAmount * protocolFeeBps) / 10000;
   const netInvestAmount = depositUsdcAmount - protocolFeeUsdc;
