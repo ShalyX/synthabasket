@@ -223,6 +223,24 @@ export default function AppPage() {
           timeoutMs: 90_000,
         });
 
+        if (outcome.state === 'unknown') {
+          setTxLifecycle((prev) => ({
+            ...prev,
+            hasPendingConfirmation: true,
+            currentStepIndex: 2,
+            steps: prev.steps.map((step, index) =>
+              index === 2
+                ? {
+                    ...step,
+                    status: 'submitted',
+                    txSignature: signature,
+                    statusMessage: outcome.error,
+                  }
+                : step
+            ),
+          }));
+          return;
+        }
         if (outcome.state !== 'confirmed') {
           throw new Error(
             `${prepared.label} ${outcome.state}: ${outcome.error}`
@@ -286,6 +304,25 @@ export default function AppPage() {
         lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
         timeoutMs: 90_000,
       });
+
+      if (depositOutcome.state === 'unknown') {
+        setTxLifecycle((prev) => ({
+          ...prev,
+          hasPendingConfirmation: true,
+          currentStepIndex: 4,
+          steps: prev.steps.map((step, index) =>
+            index === 4
+              ? {
+                  ...step,
+                  status: 'submitted',
+                  txSignature: depositSignature,
+                  statusMessage: depositOutcome.error,
+                }
+              : step
+          ),
+        }));
+        return;
+      }
 
       if (depositOutcome.state !== 'confirmed') {
         throw new Error(`Vault deposit ${depositOutcome.state}: ${depositOutcome.error}`);
@@ -435,6 +472,25 @@ export default function AppPage() {
         lastValidBlockHeight: latest.lastValidBlockHeight,
         timeoutMs: 90_000,
       });
+
+      if (outcome.state === 'unknown') {
+        setTxLifecycle((prev) => ({
+          ...prev,
+          hasPendingConfirmation: true,
+          currentStepIndex: 2,
+          steps: prev.steps.map((step, index) =>
+            index === 2
+              ? {
+                  ...step,
+                  status: 'submitted',
+                  txSignature: signature,
+                  statusMessage: outcome.error,
+                }
+              : step
+          ),
+        }));
+        return;
+      }
 
       if (outcome.state !== 'confirmed') {
         throw new Error(`Redemption ${outcome.state}: ${outcome.error}`);
