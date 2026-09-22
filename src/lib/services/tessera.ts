@@ -1,5 +1,7 @@
 import { AssetQuote } from '../types';
 
+const VERIFIED_SNAPSHOT_AT = Date.UTC(2026, 8, 21, 0, 0, 0);
+
 export interface TesseraApiItem {
   id: string;
   name: string;
@@ -28,7 +30,7 @@ export const TESSERA_VERIFIED_SNAPSHOT: AssetQuote[] = [
     description: 'Tessera tokenized private equity representing synthetic exposure to OpenAI Inc.',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'T-Kalshi',
@@ -41,7 +43,7 @@ export const TESSERA_VERIFIED_SNAPSHOT: AssetQuote[] = [
     description: 'Tessera tokenized equity for Kalshi, the CFTC-regulated prediction exchange.',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   },
   {
     symbol: 'T-SpaceX',
@@ -54,7 +56,7 @@ export const TESSERA_VERIFIED_SNAPSHOT: AssetQuote[] = [
     description: 'Tessera tokenized private equity representing secondary market exposure to SpaceX.',
     change24hAvailable: false,
     quoteSource: 'snapshot',
-    lastUpdated: Date.now(),
+    lastUpdated: VERIFIED_SNAPSHOT_AT,
   }
 ];
 
