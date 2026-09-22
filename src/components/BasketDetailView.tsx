@@ -604,7 +604,11 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 <div className="border-y border-border py-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-ink-secondary">
-                      {redeemQuoteLoading ? 'Reading live vault…' : 'Live reserve value'}
+                      {redeemQuoteLoading
+                        ? 'Reading live vault…'
+                        : liveRedeemQuote
+                        ? 'Live reserve value'
+                        : 'Live quote unavailable'}
                     </span>
                     <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
                       $ {redeemQuote.expectedUsdcValue.toFixed(2)}
@@ -612,7 +616,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   </div>
 
                   <div className="mt-4">
-                    <p className="mb-2 text-xs font-medium text-ink-secondary">You receive from the live vault</p>
+                    <p className="mb-2 text-xs font-medium text-ink-secondary">
+                      {liveRedeemQuote ? 'You receive from the live vault' : 'Estimated return'}
+                    </p>
                     <div className="space-y-2">
                       {redeemQuote.constituentsToReturn.map((item) => (
                         <div
@@ -633,6 +639,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   onClick={() => onExecuteRedeem(basket, redeemQuote)}
                   disabled={
                     redeemQuoteLoading ||
+                    !liveRedeemQuote ||
                     !redeemShares ||
                     redeemShares <= 0 ||
                     (basketBalance !== null && redeemShares > basketBalance)
