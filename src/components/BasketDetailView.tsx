@@ -189,7 +189,76 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                         <YAxis
                           dataKey="navUsd"
                           domain={['auto', 'auto']}
-                          tickFormatter={(value) => '
+                          tickFormatter={(value) => '$' + Number(value).toFixed(0)}
+                          tick={{ fontSize: 10 }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={46}
+                        />
+                        <Tooltip
+                          labelFormatter={(value) =>
+                            new Date(Number(value)).toLocaleString()
+                          }
+                          formatter={(value) => [
+                            '$' + Number(value).toFixed(2),
+                            'NAV',
+                          ]}
+                          contentStyle={{
+                            background: 'rgb(var(--surface-rgb))',
+                            border: '1px solid rgb(var(--border-rgb))',
+                            borderRadius: 8,
+                            fontSize: 12,
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="navUsd"
+                          stroke="#00d182"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 3 }}
+                          isAnimationActive={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-ink-tertiary">
+                      {chartPoints.length} real observations
+                    </span>
+                    {localRangeChange !== null && (
+                      <span
+                        className={
+                          'font-mono font-semibold tabular-nums ' +
+                          (localRangeChange >= 0
+                            ? 'text-brand-primary'
+                            : 'text-semantic-negative')
+                        }
+                      >
+                        {localRangeChange >= 0 ? '+' : ''}
+                        {localRangeChange.toFixed(2)}% {chartTimeframe}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-44 items-center justify-center border-y border-border text-center">
+                  <div>
+                    <p className="text-sm font-medium text-ink-secondary">
+                      Collecting live NAV history
+                    </p>
+                    <p className="mt-1 text-xs text-ink-tertiary">
+                      The next point is recorded on the 30-second refresh.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-ink-primary">Composition</h3>
                 <span className="text-xs text-ink-tertiary">{basket.constituents.length} assets</span>
               </div>
 
