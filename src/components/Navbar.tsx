@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Bell } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 const WalletMultiButtonDynamic = dynamic(
@@ -92,21 +91,12 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            type="button"
-            aria-label="Notifications"
-            title="Notifications"
-            className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-ink-secondary transition-colors hover:border-brand-primary hover:text-ink-primary"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand-primary ring-2 ring-background" />
-          </button>
-          <div className="hidden items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 font-mono text-xs text-ink-secondary sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-primary animate-pulse" />
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-1.5 text-xs text-ink-tertiary sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
             <span className="capitalize">{network}</span>
           </div>
+          <ThemeToggle />
           <div className="wallet-btn-container">
             <WalletMultiButtonDynamic />
           </div>
