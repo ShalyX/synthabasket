@@ -328,23 +328,24 @@ export default function AppPage() {
   const handleExecuteRedeem = async (basket: BasketDefinition, quote: BasketRedeemQuote) => {
     setSelectedBasket(null);
 
+    const isDevnet = network === 'devnet';
     const initialSteps = [
       {
-        id: 'burn_shares',
-        label: `Burn ${quote.burnBasketTokensAmount} $${basket.symbol} Shares`,
-        description: 'Executing burn instruction via Anchor synthabasket_vault',
+        id: 'verify_redeem',
+        label: 'Verify Live Vault & Basket Shares',
+        description: 'Checking the live basket state and execution mints before redemption',
         status: 'active' as const,
       },
       {
-        id: 'vault_release',
-        label: 'Release Underlying Constituents from Vault PDA',
-        description: 'Unlocking physical tokens from on-chain custody',
+        id: 'burn_and_release',
+        label: `Burn ${quote.burnBasketTokensAmount} $${basket.symbol} & Release Underlying`,
+        description: 'Broadcasting the Anchor burn_and_redeem instruction',
         status: 'pending' as const,
       },
       {
-        id: 'settlement',
-        label: `Transfer Assets (${quote.expectedUsdcValue} USD Equivalent)`,
-        description: 'Settling tokens directly into user wallet',
+        id: 'confirm_redeem',
+        label: 'Confirm Redemption Settlement',
+        description: `Confirming proportional constituent settlement (~$${quote.expectedUsdcValue} NAV equivalent)`,
         status: 'pending' as const,
       },
     ];
@@ -363,69 +364,107 @@ export default function AppPage() {
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
-        steps: prev.steps.map((s, idx) =>
-          idx === 0
-            ? { ...s, status: 'failed', error: 'Wallet not connected. Connect your wallet to redeem.' }
-            : s
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? { ...step, status: 'failed', error: 'Wallet not connected. Connect your wallet to redeem.' }
+            : step
         ),
       }));
       return;
     }
 
+    let activeStepIndex = 0;
+
     try {
       const vaultClient = new SynthaBasketVaultClient(connection);
-      const redeemTx = await vaultClient.buildRedeemTransaction(publicKey, basket, quote);
+      await vaultClient.verifyBasketExecutionState(basket, isDevnet);
 
+      const redeemTx = await vaultClient.buildRedeemTransaction(
+        publicKey,
+        basket,
+        quote,
+        50_000,
+        isDevnet
+      );
+
+      const latest = await connection.getLatestBlockhash('confirmed');
+      redeemTx.recentBlockhash = latest.blockhash;
+      redeemTx.feePayer = publicKey;
+
+      activeStepIndex = 1;
       setTxLifecycle((prev) => ({
         ...prev,
         currentStepIndex: 1,
-        steps: prev.steps.map((s, idx) =>
-          idx === 0 ? { ...s, status: 'completed' } : idx === 1 ? { ...s, status: 'active' } : s
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? { ...step, status: 'completed' }
+            : index === 1
+            ? { ...step, status: 'active' }
+            : step
         ),
       }));
 
-      const txSig = await sendTransaction(redeemTx, connection);
+      const signature = await sendTransaction(redeemTx, connection, {
+        skipPreflight: false,
+        maxRetries: 3,
+      });
 
+      activeStepIndex = 2;
       setTxLifecycle((prev) => ({
         ...prev,
         currentStepIndex: 2,
-        steps: prev.steps.map((s, idx) =>
-          idx === 1 ? { ...s, status: 'completed', txSignature: txSig } : idx === 2 ? { ...s, status: 'active' } : s
+        steps: prev.steps.map((step, index) =>
+          index === 1
+            ? { ...step, status: 'completed', txSignature: signature }
+            : index === 2
+            ? { ...step, status: 'active' }
+            : step
         ),
       }));
 
-      await connection.confirmTransaction(txSig, 'confirmed');
+      const outcome = await waitForSignatureOutcome(connection, signature, {
+        lastValidBlockHeight: latest.lastValidBlockHeight,
+        timeoutMs: 90_000,
+      });
+
+      if (outcome.state !== 'confirmed') {
+        throw new Error(`Redemption ${outcome.state}: ${outcome.error}`);
+      }
 
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
-        finalSignature: txSig,
-        steps: prev.steps.map((s) => ({
-          ...s,
-          status: 'completed',
-          txSignature: txSig,
-        })),
+        finalSignature: signature,
+        steps: prev.steps.map((step, index) =>
+          index === 2
+            ? { ...step, status: 'completed', txSignature: signature }
+            : step
+        ),
       }));
 
       setBaskets((prev) =>
-        prev.map((b) =>
-          b.id === basket.id
+        prev.map((existingBasket) =>
+          existingBasket.id === basket.id
             ? {
-                ...b,
-                aumUsd: Math.max(0, b.aumUsd - quote.expectedUsdcValue),
-                totalSharesMinted: Math.max(0, b.totalSharesMinted - quote.burnBasketTokensAmount),
+                ...existingBasket,
+                aumUsd: Math.max(0, existingBasket.aumUsd - quote.expectedUsdcValue),
+                totalSharesMinted: Math.max(
+                  0,
+                  existingBasket.totalSharesMinted - quote.burnBasketTokensAmount
+                ),
               }
-            : b
+            : existingBasket
         )
       );
     } catch (err: any) {
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
-        steps: prev.steps.map((s, idx) =>
-          idx === prev.currentStepIndex
-            ? { ...s, status: 'failed', error: err.message || 'Redemption failed' }
-            : s
+        currentStepIndex: activeStepIndex,
+        steps: prev.steps.map((step, index) =>
+          index === activeStepIndex
+            ? { ...step, status: 'failed', error: err?.message || 'Redemption failed' }
+            : step
         ),
       }));
     }
