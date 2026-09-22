@@ -9,8 +9,8 @@ const DEVNET_MIRROR_MINTS: Record<string, string | undefined> = {
   KALSHI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_KALSHI || '41ZBu1Frvec4r7TeQjYP4PnMSviU8vwd1wo5SZZZ5wMn',
   POLYMARKET: process.env.NEXT_PUBLIC_DEVNET_MIRROR_POLYMARKET || '9qHJAujJTHxwn6gTzmwQKJZYDsoQGsBxAw1ygvtFboTN',
   OPENAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_OPENAI || 'JBk4GN6xhW9rmu5pAM1Ub2pdgCZs3Bkc7xBAxbvH9Rr6',
-  NEURALINK: process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK,
-  FIGUREAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI,
+  NEURALINK: process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK || 'DbUYkDnEvh9mVPJNNXdCtLksFg7RDeXgqteRvesJ2F7A',
+  FIGUREAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI || '2bzfznWhXfHZqU1wRUyVCPrLAUkqP5gt5kAjjSj4b8e7',
 };
 
 export function getDevnetMirrorMint(symbol: string): string | undefined {
