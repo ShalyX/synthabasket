@@ -29,9 +29,9 @@ export async function GET() {
     let durableHistory = false;
     try {
       durableHistory = await recordDurableNavHistory(baskets, generatedAt);
-    } catch (error) {
-      console.warn('[Basket hydration] Durable NAV history write failed:', error);
-      durableHistory = durableNavHistoryConfigured();
+    } catch {
+      console.warn('[Basket hydration] Durable NAV history write failed.');
+      durableHistory = false;
     }
 
     return NextResponse.json(
