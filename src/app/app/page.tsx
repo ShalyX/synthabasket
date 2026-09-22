@@ -10,7 +10,6 @@ import { BasisMonitor } from '../../components/BasisMonitor';
 import { TransactionLifecycleModal } from '../../components/TransactionLifecycleModal';
 import { ProtocolProofModal } from '../../components/ProtocolProofModal';
 
-import { INITIAL_BASKETS } from '../../lib/data/registry';
 import {
   AssetQuote,
   BasketDefinition,
@@ -21,7 +20,6 @@ import {
   TxLifecycleState,
 } from '../../lib/types';
 import { generateBasisMonitoringLedger } from '../../lib/services/valuation_engine';
-import { hydrateBaskets } from '../../lib/services/basket_hydration';
 import { AllocationRouter } from '../../lib/execution/allocation_router';
 import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
 import { MeteoraDbcManager } from '../../lib/execution/meteora_dbc';
@@ -75,31 +73,28 @@ export default function AppPage() {
     actionType: 'mint',
   });
 
-  // Hydrate mutable basket data at runtime:
-  // provider quotes come from the server route, while supply/reserves come
-  // directly from the live Devnet execution basket accounts.
+  // Hydrate mutable basket data from one server endpoint. Provider prices,
+  // live vault reserves, basket supply, and execution addresses are resolved
+  // before the marketplace renders.
   useEffect(() => {
     let cancelled = false;
 
     async function hydrateMarketplace() {
       try {
-        const response = await fetch('/api/market-data', { cache: 'no-store' });
+        const response = await fetch('/api/baskets', { cache: 'no-store' });
         if (!response.ok) {
-          throw new Error(`Market data request failed with HTTP ${response.status}.`);
+          throw new Error(`Basket hydration request failed with HTTP ${response.status}.`);
         }
 
         const payload = await response.json();
         const quotes: AssetQuote[] = Array.isArray(payload.assets) ? payload.assets : [];
-        if (quotes.length === 0) {
-          throw new Error('Market data response contained no assets.');
-        }
+        const hydrated: BasketDefinition[] = Array.isArray(payload.baskets)
+          ? payload.baskets
+          : [];
 
-        const hydrated = await hydrateBaskets(
-          connection,
-          INITIAL_BASKETS,
-          quotes,
-          true
-        );
+        if (quotes.length === 0 || hydrated.length === 0) {
+          throw new Error('Hydrated basket response was incomplete.');
+        }
 
         if (cancelled) return;
         setAvailableAssets(quotes);
@@ -116,7 +111,7 @@ export default function AppPage() {
     return () => {
       cancelled = true;
     };
-  }, [connection, hydrationNonce]);
+  }, [hydrationNonce]);
 
   const handleSelectBasket = (basket: BasketDefinition, mode: 'mint' | 'redeem' | 'inspect') => {
     setSelectedBasket(basket);
