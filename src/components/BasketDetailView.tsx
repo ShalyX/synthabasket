@@ -454,13 +454,15 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                         {mintQuote.expectedBasketTokens} ${basket.symbol}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-ink-tertiary">Creation Fee (0.25%):</span>
-                      <span className="font-mono text-ink-secondary tabular-nums">${mintQuote.protocolFeeUsdc} USDC</span>
-                    </div>
+                    {mintQuote.protocolFeeUsdc > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-ink-tertiary">Protocol Fee:</span>
+                        <span className="font-mono text-ink-secondary tabular-nums">${mintQuote.protocolFeeUsdc} USDC</span>
+                      </div>
+                    )}
                     <div className="flex justify-between border-t border-border pt-2 text-[11px]">
                       <span className="text-ink-tertiary">Execution Engine:</span>
-                      <span className="font-mono font-semibold text-brand-primary">Jupiter Swap API V2</span>
+                      <span className="font-mono font-semibold text-brand-primary">Jupiter V2 / Devnet mirror adapter</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
                       <span className="text-ink-tertiary">Custody Destination:</span>
