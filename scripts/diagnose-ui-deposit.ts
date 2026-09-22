@@ -73,6 +73,21 @@ async function main() {
   await vaultClient.verifyBasketExecutionState(basket, true);
   await vaultClient.verifyDepositBalances(user, basket, executionQuote, true);
 
+  const depositQuote = await vaultClient.prepareProportionalMintQuote(
+    basket,
+    executionQuote,
+    true
+  );
+  console.log('Adjusted basket shares:', depositQuote.expectedBasketTokens);
+  for (const allocation of depositQuote.allocations) {
+    console.log(
+      'Deposit leg',
+      allocation.asset.symbol,
+      'raw',
+      allocation.rawTokenAmount
+    );
+  }
+
   const executionSymbol = basket.devnetExecutionSymbol || basket.symbol + 'D';
   const [basketMint] = vaultClient.getBasketMintPda(executionSymbol);
   const userBasketAta = vaultClient.getUserTokenAccount(user, basketMint);
@@ -83,7 +98,7 @@ async function main() {
   const depositTx = await vaultClient.buildMintTransaction(
     user,
     basket,
-    executionQuote,
+    depositQuote,
     50_000,
     true
   );
