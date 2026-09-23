@@ -1,7 +1,7 @@
 export const SYNTHABASKET_IDL = {
   "version": "0.3.0",
   "name": "synthabasket_vault",
-  "address": "BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh",
+  "address": "4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA",
   "metadata": {
     "name": "synthabasket_vault",
     "version": "0.3.0",

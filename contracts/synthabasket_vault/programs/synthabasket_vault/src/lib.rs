@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
-declare_id!("BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh");
+declare_id!("4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA");
 
 pub const MAX_CONSTITUENTS: usize = 8;
 pub const BASIS_POINTS_DIVISOR: u64 = 10_000;

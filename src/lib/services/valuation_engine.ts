@@ -2,8 +2,6 @@ import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, Basis
 import { fetchPreStocksAssets } from './prestocks';
 import { fetchTesseraAssets } from './tessera';
 import {
-  computeBasisSpread,
-  fetchPythPrices,
   fetchPythPrivateIndexBenchmarks,
   getPythPrivateIndexSymbol,
   normalizePrivateMarketUnderlying,
@@ -17,15 +15,11 @@ export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promi
   const [prestocks, tessera] = await Promise.all([prestocksPromise, tesseraPromise]);
   const combined = [...prestocks, ...tessera].map(withDevnetMirror);
 
-  const feedIds = combined
-    .map((asset) => asset.pythFeedId)
-    .filter((id): id is string => Boolean(id));
-  const underlyings = combined.map((asset) => normalizePrivateMarketUnderlying(asset.symbol));
-
-  const [pythPrices, privateIndexBenchmarks] = await Promise.all([
-    feedIds.length > 0 ? fetchPythPrices(feedIds) : Promise.resolve<Record<string, number>>({}),
-    fetchPythPrivateIndexBenchmarks(underlyings),
-  ]);
+  const underlyings = combined.map((asset) =>
+    normalizePrivateMarketUnderlying(asset.symbol)
+  );
+  const privateIndexBenchmarks =
+    await fetchPythPrivateIndexBenchmarks(underlyings);
 
   return combined.map((asset) => {
     const underlying = normalizePrivateMarketUnderlying(asset.symbol);
@@ -40,29 +34,9 @@ export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promi
         pythBenchmarkSource: 'pyth_index' as const,
         pythBenchmarkIndicative: true,
         pythBenchmarkPublishedAt: privateIndex.publishedAt,
-        // Pyth explicitly describes the private-company indices as indicative
-        // company-level signals. Do not infer token-price basis from them.
-        pythBenchmarkComparable: false,
-        basisSpreadBps: undefined,
+        // Pyth private-company indices are indicative company-level signals,
+        // not executable token prices or token-price basis references.
       };
-    }
-
-    if (asset.pythFeedId) {
-      const pythPrice = pythPrices[asset.pythFeedId] || pythPrices[`0x${asset.pythFeedId}`];
-      if (pythPrice) {
-        const comparable = asset.pythBenchmarkComparable === true;
-        const spreadBps = comparable
-          ? computeBasisSpread(asset.priceUsd, pythPrice).spreadBps
-          : undefined;
-        return {
-          ...asset,
-          pythBenchmarkSymbol: asset.pythBenchmarkSymbol || asset.pythFeedId,
-          pythBenchmarkPriceUsd: pythPrice,
-          pythBenchmarkSource: 'pyth_core' as const,
-          pythBenchmarkIndicative: false,
-          basisSpreadBps: spreadBps,
-        };
-      }
     }
 
     return {
@@ -167,11 +141,6 @@ export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonito
           ? asset.pythBenchmarkPriceUsd
           : undefined;
 
-      const benchmarkSpreadBps =
-        benchmarkPrice && asset.pythBenchmarkComparable === true
-          ? computeBasisSpread(asset.priceUsd, benchmarkPrice).spreadBps
-          : undefined;
-
       return {
         symbol: asset.symbol,
         name: asset.name,
@@ -187,8 +156,6 @@ export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonito
         pythBenchmarkSource: asset.pythBenchmarkSource,
         pythBenchmarkIndicative: asset.pythBenchmarkIndicative,
         pythBenchmarkPublishedAt: asset.pythBenchmarkPublishedAt,
-        pythBenchmarkComparable: asset.pythBenchmarkComparable,
-        benchmarkSpreadBps,
         lastUpdated: asset.lastUpdated,
       };
     })

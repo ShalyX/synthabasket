@@ -18,18 +18,14 @@ export interface AssetQuote {
   quoteSource?: 'live' | 'snapshot';
   marketCapUsd?: number;
   volume24hUsd?: number;
-  pythFeedId?: string;
   /** Official Pyth Index symbol when one exists for the underlying company. */
   pythBenchmarkSymbol?: string;
   /** Pyth benchmark value when the application is entitled to fetch it. */
   pythBenchmarkPriceUsd?: number;
-  pythBenchmarkSource?: 'pyth_core' | 'pyth_index';
+  pythBenchmarkSource?: 'pyth_index';
   /** Pyth private-market indices are informational/indicative rather than executable prices. */
   pythBenchmarkIndicative?: boolean;
   pythBenchmarkPublishedAt?: number;
-  /** Only true when provider and benchmark values are known to use directly comparable units. */
-  pythBenchmarkComparable?: boolean;
-  basisSpreadBps?: number;
   logoUrl?: string;
   description?: string;
   lastUpdated: number;
@@ -85,13 +81,6 @@ export interface BasketCreationDraft {
   indicativeNavUsd: number;
 }
 
-export interface MeteoraDBCConfig {
-  curveType: 'linear' | 'exponential' | 'equity_smoothed';
-  initialPriceUsd: number;
-  graduationThresholdUsd: number;
-  feeBps: number;
-  quoteToken: 'USDC' | 'SOL';
-}
 
 export type TxStepStatus = 'pending' | 'active' | 'submitted' | 'completed' | 'failed';
 
@@ -131,7 +120,7 @@ export interface TxLifecycleState {
   hasPendingConfirmation?: boolean;
   finalSignature?: string;
   receipt?: TxReceipt;
-  actionType: 'mint' | 'redeem' | 'create_basket' | 'launch_dbc';
+  actionType: 'mint' | 'redeem' | 'create_basket';
 }
 
 export interface AllocationRouteItem {
@@ -177,10 +166,8 @@ export interface BasisMonitorItem {
   quoteSource: 'live' | 'snapshot';
   pythBenchmarkSymbol?: string;
   pythBenchmarkPriceUsd?: number;
-  pythBenchmarkSource?: 'pyth_core' | 'pyth_index';
+  pythBenchmarkSource?: 'pyth_index';
   pythBenchmarkIndicative?: boolean;
   pythBenchmarkPublishedAt?: number;
-  pythBenchmarkComparable?: boolean;
-  benchmarkSpreadBps?: number;
   lastUpdated: number;
 }

@@ -1,19 +1,19 @@
-# SynthaBasket — Asset-Backed Private-Market Indexes on Solana
+# SynthaBasket — Private-Market Indexes on Solana
 
 [![Solana](https://img.shields.io/badge/Solana-Devnet%20%2F%20Mainnet-14f195?style=flat-square&logo=solana)](https://solana.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Stocklana Hackathon](https://img.shields.io/badge/Hackathon-Stocklana%202026-9945ff?style=flat-square)](https://hackathons.solana.com/hackathons/stocklana)
 
-**SynthaBasket** is a multi-provider private-market index protocol on Solana. It bundles tokenized private-company assets from providers such as PreStocks and Tessera into thematic, redeemable basket tokens backed by constituent SPL assets held in program-controlled vault accounts.
+**SynthaBasket** is a multi-provider private-market index protocol on Solana. It bundles tokenized private-company assets from providers such as PreStocks and Tessera into thematic basket shares. When shares are issued, custody is represented by constituent SPL assets held in program-controlled vault accounts.
 
-Market/provider data and Pyth are used for NAV and analytics. On-chain backing is determined by the actual constituent balances held by the vault.
+Provider marks drive basket NAV and market analytics. Official Pyth private-company indices, when the deployment is entitled to read them, are shown only as indicative reference analytics and are not used as executable prices or NAV inputs. On-chain backing is determined by the actual constituent balances held by the vault.
 
 ---
 
 ## Architecture
 
 ```text
-PreStocks / Tessera / Pyth
+   PreStocks / Tessera
           │
           ▼
  Valuation + NAV Engine
@@ -175,9 +175,9 @@ For first issuance, positive constituent reserves establish the initial basket s
 
 ## Integrations
 
-- **PreStocks** and **Tessera** — private-market asset/provider data.
-- **Pyth Hermes** — benchmark/oracle context used by NAV and basis analytics.
-- **Jupiter Swap API V2** — executable constituent acquisition on supported mainnet routes.
+- **PreStocks** and **Tessera** — private-market provider marks used for basket valuation.
+- **Pyth private-company indices** — optional, entitled indicative references for OpenAI / Anthropic analytics; not NAV inputs or executable prices.
+- **Jupiter Swap API V2** — executable constituent acquisition and verified route-based liquidity signals on supported mainnet routes.
 
 ---
 
