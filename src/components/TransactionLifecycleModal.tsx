@@ -31,8 +31,8 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
         state.receipt.resultingShareBalance <= 0.000001));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 sm:p-4">
+      <div className="relative h-[100dvh] max-h-[100dvh] w-full max-w-lg overflow-y-auto overscroll-contain border border-border bg-surface shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-4">
           <h3 className="text-sm font-semibold text-ink-primary">{state.title}</h3>
           {(state.isCompleted || state.hasError || state.hasPendingConfirmation) && (
@@ -123,7 +123,27 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   )}
 
                   {step.error && (
-                    <p className="mt-2 break-words text-xs leading-5 text-semantic-negative">{step.error}</p>
+                    <div className="mt-2 rounded-lg border border-semantic-negative/20 bg-semantic-negative/5 p-3">
+                      <p className="break-words text-xs font-medium leading-5 text-semantic-negative">
+                        {step.error}
+                      </p>
+                      {step.recoveryAction && (
+                        <p className="mt-2 text-xs leading-5 text-ink-secondary">
+                          <span className="font-semibold text-ink-primary">What to do:</span>{' '}
+                          {step.recoveryAction}
+                        </p>
+                      )}
+                      {step.technicalError && (
+                        <details className="mt-2 text-[11px] text-ink-tertiary">
+                          <summary className="cursor-pointer select-none hover:text-ink-secondary">
+                            Technical details
+                          </summary>
+                          <p className="mt-2 break-words rounded border border-border bg-background/60 p-2 font-mono leading-5">
+                            {step.technicalError}
+                          </p>
+                        </details>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -135,7 +155,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
           <div className="border-t border-border px-5 py-4">
             <p className="text-xs leading-5 text-amber-300">
               This transaction was submitted, but Solana has not returned a definitive status yet.
-              Check the transaction before trying again.
+              Check the signature before trying again; do not resubmit while its status is unknown.
             </p>
             <button
               onClick={onClose}

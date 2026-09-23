@@ -93,6 +93,10 @@ export interface TxStep {
   txSignatures?: string[];
   error?: string;
   statusMessage?: string;
+  /** Human-readable next step after a failed transaction. */
+  recoveryAction?: string;
+  /** Raw provider/program detail kept behind an expandable disclosure. */
+  technicalError?: string;
 }
 
 export interface TxReceiptAsset {

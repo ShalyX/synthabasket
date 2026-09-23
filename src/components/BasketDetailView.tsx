@@ -11,6 +11,7 @@ import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'rec
 import { getHistoryForRange, NavHistoryPoint } from '../lib/client/nav_history';
 import { SYNTHABASKET_PROGRAM_ID, SynthaBasketVaultClient } from '../lib/execution/vault_client';
 import { AllocationRouter } from '../lib/execution/allocation_router';
+import { explainTransactionError } from '../lib/client/transaction_errors';
 
 interface BasketDetailViewProps {
   basket: BasketDefinition;
@@ -19,6 +20,8 @@ interface BasketDetailViewProps {
   onExecuteMint: (basket: BasketDefinition, quote: BasketMintQuote) => void;
   onExecuteRedeem: (basket: BasketDefinition, quote: BasketRedeemQuote) => void;
   navHistory?: NavHistoryPoint[];
+  lastUpdatedAt?: number;
+  dataIsStale?: boolean;
 }
 
 const TIMEFRAMES = [
@@ -35,6 +38,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   onExecuteMint,
   onExecuteRedeem,
   navHistory = [],
+  lastUpdatedAt,
+  dataIsStale = false,
 }) => {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
@@ -60,6 +65,39 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   const [liveRedeemQuote, setLiveRedeemQuote] = useState<BasketRedeemQuote | null>(null);
   const [redeemQuoteLoading, setRedeemQuoteLoading] = useState(false);
   const [redeemQuoteError, setRedeemQuoteError] = useState<string | null>(null);
+  const [balanceRefreshNonce, setBalanceRefreshNonce] = useState(0);
+  const [mintQuoteRefreshNonce, setMintQuoteRefreshNonce] = useState(0);
+  const [redeemQuoteRefreshNonce, setRedeemQuoteRefreshNonce] = useState(0);
+  const [mintQuoteUpdatedAt, setMintQuoteUpdatedAt] = useState<number | null>(null);
+  const [redeemQuoteUpdatedAt, setRedeemQuoteUpdatedAt] = useState<number | null>(null);
+  const [quoteNow, setQuoteNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setQuoteNow(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const mintQuoteStale =
+    mintQuoteUpdatedAt !== null && quoteNow - mintQuoteUpdatedAt > 20_000;
+  const redeemQuoteStale =
+    redeemQuoteUpdatedAt !== null && quoteNow - redeemQuoteUpdatedAt > 20_000;
+  const hydrationAgeSeconds =
+    lastUpdatedAt === undefined
+      ? null
+      : Math.max(0, Math.floor((quoteNow - lastUpdatedAt) / 1000));
+  const unfundedVault =
+    basket.onChainStateLoaded === true && basket.totalSharesMinted <= 0;
+  const vaultStateLabel = basket.onChainStateLoaded
+    ? unfundedVault
+      ? 'Verified · unfunded vault'
+      : 'Verified · live vault'
+    : 'Vault unavailable';
+  const marketStateLabel =
+    basket.marketDataSource === 'live'
+      ? 'Live market data'
+      : basket.marketDataSource === 'mixed'
+      ? 'Mixed live + fallback pricing'
+      : 'Fallback snapshot pricing';
 
   const mintQuote = useMemo(
     () => calculateMintQuote(basket, usdcAmount || 0),
@@ -156,7 +194,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       window.removeEventListener('focus', refreshIfActive);
       document.removeEventListener('visibilitychange', refreshIfActive);
     };
-  }, [basket, connection, publicKey]);
+  }, [basket, balanceRefreshNonce, connection, publicKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,6 +207,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       ) {
         if (!cancelled) {
           setLiveMintQuote(null);
+          setMintQuoteUpdatedAt(null);
           setMintQuoteError(null);
           setMintQuoteLoading(false);
         }
@@ -222,11 +261,16 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
           true
         );
 
-        if (!cancelled) setLiveMintQuote(proportionalQuote);
+        if (!cancelled) {
+          setLiveMintQuote(proportionalQuote);
+          setMintQuoteUpdatedAt(Date.now());
+        }
       } catch (error: any) {
         if (!cancelled) {
+          const explained = explainTransactionError(error, 'quote');
           setLiveMintQuote(null);
-          setMintQuoteError(error?.message || 'Live executable quote unavailable.');
+          setMintQuoteUpdatedAt(null);
+          setMintQuoteError(`${explained.message} ${explained.recoveryAction}`);
         }
       } finally {
         if (!cancelled) setMintQuoteLoading(false);
@@ -237,7 +281,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [basket, connection, mintQuote, publicKey, usdcAmount, usdcBalance]);
+  }, [basket, connection, mintQuote, mintQuoteRefreshNonce, publicKey, usdcAmount, usdcBalance]);
 
   useEffect(() => {
     let cancelled = false;
@@ -247,6 +291,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       if (!redeemShares || redeemShares <= 0) {
         if (!cancelled) {
           setLiveRedeemQuote(null);
+          setRedeemQuoteUpdatedAt(null);
           setRedeemQuoteLoading(false);
         }
         return;
@@ -276,14 +321,15 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
         );
         if (!cancelled) {
           setLiveRedeemQuote(quote);
+          setRedeemQuoteUpdatedAt(Date.now());
           setRedeemQuoteError(null);
         }
       } catch (error: any) {
         if (!cancelled) {
+          const explained = explainTransactionError(error, 'quote');
           setLiveRedeemQuote(null);
-          setRedeemQuoteError(
-            error?.message || 'Unable to read the live vault right now. Try again in a moment.'
-          );
+          setRedeemQuoteUpdatedAt(null);
+          setRedeemQuoteError(`${explained.message} ${explained.recoveryAction}`);
         }
       } finally {
         if (!cancelled) setRedeemQuoteLoading(false);
@@ -294,7 +340,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [basket, basketBalance, connection, redeemShares]);
+  }, [basket, basketBalance, connection, redeemQuoteRefreshNonce, redeemShares]);
 
   const selectedRange =
     TIMEFRAMES.find((timeframe) => timeframe.label === chartTimeframe) ||
@@ -342,19 +388,18 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   }, [basket.id, selectedRange.ms]);
 
   const chartPoints = useMemo(() => {
-    const merged = new Map<number, NavHistoryPoint>();
-
-    for (const point of durableHistory) merged.set(point.timestamp, point);
-    for (const point of navHistory) merged.set(point.timestamp, point);
+    // When durable storage is configured it is authoritative. Session-local
+    // observations are only a fallback when durable history is unavailable.
+    const source = durableHistoryEnabled ? durableHistory : navHistory;
 
     return getHistoryForRange(
-      [...merged.values()].sort((a, b) => a.timestamp - b.timestamp),
+      [...source].sort((a, b) => a.timestamp - b.timestamp),
       selectedRange.ms
     ).map((point) => ({
       timestamp: point.timestamp,
       navUsd: point.navUsd,
     }));
-  }, [durableHistory, navHistory, selectedRange.ms]);
+  }, [durableHistory, durableHistoryEnabled, navHistory, selectedRange.ms]);
 
   const localRangeChange = useMemo(() => {
     if (chartPoints.length < 2) return null;
@@ -385,8 +430,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6">
-      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 sm:p-6">
+      <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border border-border bg-background shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-ink-primary sm:text-lg">
@@ -399,9 +444,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
               <span>·</span>
               <span>Solana Devnet</span>
               <span>·</span>
-              <span>
-                {basket.navSource === 'onchain_reserves' ? 'Live vault' : 'Index pricing'}
-              </span>
+              <span>{vaultStateLabel}</span>
+              <span>·</span>
+              <span>{marketStateLabel}</span>
             </div>
           </div>
           <button
@@ -418,7 +463,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             <div>
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-xs text-ink-tertiary">NAV</p>
+                  <p className="text-xs text-ink-tertiary">
+                    {basket.navSource === 'onchain_reserves' ? 'Vault NAV' : 'Indicative NAV'}
+                  </p>
                   <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-ink-primary">
                     $ {basket.navUsd.toFixed(2)}
                   </p>
@@ -445,6 +492,34 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
               <p className="mt-4 max-w-2xl text-sm leading-6 text-ink-secondary">
                 {basket.description}
               </p>
+              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                <span className="rounded border border-border bg-surface px-2 py-1 text-ink-secondary">
+                  {dataIsStale
+                    ? 'Last known snapshot'
+                    : hydrationAgeSeconds === null
+                    ? 'Freshness unavailable'
+                    : hydrationAgeSeconds < 5
+                    ? 'Updated just now'
+                    : `Updated ${hydrationAgeSeconds}s ago`}
+                </span>
+                <span className="rounded border border-border bg-surface px-2 py-1 text-ink-secondary">
+                  {vaultStateLabel}
+                </span>
+                <span className="rounded border border-border bg-surface px-2 py-1 text-ink-secondary">
+                  {marketStateLabel}
+                </span>
+              </div>
+              {(unfundedVault || !basket.onChainStateLoaded || basket.marketDataSource !== 'live' || dataIsStale) && (
+                <p className="mt-3 text-xs leading-5 text-amber-300">
+                  {dataIsStale
+                    ? 'The latest refresh failed, so this view is showing the last known snapshot. Trading still performs a fresh on-chain verification before signing.'
+                    : unfundedVault
+                    ? 'The vault is verified but has no share supply yet. NAV is target-weight indicative until the basket receives its first funding.'
+                    : !basket.onChainStateLoaded
+                    ? 'Live vault state was unavailable in this refresh. Values are indicative; invest and redeem remain gated by a fresh on-chain verification.'
+                    : 'One or more constituent prices are using verified fallback data rather than a fully live provider response.'}
+                </p>
+              )}
             </div>
 
             <section>
@@ -453,8 +528,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   <h3 className="text-sm font-semibold text-ink-primary">NAV history</h3>
                   <p className="mt-0.5 text-xs text-ink-tertiary">
                     {durableHistoryEnabled
-                      ? 'Protocol NAV observations stored server-side.'
-                      : 'Real observations from live basket refreshes on this device.'}
+                      ? 'Durable server-side NAV observations. No synthetic backfill.'
+                      : 'Durable history is unavailable; showing session-only live observations from this device.'}
                   </p>
                 </div>
 
@@ -786,7 +861,15 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 {balanceError && (
-                  <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
+                    <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                    <button
+                      onClick={() => setBalanceRefreshNonce((value) => value + 1)}
+                      className="shrink-0 text-xs font-semibold text-ink-primary hover:text-brand-primary"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 )}
 
                 <p className="text-xs leading-5 text-ink-tertiary">
@@ -813,7 +896,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     <label className="text-xs font-medium text-ink-secondary">Amount</label>
                     {usdcBalance !== null && (
                       <button
-                        onClick={() => setUsdcAmount(Math.min(1000, usdcBalance))}
+                        onClick={() => setUsdcAmount(Number(usdcBalance.toFixed(6)))}
                         className="text-xs text-ink-tertiary hover:text-brand-primary"
                       >
                         Balance {usdcBalance.toFixed(2)} USDC · Max
@@ -823,8 +906,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   <div className="relative mt-2">
                     <input
                       type="number"
-                      min="1"
-                      step="1"
+                      min="0.01"
+                      step="0.01"
+                      max={usdcBalance ?? undefined}
                       value={usdcAmount}
                       onChange={(e) => setUsdcAmount(Number(e.target.value))}
                       className="w-full rounded-lg border border-border bg-surface px-3.5 py-3 pr-16 font-mono text-lg font-semibold tabular-nums text-ink-primary outline-none transition-colors focus:border-brand-primary"
@@ -840,7 +924,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     <button
                       key={amount}
                       onClick={() => setUsdcAmount(amount)}
-                      disabled={usdcBalance !== null && amount > Math.min(1000, usdcBalance)}
+                      disabled={usdcBalance !== null && amount > usdcBalance}
                       className="flex-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs text-ink-secondary transition-colors hover:border-border-strong hover:text-ink-primary disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       {amount}
@@ -849,7 +933,15 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 {balanceError && (
-                  <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
+                    <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                    <button
+                      onClick={() => setBalanceRefreshNonce((value) => value + 1)}
+                      className="shrink-0 text-xs font-semibold text-ink-primary hover:text-brand-primary"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 )}
 
                 <div className="border-y border-border py-4">
@@ -863,10 +955,21 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                         : '—'}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-ink-tertiary">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-tertiary">
                     <span>Live vault + current acquisition route</span>
-                    <span>{basket.constituents.length} assets</span>
+                    <span>
+                      {mintQuoteUpdatedAt
+                        ? mintQuoteStale
+                          ? 'Quote expired · refresh required'
+                          : `Quoted ${Math.max(0, Math.floor((quoteNow - mintQuoteUpdatedAt) / 1000))}s ago`
+                        : `${basket.constituents.length} assets`}
+                    </span>
                   </div>
+                  {mintQuoteStale && (
+                    <p className="mt-2 text-xs leading-5 text-amber-300">
+                      This executable quote is over 20 seconds old. Refresh it before signing.
+                    </p>
+                  )}
                   {liveMintQuote && (
                     <div className="mt-4 border-t border-border pt-3">
                       <p className="mb-2 text-xs text-ink-tertiary">Vault deposit</p>
@@ -888,9 +991,17 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     </div>
                   )}
                   {mintQuoteError && (
-                    <p className="mt-2 text-xs leading-5 text-semantic-negative">
-                      {mintQuoteError}
-                    </p>
+                    <div className="mt-2 flex items-start justify-between gap-3">
+                      <p className="text-xs leading-5 text-semantic-negative">
+                        {mintQuoteError}
+                      </p>
+                      <button
+                        onClick={() => setMintQuoteRefreshNonce((value) => value + 1)}
+                        className="shrink-0 text-xs font-semibold text-ink-primary hover:text-brand-primary"
+                      >
+                        Retry quote
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -898,6 +1009,10 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   onClick={() => {
                     if (!publicKey) {
                       setWalletModalVisible(true);
+                      return;
+                    }
+                    if (mintQuoteStale) {
+                      setMintQuoteRefreshNonce((value) => value + 1);
                       return;
                     }
                     if (liveMintQuote) {
@@ -916,7 +1031,11 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   className="w-full rounded-lg bg-brand-primary py-3 text-sm font-semibold text-black transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {publicKey
-                    ? `Invest ${usdcAmount || 0} USDC`
+                    ? mintQuoteLoading
+                      ? 'Refreshing executable quote…'
+                      : mintQuoteStale
+                      ? 'Refresh quote before investing'
+                      : `Invest ${usdcAmount || 0} USDC`
                     : 'Connect wallet to invest'}
                 </button>
               </div>
@@ -968,11 +1087,34 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   ) : redeemQuoteLoading ? (
                     <p className="text-sm text-ink-secondary">Calculating from the live vault…</p>
                   ) : redeemQuoteError ? (
-                    <p className="text-sm leading-6 text-semantic-negative">
-                      {redeemQuoteError}
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm leading-6 text-semantic-negative">
+                        {redeemQuoteError}
+                      </p>
+                      <button
+                        onClick={() => setRedeemQuoteRefreshNonce((value) => value + 1)}
+                        className="shrink-0 text-xs font-semibold text-ink-primary hover:text-brand-primary"
+                      >
+                        Retry quote
+                      </button>
+                    </div>
                   ) : liveRedeemQuote ? (
                     <>
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-tertiary">
+                        <span>Current pro-rata vault output</span>
+                        <span>
+                          {redeemQuoteUpdatedAt
+                            ? redeemQuoteStale
+                              ? 'Quote expired · refresh required'
+                              : `Quoted ${Math.max(0, Math.floor((quoteNow - redeemQuoteUpdatedAt) / 1000))}s ago`
+                            : 'Fresh quote'}
+                        </span>
+                      </div>
+                      {redeemQuoteStale && (
+                        <p className="mb-3 text-xs leading-5 text-amber-300">
+                          This redemption quote is over 20 seconds old. Refresh it before signing.
+                        </p>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-ink-secondary">Marked value</span>
                         <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
@@ -1012,6 +1154,10 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                       setWalletModalVisible(true);
                       return;
                     }
+                    if (redeemQuoteStale) {
+                      setRedeemQuoteRefreshNonce((value) => value + 1);
+                      return;
+                    }
                     if (liveRedeemQuote) {
                       onExecuteRedeem(basket, liveRedeemQuote);
                     }
@@ -1029,7 +1175,11 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   className="w-full rounded-lg bg-ink-primary py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {publicKey
-                    ? redeemShares > 0
+                    ? redeemQuoteLoading
+                      ? 'Refreshing redemption quote…'
+                      : redeemQuoteStale
+                      ? 'Refresh quote before redeeming'
+                      : redeemShares > 0
                       ? `Redeem ${redeemShares} ${basket.symbol}`
                       : `Enter ${basket.symbol} amount`
                     : 'Connect wallet to redeem'}

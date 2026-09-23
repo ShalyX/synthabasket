@@ -44,6 +44,7 @@ import {
   publishActivityNotification,
   recordConfirmedActivity,
 } from '../../lib/client/activity';
+import { explainTransactionError } from '../../lib/client/transaction_errors';
 
 import { PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
@@ -75,6 +76,7 @@ export default function AppPage() {
   const [marketplaceStatus, setMarketplaceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [customRegistryConfigured, setCustomRegistryConfigured] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<number | null>(null);
+  const [marketplaceStale, setMarketplaceStale] = useState(false);
   const [freshnessNow, setFreshnessNow] = useState<number>(() => Date.now());
   const [navHistory, setNavHistory] = useState<NavHistoryByBasket>({});
   const hasHydratedMarketplaceRef = useRef(false);
@@ -98,6 +100,7 @@ export default function AppPage() {
     hasError: false,
     actionType: 'mint',
   });
+  const txRetryRef = useRef<null | (() => void)>(null);
 
   useEffect(() => {
     setNavHistory(readNavHistory());
@@ -159,12 +162,14 @@ export default function AppPage() {
         }
 
         setLastHydratedAt(Number(payload.generatedAt) || Date.now());
+        if (!marketOnly) setMarketplaceStale(payload.stale === true);
         hasHydratedMarketplaceRef.current = true;
         setMarketplaceStatus('ready');
       } catch (error) {
         console.error('[Marketplace hydration]', error);
-        if (!cancelled && !hasHydratedMarketplaceRef.current) {
-          setMarketplaceStatus('error');
+        if (!cancelled) {
+          if (activeTab !== 'basis_monitor') setMarketplaceStale(true);
+          if (!hasHydratedMarketplaceRef.current) setMarketplaceStatus('error');
         }
       } finally {
         requestInFlight = false;
@@ -268,6 +273,7 @@ export default function AppPage() {
 
   // 1-Click Mint Execution Flow
   const handleExecuteMint = async (basket: BasketDefinition, quote: BasketMintQuote) => {
+    txRetryRef.current = () => void handleExecuteMint(basket, quote);
     setSelectedBasket(null);
     clearBasketRoute();
 
@@ -647,10 +653,14 @@ export default function AppPage() {
       // incrementing registry/demo numbers locally.
       setHydrationNonce((value) => value + 1);
     } catch (err: any) {
+      const explained = explainTransactionError(err, 'invest');
+      const recoveryAction = constituentAcquisitionReady
+        ? 'Any constituent tokens already acquired remain in your wallet. Retry the same investment to reuse those balances; SynthaBasket will not send another Devnet USDC acquisition while they are still present.'
+        : explained.recoveryAction;
       publishActivityNotification({
         kind: 'error',
         title: 'Investment did not complete',
-        message: 'Review the transaction details before retrying.',
+        message: explained.message,
       });
       setTxLifecycle((prev) => ({
         ...prev,
@@ -661,11 +671,9 @@ export default function AppPage() {
             ? {
                 ...step,
                 status: 'failed',
-                error:
-                  (err?.message || 'Transaction failed') +
-                  (constituentAcquisitionReady
-                    ? ' Any constituent tokens already acquired remain in your wallet. Retry the same investment to reuse those exact deposit balances; SynthaBasket will not send another Devnet USDC acquisition while they are still present.'
-                    : ''),
+                error: explained.message,
+                recoveryAction,
+                technicalError: explained.technicalError,
               }
             : step
         ),
@@ -675,6 +683,7 @@ export default function AppPage() {
 
   // Burn & Redeem Execution Flow
   const handleExecuteRedeem = async (basket: BasketDefinition, quote: BasketRedeemQuote) => {
+    txRetryRef.current = () => void handleExecuteRedeem(basket, quote);
     setSelectedBasket(null);
     clearBasketRoute();
 
@@ -992,10 +1001,11 @@ export default function AppPage() {
       // and SPL supply rather than an estimated local subtraction.
       setHydrationNonce((value) => value + 1);
     } catch (err: any) {
+      const explained = explainTransactionError(err, 'redeem');
       publishActivityNotification({
         kind: 'error',
         title: 'Redemption did not complete',
-        message: 'Review the transaction details before retrying.',
+        message: explained.message,
       });
       setTxLifecycle((prev) => ({
         ...prev,
@@ -1003,7 +1013,13 @@ export default function AppPage() {
         currentStepIndex: activeStepIndex,
         steps: prev.steps.map((step, index) =>
           index === activeStepIndex
-            ? { ...step, status: 'failed', error: err?.message || 'Redemption failed' }
+            ? {
+                ...step,
+                status: 'failed',
+                error: explained.message,
+                recoveryAction: explained.recoveryAction,
+                technicalError: explained.technicalError,
+              }
             : step
         ),
       }));
@@ -1484,6 +1500,11 @@ export default function AppPage() {
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-secondary">
                 <span>Private-market indexes you can invest in and redeem on Solana.</span>
+                {marketplaceStale && (
+                  <span className="rounded border border-amber-400/30 bg-amber-400/5 px-2 py-0.5 text-xs font-medium text-amber-300">
+                    Last known snapshot
+                  </span>
+                )}
                 {lastHydratedAt && (
                   <span className="text-xs text-ink-tertiary">
                     {Math.max(0, Math.floor((freshnessNow - lastHydratedAt) / 1000)) < 5
@@ -1744,6 +1765,8 @@ export default function AppPage() {
           onExecuteMint={handleExecuteMint}
           onExecuteRedeem={handleExecuteRedeem}
           navHistory={navHistory[selectedBasket.id] || []}
+          lastUpdatedAt={lastHydratedAt || undefined}
+          dataIsStale={marketplaceStale}
         />
       )}
 
@@ -1751,6 +1774,11 @@ export default function AppPage() {
       <TransactionLifecycleModal
         state={txLifecycle}
         onClose={() => setTxLifecycle((prev) => ({ ...prev, isOpen: false }))}
+        onRetry={
+          txLifecycle.hasError && txRetryRef.current
+            ? () => txRetryRef.current?.()
+            : undefined
+        }
       />
     </main>
   );
