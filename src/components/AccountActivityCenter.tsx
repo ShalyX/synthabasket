@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import {
@@ -73,6 +74,7 @@ export function AccountActivityCenter({
   const owner = publicKey?.toBase58() || null;
 
   const [open, setOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const [activities, setActivities] = useState<AccountActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
@@ -85,6 +87,10 @@ export function AccountActivityCenter({
   const [lastSeenAt, setLastSeenAt] = useState(0);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<ActivityNotification | null>(null);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (!owner) {
@@ -103,6 +109,23 @@ export function AccountActivityCenter({
     );
     setLastSeenAt(Number(saved) || 0);
   }, [owner]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
 
   const refresh = useCallback(async () => {
     if (!publicKey || !owner) return;
@@ -215,6 +238,247 @@ export function AccountActivityCenter({
 
   if (!owner) return null;
 
+  const portalContent =
+    portalReady &&
+    createPortal(
+      <>
+        {toast && (
+          <div className="fixed right-4 top-20 z-[110] w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-border bg-surface p-4 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div
+                className={
+                  'mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ' +
+                  (toast.kind === 'error'
+                    ? 'bg-semantic-negative'
+                    : 'bg-brand-primary')
+                }
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink-primary">
+                  {toast.title}
+                </p>
+                {toast.message && (
+                  <p className="mt-1 text-xs leading-5 text-ink-secondary">
+                    {toast.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {open && (
+          <div className="fixed inset-0 z-[100] flex justify-end">
+            <button
+              type="button"
+              aria-label="Close account panel"
+              onClick={() => setOpen(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+            />
+
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Account"
+              className="relative flex h-[100dvh] w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-2xl"
+            >
+              <div className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-ink-primary">Account</p>
+                    <span className="rounded-full border border-border bg-surface-subtle px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-ink-tertiary">
+                      {network}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-ink-tertiary">
+                    Wallet, positions and confirmed activity
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg p-2 text-ink-tertiary transition-colors hover:bg-surface-hover hover:text-ink-primary"
+                  aria-label="Close account panel"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="shrink-0 border-b border-border px-5 py-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-mono text-base font-bold text-ink-primary">
+                      {shortAddress(owner)}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-[10px] text-ink-tertiary">
+                      {owner}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopy()}
+                      className="rounded-lg border border-border bg-background p-2.5 text-ink-secondary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                      aria-label="Copy wallet address"
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <a
+                      href={`https://explorer.solana.com/address/${owner}?cluster=devnet`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-border bg-background p-2.5 text-ink-secondary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                      aria-label="Open wallet in Solana Explorer"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 overflow-hidden rounded-xl border border-border bg-background">
+                  <div className="px-3 py-3.5">
+                    <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
+                      USDC
+                    </p>
+                    <p className="mt-1.5 font-mono text-sm font-bold tabular-nums text-ink-primary">
+                      {usdcBalance === null ? '—' : usdcBalance.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="border-x border-border px-3 py-3.5">
+                    <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
+                      Portfolio
+                    </p>
+                    <p className="mt-1.5 font-mono text-sm font-bold tabular-nums text-ink-primary">
+                      {portfolioValue === null
+                        ? '—'
+                        : `$${formatUsd(portfolioValue)}`}
+                    </p>
+                  </div>
+                  <div className="px-3 py-3.5">
+                    <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
+                      Positions
+                    </p>
+                    <p className="mt-1.5 font-mono text-sm font-bold tabular-nums text-ink-primary">
+                      {positionCount}
+                    </p>
+                  </div>
+                </div>
+
+                {unpricedCount > 0 && (
+                  <p className="mt-3 text-xs leading-5 text-amber-500">
+                    {unpricedCount} position
+                    {unpricedCount === 1 ? '' : 's'} currently lack a live vault
+                    valuation.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col bg-surface">
+                <div className="flex shrink-0 items-center justify-between px-5 pb-3 pt-5">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-ink-primary">Activity</h2>
+                    {activities.length > 0 && (
+                      <span className="rounded-full bg-surface-subtle px-2 py-0.5 font-mono text-[9px] font-semibold text-ink-tertiary">
+                        {activities.length}
+                      </span>
+                    )}
+                  </div>
+                  {loading && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-tertiary" />
+                  )}
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+                  {storageStatus === 'not_configured' && (
+                    <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-amber-500">
+                      Activity storage is not configured, so account history cannot
+                      persist across sessions.
+                    </div>
+                  )}
+
+                  {storageStatus === 'unavailable' && (
+                    <div className="mb-3 rounded-xl border border-border bg-background p-3 text-xs leading-5 text-ink-secondary">
+                      Activity is temporarily unavailable. Wallet balances remain
+                      on-chain and unaffected.
+                    </div>
+                  )}
+
+                  {activities.length === 0 && !loading ? (
+                    <div className="flex min-h-44 items-center justify-center rounded-xl border border-dashed border-border bg-background px-6 py-8 text-center">
+                      <div>
+                        <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface-subtle">
+                          <Bell className="h-4 w-4 text-ink-tertiary" />
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-ink-primary">
+                          No activity yet
+                        </p>
+                        <p className="mx-auto mt-1 max-w-[270px] text-xs leading-5 text-ink-tertiary">
+                          New confirmed investments, redemptions and basket
+                          creations will appear here.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-xl border border-border bg-background">
+                      {activities.map((activity, index) => (
+                        <div
+                          key={activity.id}
+                          className={
+                            'px-4 py-4 ' +
+                            (index > 0 ? 'border-t border-border' : '')
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-ink-primary">
+                                {activityTitle(activity)}
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-ink-secondary">
+                                {activityDetail(activity)}
+                              </p>
+                              <p className="mt-1 text-[10px] text-ink-tertiary">
+                                Confirmed · {formatAge(activity.timestamp)}
+                              </p>
+                            </div>
+                            <a
+                              href={`https://explorer.solana.com/tx/${activity.signature}?cluster=devnet`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-0.5 shrink-0 rounded-md p-1.5 text-brand-primary transition-colors hover:bg-surface-hover"
+                              aria-label="View transaction"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="shrink-0 border-t border-border bg-surface px-5 py-4">
+                <button
+                  type="button"
+                  onClick={() => void disconnect()}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:border-semantic-negative/40 hover:text-semantic-negative"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Disconnect wallet
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
+      </>,
+      document.body
+    );
+
   return (
     <>
       <button
@@ -233,206 +497,7 @@ export function AccountActivityCenter({
         )}
       </button>
 
-      {toast && (
-        <div className="fixed right-4 top-20 z-[70] w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-border bg-surface p-4 shadow-2xl">
-          <div className="flex items-start gap-3">
-            <div
-              className={
-                'mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ' +
-                (toast.kind === 'error'
-                  ? 'bg-semantic-negative'
-                  : 'bg-brand-primary')
-              }
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink-primary">
-                {toast.title}
-              </p>
-              {toast.message && (
-                <p className="mt-1 text-xs leading-5 text-ink-secondary">
-                  {toast.message}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {open && (
-        <div className="fixed inset-0 z-[65]">
-          <button
-            type="button"
-            aria-label="Close account panel"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/55"
-          />
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[430px] flex-col border-l border-border bg-background shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <div>
-                <p className="text-sm font-bold text-ink-primary">Account</p>
-                <p className="mt-0.5 text-[11px] capitalize text-ink-tertiary">
-                  Solana {network}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md p-2 text-ink-tertiary hover:bg-surface hover:text-ink-primary"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="border-b border-border p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-mono text-sm font-semibold text-ink-primary">
-                    {shortAddress(owner)}
-                  </p>
-                  <p className="mt-1 truncate font-mono text-[10px] text-ink-tertiary">
-                    {owner}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => void handleCopy()}
-                    className="rounded-lg border border-border p-2 text-ink-secondary hover:border-brand-primary hover:text-brand-primary"
-                    aria-label="Copy wallet address"
-                  >
-                    {copied ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  <a
-                    href={`https://explorer.solana.com/address/${owner}?cluster=devnet`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg border border-border p-2 text-ink-secondary hover:border-brand-primary hover:text-brand-primary"
-                    aria-label="Open wallet in Solana Explorer"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </div>
-              </div>
-
-              <div className="mt-5 grid grid-cols-3 gap-2">
-                <div className="rounded-xl bg-surface p-3">
-                  <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
-                    USDC
-                  </p>
-                  <p className="mt-1.5 font-mono text-sm font-bold tabular-nums text-ink-primary">
-                    {usdcBalance === null ? '—' : usdcBalance.toFixed(2)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-surface p-3">
-                  <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
-                    Portfolio
-                  </p>
-                  <p className="mt-1.5 font-mono text-sm font-bold tabular-nums text-ink-primary">
-                    {portfolioValue === null
-                      ? '—'
-                      : `$${formatUsd(portfolioValue)}`}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-surface p-3">
-                  <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
-                    Positions
-                  </p>
-                  <p className="mt-1.5 font-mono text-sm font-bold tabular-nums text-ink-primary">
-                    {positionCount}
-                  </p>
-                </div>
-              </div>
-
-              {unpricedCount > 0 && (
-                <p className="mt-3 text-xs leading-5 text-amber-300">
-                  {unpricedCount} position
-                  {unpricedCount === 1 ? '' : 's'} currently lack a live vault
-                  valuation.
-                </p>
-              )}
-            </div>
-
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between px-5 pb-2 pt-5">
-                <h2 className="text-sm font-bold text-ink-primary">Activity</h2>
-                {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-tertiary" />}
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
-                {storageStatus === 'not_configured' && (
-                  <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-amber-300">
-                    Activity storage is not configured, so account history cannot
-                    persist across sessions.
-                  </div>
-                )}
-
-                {storageStatus === 'unavailable' && (
-                  <div className="mb-3 rounded-xl border border-border bg-surface p-3 text-xs leading-5 text-ink-secondary">
-                    Activity is temporarily unavailable. Wallet balances remain
-                    on-chain and unaffected.
-                  </div>
-                )}
-
-                {activities.length === 0 && !loading ? (
-                  <div className="rounded-xl border border-border bg-surface px-4 py-8 text-center">
-                    <p className="text-sm font-semibold text-ink-primary">
-                      No indexed activity yet
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-ink-tertiary">
-                      New confirmed investments, redemptions and basket
-                      deployments will appear here.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {activities.map((activity) => (
-                      <div key={activity.id} className="py-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-ink-primary">
-                              {activityTitle(activity)}
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-ink-secondary">
-                              {activityDetail(activity)}
-                            </p>
-                            <p className="mt-1 text-[10px] text-ink-tertiary">
-                              Confirmed · {formatAge(activity.timestamp)}
-                            </p>
-                          </div>
-                          <a
-                            href={`https://explorer.solana.com/tx/${activity.signature}?cluster=devnet`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-0.5 shrink-0 text-brand-primary hover:opacity-80"
-                            aria-label="View transaction"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t border-border p-4">
-              <button
-                type="button"
-                onClick={() => void disconnect()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:border-semantic-negative/40 hover:text-semantic-negative"
-              >
-                <LogOut className="h-4 w-4" />
-                Disconnect wallet
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
+      {portalContent}
     </>
   );
 }
