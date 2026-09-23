@@ -1,21 +1,15 @@
-name: Build Check
+name: Inspect Latest UI Redeem
 
 on:
-  push:
-    branches:
-      - main
-      - ui/wider-shell
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,5 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Production build
-        run: npm run build
+      - name: Inspect recent Devnet redemption
+        env:
+          NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
+        run: npx tsx scripts/inspect-latest-redeem.ts

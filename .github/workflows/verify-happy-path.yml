@@ -1,4 +1,4 @@
-name: Provision SynthaBasket Devnet Execution
+name: Verify SynthaBasket Real Devnet Happy Path
 
 on:
   workflow_dispatch:
@@ -7,13 +7,14 @@ permissions:
   contents: read
 
 jobs:
-  provision:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       DEVNET_MIRROR_AUTHORITY_SECRET: ${{ secrets.DEVNET_MIRROR_AUTHORITY_SECRET }}
       RUNNER_PRIVATE_KEY: ${{ secrets.RUNNER_PRIVATE_KEY }}
       NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
+      DEMO_DEPOSIT_USDC: "10"
 
     steps:
       - name: Checkout
@@ -28,12 +29,19 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Check provisioning authority
+      - name: Check execution authority
         run: |
           if [ -z "$DEVNET_MIRROR_AUTHORITY_SECRET" ] && [ -z "$RUNNER_PRIVATE_KEY" ]; then
-            echo "::error::Missing DEVNET_MIRROR_AUTHORITY_SECRET or RUNNER_PRIVATE_KEY GitHub Actions secret."
+            echo "::error::Missing Devnet runner authority."
             exit 1
           fi
 
-      - name: Provision mirror mints and basket states
-        run: npm run provision-devnet
+      - name: Run real Devnet happy path
+        run: npm run execute-happy-path
+
+      - name: Upload verified receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthabasket-real-devnet-receipts
+          path: DEMO_RUN_RECEIPTS.md
+          if-no-files-found: error
