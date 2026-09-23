@@ -125,3 +125,7 @@ export async function getBasketSnapshot(options?: {
 export function getStaleBasketSnapshot(): BasketSnapshot | null {
   return cachedSnapshot?.value || null;
 }
+
+export function invalidateBasketSnapshot(): void {
+  cachedSnapshot = null;
+}

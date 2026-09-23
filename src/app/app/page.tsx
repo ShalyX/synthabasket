@@ -42,13 +42,14 @@ import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
 import { waitForSignatureOutcome } from '../../lib/execution/confirmation';
 
 import { PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
 import {
   Search,
   Layers,
 } from 'lucide-react';
 
 export default function AppPage() {
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, signMessage } = useWallet();
   const { connection } = useConnection();
 
   const router = useRouter();
@@ -903,9 +904,9 @@ export default function AppPage() {
       },
       {
         id: 'register_basket',
-        label: 'Index Basket in Durable Registry',
+        label: 'Authorize & Index Basket',
         description:
-          'Saving verified off-chain metadata so the basket survives refreshes and hydration',
+          'Signing a short-lived registration challenge before saving verified metadata',
         status: 'pending' as const,
       },
     ];
@@ -949,6 +950,24 @@ export default function AppPage() {
                 status: 'failed',
                 error:
                   'Wallet not connected. Connect your Solana wallet to deploy the basket.',
+              }
+            : step
+        ),
+      }));
+      return;
+    }
+
+    if (!signMessage) {
+      setTxLifecycle((prev) => ({
+        ...prev,
+        hasError: true,
+        steps: prev.steps.map((step, index) =>
+          index === 0
+            ? {
+                ...step,
+                status: 'failed',
+                error:
+                  'This wallet does not support message signing. Secure basket registration requires a signed wallet challenge, so deployment was stopped before creating on-chain state.',
               }
             : step
         ),
@@ -1082,18 +1101,47 @@ export default function AppPage() {
         ),
       }));
 
+      const registrationBasket = {
+        name: draft.name,
+        symbol: draft.symbol,
+        description: draft.description,
+        constituents: draft.constituents.map((constituent) => ({
+          tokenMint: constituent.asset.tokenMint,
+          targetWeightBps: constituent.targetWeightBps,
+        })),
+      };
+
+      const challengeResponse = await fetch('/api/baskets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'registration_challenge',
+          authority: publicKey.toBase58(),
+          basket: registrationBasket,
+        }),
+      });
+      const challengePayload = await challengeResponse.json().catch(() => ({}));
+
+      if (!challengeResponse.ok || !challengePayload?.message) {
+        throw new Error(
+          challengePayload?.error ||
+            `Registration challenge returned HTTP ${challengeResponse.status}.`
+        );
+      }
+
+      const signatureBytes = await signMessage(
+        new TextEncoder().encode(String(challengePayload.message))
+      );
+
       const registrationResponse = await fetch('/api/baskets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          basket: {
-            name: draft.name,
-            symbol: draft.symbol,
-            description: draft.description,
-            constituents: draft.constituents.map((constituent) => ({
-              tokenMint: constituent.asset.tokenMint,
-              targetWeightBps: constituent.targetWeightBps,
-            })),
+          action: 'register',
+          basket: registrationBasket,
+          auth: {
+            challengeId: String(challengePayload.challengeId || ''),
+            signature: bs58.encode(signatureBytes),
           },
         }),
       });

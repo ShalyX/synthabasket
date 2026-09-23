@@ -269,6 +269,48 @@ export class SynthaBasketVaultClient {
   }
 
 
+  async getBasketAuthorityByExecutionSymbol(
+    executionSymbol: string
+  ): Promise<string> {
+    const normalizedSymbol = executionSymbol.trim().toUpperCase();
+    if (!/^[A-Z0-9]{1,10}$/.test(normalizedSymbol)) {
+      throw new Error('Basket execution symbol is invalid.');
+    }
+
+    const [basketPda] = this.getBasketPda(normalizedSymbol);
+    const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
+
+    if (!basketInfo) {
+      throw new Error(
+        `Basket vault ${normalizedSymbol} is not initialized on the connected cluster.`
+      );
+    }
+    if (!basketInfo.owner.equals(this.programId)) {
+      throw new Error(
+        `Basket vault ${normalizedSymbol} is not owned by the SynthaBasket program.`
+      );
+    }
+
+    let decoded: any;
+    try {
+      decoded = this.accountsCoder.decode('BasketState', basketInfo.data);
+    } catch {
+      throw new Error(
+        `Unable to decode live basket state for ${normalizedSymbol}; IDL/program version mismatch.`
+      );
+    }
+
+    const onChainSymbol = String(decoded.symbol || '').toUpperCase();
+    if (onChainSymbol !== normalizedSymbol) {
+      throw new Error(
+        `On-chain basket symbol does not match ${normalizedSymbol}.`
+      );
+    }
+
+    return new PublicKey(decoded.authority).toBase58();
+  }
+
+
   async getBasketAuthority(
     basket: BasketDefinition,
     useDevnetMirrors: boolean = false
