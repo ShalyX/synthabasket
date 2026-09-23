@@ -1,12 +1,6 @@
 name: Provision SynthaBasket Devnet Execution
-# Provisioning trigger: authority configured
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/provision-devnet.yml
   workflow_dispatch:
 
 permissions:
@@ -22,15 +16,13 @@ jobs:
       NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
 
     steps:
-      - name: Checkout provisioning implementation
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ui/wider-shell
 
-      - name: Use Node 20
+      - name: Use Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22.12.0
           cache: npm
 
       - name: Install dependencies

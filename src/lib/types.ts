@@ -5,13 +5,27 @@ export interface AssetQuote {
   name: string;
   provider: AssetProvider;
   tokenMint: string;
+  /**
+   * Optional Devnet mirror mint used only for executable test flows.
+   * The canonical provider mint remains tokenMint.
+   */
+  devnetMint?: string;
   priceUsd: number;
   change24h: number;
+  /** True only when the provider response supplied a real 24h change value. */
+  change24hAvailable?: boolean;
+  /** Whether this quote came from the live provider response or the verified fallback snapshot. */
+  quoteSource?: 'live' | 'last_live' | 'snapshot';
   marketCapUsd?: number;
   volume24hUsd?: number;
-  pythFeedId?: string;
+  /** Official Pyth Index symbol when one exists for the underlying company. */
+  pythBenchmarkSymbol?: string;
+  /** Pyth benchmark value when the application is entitled to fetch it. */
   pythBenchmarkPriceUsd?: number;
-  basisSpreadBps?: number;
+  pythBenchmarkSource?: 'pyth_index';
+  /** Pyth private-market indices are informational/indicative rather than executable prices. */
+  pythBenchmarkIndicative?: boolean;
+  pythBenchmarkPublishedAt?: number;
   logoUrl?: string;
   description?: string;
   lastUpdated: number;
@@ -37,27 +51,38 @@ export interface BasketDefinition {
   constituents: BasketConstituent[];
   navUsd: number;
   navChange24h: number;
+  /** Whether the displayed 24h basket change is backed by constituent 24h data. */
+  navChange24hAvailable?: boolean;
+  /** How the current basket NAV was derived. */
+  navSource?: 'onchain_reserves' | 'target_weights';
+  /** Aggregate provenance of the constituent market data. */
+  marketDataSource?: 'live' | 'snapshot' | 'mixed';
+  /** True when AUM/share supply were hydrated from the execution basket on-chain. */
+  onChainStateLoaded?: boolean;
   aumUsd: number;
   totalSharesMinted: number;
   vaultPda: string;
   basketMint: string;
-  meteoraDbcPoolAddress?: string;
-  meteoraDammPoolAddress?: string;
-  meteoraGraduated: boolean;
-  meteoraMarketCapUsd?: number;
+  /**
+   * Separate seed symbol for the Devnet mirror basket state. This keeps
+   * executable test custody isolated from canonical provider-mint metadata.
+   */
+  devnetExecutionSymbol?: string;
   creatorAddress?: string;
   createdAt: number;
 }
 
-export interface MeteoraDBCConfig {
-  curveType: 'linear' | 'exponential' | 'equity_smoothed';
-  initialPriceUsd: number;
-  graduationThresholdUsd: number;
-  feeBps: number;
-  quoteToken: 'USDC' | 'SOL';
+export interface BasketCreationDraft {
+  name: string;
+  symbol: string;
+  description: string;
+  constituents: BasketConstituent[];
+  /** Indicative target-weight NAV at the time the draft is submitted. */
+  indicativeNavUsd: number;
 }
 
-export type TxStepStatus = 'pending' | 'active' | 'completed' | 'failed';
+
+export type TxStepStatus = 'pending' | 'active' | 'submitted' | 'completed' | 'failed';
 
 export interface TxStep {
   id: string;
@@ -65,7 +90,32 @@ export interface TxStep {
   description: string;
   status: TxStepStatus;
   txSignature?: string;
+  txSignatures?: string[];
   error?: string;
+  statusMessage?: string;
+  /** Human-readable next step after a failed transaction. */
+  recoveryAction?: string;
+  /** Raw provider/program detail kept behind an expandable disclosure. */
+  technicalError?: string;
+}
+
+export interface TxReceiptAsset {
+  symbol: string;
+  amount: number;
+  mint?: string;
+  valueUsd?: number;
+}
+
+export interface TxReceipt {
+  basketSymbol?: string;
+  spentUsdc?: number;
+  sharesReceived?: number;
+  sharesBurned?: number;
+  resultingShareBalance?: number;
+  redemptionValueUsd?: number;
+  positionClosed?: boolean;
+  assetsDeposited?: TxReceiptAsset[];
+  assetsReturned?: TxReceiptAsset[];
 }
 
 export interface TxLifecycleState {
@@ -75,14 +125,20 @@ export interface TxLifecycleState {
   currentStepIndex: number;
   isCompleted: boolean;
   hasError: boolean;
+  hasPendingConfirmation?: boolean;
   finalSignature?: string;
-  actionType: 'mint' | 'redeem' | 'create_basket' | 'launch_dbc';
+  receipt?: TxReceipt;
+  actionType: 'mint' | 'redeem' | 'create_basket';
 }
 
 export interface AllocationRouteItem {
   asset: AssetQuote;
   targetUsdAmount: number;
   estimatedTokensReceived: number;
+  /**
+   * Exact raw token amount acquired by the execution layer, when known.
+   */
+  rawTokenAmount?: string;
   jupiterRoute?: unknown;
 }
 
@@ -111,9 +167,15 @@ export interface BasisMonitorItem {
   name: string;
   tokenMint: string;
   provider: AssetProvider;
-  solanaDexPriceUsd: number;
-  pythBenchmarkPriceUsd: number;
-  spreadBps: number; // ((dex - pyth) / pyth) * 10000
-  arbitrageDirection: 'solana_premium' | 'solana_discount' | 'parity';
+  providerMarkPriceUsd: number;
+  impliedValuationUsd?: number;
+  change24h: number;
+  change24hAvailable: boolean;
+  quoteSource: 'live' | 'last_live' | 'snapshot';
+  pythBenchmarkSymbol?: string;
+  pythBenchmarkPriceUsd?: number;
+  pythBenchmarkSource?: 'pyth_index';
+  pythBenchmarkIndicative?: boolean;
+  pythBenchmarkPublishedAt?: number;
   lastUpdated: number;
 }

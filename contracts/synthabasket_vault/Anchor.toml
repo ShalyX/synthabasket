@@ -6,10 +6,10 @@ seeds = true
 skip-lint = false
 
 [programs.localnet]
-synthabasket_vault = "BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh"
+synthabasket_vault = "4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA"
 
 [programs.devnet]
-synthabasket_vault = "BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh"
+synthabasket_vault = "4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA"
 
 [registry]
 url = "https://api.apr.dev"

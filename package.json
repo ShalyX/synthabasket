@@ -2,15 +2,19 @@
   "name": "synthabasket",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "verify-apis": "npx tsx scripts/verify-apis.ts"
+    "verify-apis": "npx tsx scripts/verify-apis.ts",
+    "provision-devnet": "npx tsx scripts/provision-devnet-execution.ts",
+    "execute-happy-path": "npx tsx scripts/execute-happy-path.ts"
   },
   "dependencies": {
-    "@meteora-ag/dynamic-bonding-curve-sdk": "^1.5.12",
     "@solana/spl-token": "^0.4.9",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
@@ -24,7 +28,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
-    "tailwind-merge": "^2.5.5"
+    "tailwind-merge": "^2.5.5",
+    "@coral-xyz/anchor": "^0.31.1"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.5",

@@ -1,11 +1,6 @@
 name: Verify SynthaBasket Real Devnet Happy Path
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/verify-happy-path.yml
   workflow_dispatch:
 
 permissions:
@@ -18,20 +13,17 @@ jobs:
     env:
       DEVNET_MIRROR_AUTHORITY_SECRET: ${{ secrets.DEVNET_MIRROR_AUTHORITY_SECRET }}
       RUNNER_PRIVATE_KEY: ${{ secrets.RUNNER_PRIVATE_KEY }}
-      PYTH_API_KEY: ${{ secrets.PYTH_API_KEY }}
       NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
       DEMO_DEPOSIT_USDC: "10"
 
     steps:
-      - name: Checkout repaired execution implementation
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ui/wider-shell
 
       - name: Use Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.12.0
           cache: npm
 
       - name: Install dependencies

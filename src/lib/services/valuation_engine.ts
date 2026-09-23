@@ -1,63 +1,37 @@
-import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, BasisMonitorItem, ProviderMode } from '../types';
-import { fetchPreStocksAssets } from './prestocks';
-import { fetchTesseraAssets } from './tessera';
-import { computeBasisSpread, fetchPythPrices } from './pyth';
-
-export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promise<AssetQuote[]> {
-  const prestocksPromise = fetchPreStocksAssets();
-  const tesseraPromise = mode === 'multi' ? fetchTesseraAssets() : Promise.resolve([]);
-
-  const [prestocks, tessera] = await Promise.all([prestocksPromise, tesseraPromise]);
-  const combined = [...prestocks, ...tessera];
-
-  // Fetch Pyth benchmark prices for any assets with pythFeedId
-  const feedIds = combined
-    .map(a => a.pythFeedId)
-    .filter((id): id is string => Boolean(id));
-
-  if (feedIds.length > 0) {
-    const pythPrices = await fetchPythPrices(feedIds);
-    return combined.map(asset => {
-      if (asset.pythFeedId && (pythPrices[asset.pythFeedId] || pythPrices[`0x${asset.pythFeedId}`])) {
-        const pythPrice = pythPrices[asset.pythFeedId] || pythPrices[`0x${asset.pythFeedId}`];
-        const { spreadBps } = computeBasisSpread(asset.priceUsd, pythPrice);
-        return {
-          ...asset,
-          pythBenchmarkPriceUsd: pythPrice,
-          basisSpreadBps: spreadBps,
-        };
-      }
-      return asset;
-    });
-  }
-
-  return combined;
-}
+import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, BasisMonitorItem } from '../types';
+import { withDevnetMirror } from '../execution/devnet_mirrors';
 
 export function calculateBasketNav(
   basket: BasketDefinition,
   liveAssetMap: Map<string, AssetQuote>
-): { navUsd: number; navChange24h: number } {
+): { navUsd: number; navChange24h: number; navChange24hAvailable: boolean } {
   let totalNav = 0;
   let weightedChange = 0;
+  let hasComplete24hData = true;
 
   for (const constituent of basket.constituents) {
     const liveAsset = liveAssetMap.get(constituent.asset.tokenMint) || constituent.asset;
     const weightFraction = constituent.targetWeightBps / 10000;
     totalNav += liveAsset.priceUsd * weightFraction;
-    weightedChange += (liveAsset.change24h || 0) * weightFraction;
+
+    if (liveAsset.change24hAvailable === true) {
+      weightedChange += liveAsset.change24h * weightFraction;
+    } else {
+      hasComplete24hData = false;
+    }
   }
 
   return {
     navUsd: Number(totalNav.toFixed(2)),
-    navChange24h: Number(weightedChange.toFixed(2)),
+    navChange24h: hasComplete24hData ? Number(weightedChange.toFixed(2)) : 0,
+    navChange24hAvailable: hasComplete24hData,
   };
 }
 
 export function calculateMintQuote(
   basket: BasketDefinition,
   depositUsdcAmount: number,
-  protocolFeeBps: number = 25 // 0.25% protocol fee
+  protocolFeeBps: number = 0 // disabled until an on-chain fee collector is implemented
 ): BasketMintQuote {
   const protocolFeeUsdc = (depositUsdcAmount * protocolFeeBps) / 10000;
   const netInvestAmount = depositUsdcAmount - protocolFeeUsdc;
@@ -66,7 +40,7 @@ export function calculateMintQuote(
     const targetUsd = netInvestAmount * (c.targetWeightBps / 10000);
     const estimatedTokens = c.asset.priceUsd > 0 ? targetUsd / c.asset.priceUsd : 0;
     return {
-      asset: c.asset,
+      asset: withDevnetMirror(c.asset),
       targetUsdAmount: Number(targetUsd.toFixed(2)),
       estimatedTokensReceived: Number(estimatedTokens.toFixed(4)),
     };
@@ -112,20 +86,44 @@ export function calculateRedeemQuote(
 
 export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonitorItem[] {
   return assets
-    .filter(a => a.pythBenchmarkPriceUsd && a.pythBenchmarkPriceUsd > 0)
-    .map(a => {
-      const { spreadBps, direction } = computeBasisSpread(a.priceUsd, a.pythBenchmarkPriceUsd!);
+    .map((asset) => {
+      const benchmarkPrice =
+        typeof asset.pythBenchmarkPriceUsd === 'number' &&
+        Number.isFinite(asset.pythBenchmarkPriceUsd) &&
+        asset.pythBenchmarkPriceUsd > 0
+          ? asset.pythBenchmarkPriceUsd
+          : undefined;
+
       return {
-        symbol: a.symbol,
-        name: a.name,
-        tokenMint: a.tokenMint,
-        provider: a.provider,
-        solanaDexPriceUsd: a.priceUsd,
-        pythBenchmarkPriceUsd: a.pythBenchmarkPriceUsd!,
-        spreadBps,
-        arbitrageDirection: direction,
-        lastUpdated: a.lastUpdated,
+        symbol: asset.symbol,
+        name: asset.name,
+        tokenMint: asset.tokenMint,
+        provider: asset.provider,
+        providerMarkPriceUsd: asset.priceUsd,
+        impliedValuationUsd: asset.marketCapUsd,
+        change24h: asset.change24h,
+        change24hAvailable: asset.change24hAvailable === true,
+        quoteSource: asset.quoteSource || 'snapshot',
+        pythBenchmarkSymbol: asset.pythBenchmarkSymbol,
+        pythBenchmarkPriceUsd: benchmarkPrice,
+        pythBenchmarkSource: asset.pythBenchmarkSource,
+        pythBenchmarkIndicative: asset.pythBenchmarkIndicative,
+        pythBenchmarkPublishedAt: asset.pythBenchmarkPublishedAt,
+        lastUpdated: asset.lastUpdated,
       };
     })
-    .sort((a, b) => Math.abs(b.spreadBps) - Math.abs(a.spreadBps));
+    .sort((a, b) => {
+      const aUnderlying = a.symbol.replace(/^T-/i, '').toUpperCase();
+      const bUnderlying = b.symbol.replace(/^T-/i, '').toUpperCase();
+
+      if (aUnderlying !== bUnderlying) {
+        return aUnderlying.localeCompare(bUnderlying);
+      }
+
+      if (a.quoteSource !== b.quoteSource) {
+        return a.quoteSource === 'live' ? -1 : 1;
+      }
+
+      return a.provider.localeCompare(b.provider);
+    });
 }

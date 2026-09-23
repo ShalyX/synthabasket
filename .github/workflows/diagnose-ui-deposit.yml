@@ -1,12 +1,12 @@
 name: Diagnose UI Deposit
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/diagnose-ui-deposit.yml
   workflow_dispatch:
+    inputs:
+      signature:
+        description: Solana Devnet acquisition/deposit transaction signature to inspect
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,18 +17,16 @@ jobs:
     timeout-minutes: 10
     env:
       NEXT_PUBLIC_SOLANA_RPC_URL: https://api.devnet.solana.com
-      UI_ACQUISITION_SIGNATURE: 4HexLP9diHkCj4qSirvrYTwmJ6Hg1Drx1a7PAdwvRVU7gfcy5pGQrkJDMq3PbEA6YCwJhvjHuRcTreG4JpG7w4Ew
+      UI_ACQUISITION_SIGNATURE: ${{ inputs.signature }}
 
     steps:
-      - name: Checkout current implementation
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ui/wider-shell
 
       - name: Use Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.12.0
           cache: npm
 
       - name: Install dependencies

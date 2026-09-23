@@ -1,131 +1,321 @@
-export interface PythPriceFeed {
-  id: string;
-  price: {
-    price: string;
-    conf: string;
-    expo: number;
-    publish_time: number;
-  };
-  ema_price: {
-    price: string;
-    conf: string;
-    expo: number;
-    publish_time: number;
-  };
+export interface PythIndexBenchmark {
+  underlying: string;
+  symbol: string;
+  priceUsd: number;
+  publishedAt: number;
+  source: 'pyth_index';
+  indicative: true;
 }
 
-// Well-known Pyth Price Feed IDs for benchmark tracking
-export const PYTH_FEED_MAP: Record<string, { id: string; name: string; category: 'equity' | 'crypto' | 'rwa' }> = {
-  'AAPL': {
-    id: '49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688',
-    name: 'Apple Inc. (US Equity)',
-    category: 'equity',
-  },
-  'NVDA': {
-    id: 'b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593',
-    name: 'NVIDIA Corp. (US Equity)',
-    category: 'equity',
-  },
-  'MSFT': {
-    id: 'd0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1',
-    name: 'Microsoft Corp. (US Equity)',
-    category: 'equity',
-  },
-  'SOL/USD': {
-    id: 'ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
-    name: 'Solana / USD',
-    category: 'crypto',
-  },
-  'USDC/USD': {
-    id: 'eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
-    name: 'USD Coin / USD',
-    category: 'crypto',
-  },
+export type PythPrivateIndexAccessStatus =
+  | 'available'
+  | 'not_applicable'
+  | 'not_available_via_pro'
+  | 'pro_key_missing'
+  | 'catalog_unavailable'
+  | 'request_failed';
+
+export interface PythPrivateIndexResolution {
+  benchmarks: Record<string, PythIndexBenchmark>;
+  status: PythPrivateIndexAccessStatus;
+  detail?: string;
+}
+
+// Canonical Pyth Index symbols surfaced by Pyth for these private companies.
+// The transport used by Pyth Terminal is not assumed to be the same as the
+// public Pyth Pro catalog/API below.
+export const PYTH_PRIVATE_INDEX_SYMBOLS: Record<string, string> = {
+  OPENAI: 'Pyth.Index.OPENAI/USD',
+  ANTHROPIC: 'Pyth.Index.ANTHROPIC/USD',
 };
 
-export async function fetchPythPrices(
-  feedIds: string[],
-  options?: { throwOnError?: boolean; apiKey?: string }
-): Promise<Record<string, number>> {
-  if (feedIds.length === 0) return {};
+const PYTH_PRO_HISTORY_BASE = 'https://pyth.dourolabs.app/v1';
+const PYTH_PRO_REST_BASE = 'https://pyth-lazer.dourolabs.app';
+const CACHE_MS = 60_000;
+const DISCOVERY_CACHE_MS = 10 * 60_000;
 
-  const isServer = typeof window === 'undefined';
-  const apiKey = options?.apiKey || process.env.PYTH_API_KEY;
+let resolutionCache:
+  | {
+      key: string;
+      value: PythPrivateIndexResolution;
+      expiresAt: number;
+    }
+  | null = null;
+
+const discoveryCache = new Map<
+  string,
+  { feedId: number | null; expiresAt: number }
+>();
+
+export function normalizePrivateMarketUnderlying(symbol: string): string {
+  return symbol.replace(/^T-/i, '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+}
+
+export function getPythPrivateIndexSymbol(symbol: string): string | undefined {
+  return PYTH_PRIVATE_INDEX_SYMBOLS[normalizePrivateMarketUnderlying(symbol)];
+}
+
+function extractRows(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.symbols)) return payload.symbols;
+  return [];
+}
+
+function extractFeedId(row: any): number | null {
+  const candidates = [
+    row?.pyth_lazer_id,
+    row?.pythLazerId,
+    row?.price_feed_id,
+    row?.priceFeedId,
+    row?.id,
+  ];
+  for (const value of candidates) {
+    const id = Number(value);
+    if (Number.isInteger(id) && id >= 0) return id;
+  }
+  return null;
+}
+
+async function discoverProFeedId(
+  symbol: string
+): Promise<number | null> {
+  const now = Date.now();
+  const cached = discoveryCache.get(symbol);
+  if (cached && cached.expiresAt > now) return cached.feedId;
+
+  const query = symbol.split('.').pop()?.split('/')[0] || symbol;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5_000);
 
   try {
-    const params = new URLSearchParams();
-    feedIds.forEach((id) => params.append('ids[]', id.startsWith('0x') ? id.slice(2) : id));
+    const response = await fetch(
+      `${PYTH_PRO_HISTORY_BASE}/symbols?query=${encodeURIComponent(query)}`,
+      {
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'SynthaBasket-Protocol/1.0',
+        },
+      }
+    );
 
-    const url = isServer
-      ? `https://hermes.pyth.network/v2/updates/price/latest?${params.toString()}`
-      : `/api/pyth?${params.toString()}`;
-
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-      'User-Agent': 'SynthaBasket-Protocol/1.0',
-    };
-
-    if (isServer && apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+    if (!response.ok) {
+      throw new Error(`Pyth Pro symbol catalog returned HTTP ${response.status}.`);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const rows = extractRows(await response.json());
+    const exact = rows.find(
+      (row) =>
+        String(row?.symbol || '').toUpperCase() === symbol.toUpperCase()
+    );
+    const feedId = exact ? extractFeedId(exact) : null;
 
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers,
+    discoveryCache.set(symbol, {
+      feedId,
+      expiresAt: now + DISCOVERY_CACHE_MS,
     });
+    return feedId;
+  } finally {
     clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errorMsg = `Pyth Hermes returned HTTP ${res.status}: ${res.statusText}${
-        res.status === 401
-          ? ' (Pyth Hermes requires an authenticated API key as of August 2026. Set PYTH_API_KEY in .env.local)'
-          : ''
-      }`;
-      if (options?.throwOnError) {
-        throw new Error(errorMsg);
-      }
-      console.warn(`[Pyth Hermes] ${errorMsg}`);
-      return {};
-    }
-
-    const data = await res.json();
-    const parsedPrices: Record<string, number> = {};
-
-    if (data.parsed && Array.isArray(data.parsed)) {
-      for (const item of data.parsed) {
-        const rawPrice = Number(item.price.price);
-        const expo = item.price.expo;
-        const normalized = rawPrice * Math.pow(10, expo);
-        parsedPrices[`0x${item.id}`] = normalized;
-        parsedPrices[item.id] = normalized;
-      }
-    }
-
-    return parsedPrices;
-  } catch (error: any) {
-    if (options?.throwOnError) {
-      throw error;
-    }
-    console.warn('[Pyth Hermes] Failed to fetch prices:', error.message);
-    return {};
   }
 }
 
-export function computeBasisSpread(
-  dexPrice: number,
-  pythPrice: number
-): {
-  spreadBps: number;
-  direction: 'solana_premium' | 'solana_discount' | 'parity';
-} {
-  if (pythPrice <= 0) return { spreadBps: 0, direction: 'parity' };
-  const spreadBps = Math.round(((dexPrice - pythPrice) / pythPrice) * 10000);
-  let direction: 'solana_premium' | 'solana_discount' | 'parity' = 'parity';
-  if (spreadBps > 10) direction = 'solana_premium';
-  else if (spreadBps < -10) direction = 'solana_discount';
+function parseLatestPricePayload(
+  payload: any,
+  feedIdToUnderlying: Map<number, string>
+): Record<string, PythIndexBenchmark> {
+  const parsed = payload?.parsed || payload?.data?.parsed || payload;
+  const rows = Array.isArray(parsed?.priceFeeds)
+    ? parsed.priceFeeds
+    : Array.isArray(parsed?.price_feeds)
+    ? parsed.price_feeds
+    : [];
 
-  return { spreadBps, direction };
+  const benchmarks: Record<string, PythIndexBenchmark> = {};
+
+  for (const row of rows) {
+    const feedId = Number(row?.priceFeedId ?? row?.price_feed_id ?? row?.id);
+    const underlying = feedIdToUnderlying.get(feedId);
+    if (!underlying) continue;
+
+    const rawPrice = Number(row?.price);
+    const exponent = Number(row?.exponent ?? 0);
+    const timestampUs = Number(
+      row?.feedUpdateTimestamp ??
+        row?.feed_update_timestamp ??
+        parsed?.timestampUs ??
+        parsed?.timestamp_us
+    );
+
+    const priceUsd = rawPrice * 10 ** exponent;
+    if (
+      !Number.isFinite(priceUsd) ||
+      priceUsd <= 0 ||
+      !Number.isFinite(timestampUs)
+    ) {
+      continue;
+    }
+
+    benchmarks[underlying] = {
+      underlying,
+      symbol: PYTH_PRIVATE_INDEX_SYMBOLS[underlying],
+      priceUsd,
+      publishedAt: Math.floor(timestampUs / 1000),
+      source: 'pyth_index',
+      indicative: true,
+    };
+  }
+
+  return benchmarks;
+}
+
+/**
+ * Resolve private-company Pyth Index values without assuming Pyth Indices are
+ * ordinary Pyth Pro feeds.
+ *
+ * 1. Discover the exact symbol in Pyth's public Pro catalog.
+ * 2. Only if the symbol resolves there, call the documented Pyth Pro latest
+ *    price REST endpoint by numeric feed ID.
+ * 3. If it does not resolve, fail closed and show no benchmark value. Absence
+ *    from the Pro catalog is not treated as proof of an entitlement problem.
+ */
+export async function resolvePythPrivateIndexBenchmarks(
+  symbols: string[],
+  options?: { throwOnError?: boolean; apiKey?: string }
+): Promise<PythPrivateIndexResolution> {
+  if (typeof window !== 'undefined') {
+    return { benchmarks: {}, status: 'request_failed', detail: 'server_only' };
+  }
+
+  const requested = [
+    ...new Set(symbols.map(normalizePrivateMarketUnderlying)),
+  ].filter((underlying) => Boolean(PYTH_PRIVATE_INDEX_SYMBOLS[underlying]));
+
+  if (requested.length === 0) {
+    return { benchmarks: {}, status: 'not_applicable' };
+  }
+
+  const cacheKey = requested.slice().sort().join(',');
+  const now = Date.now();
+  if (
+    !options?.throwOnError &&
+    resolutionCache &&
+    resolutionCache.key === cacheKey &&
+    resolutionCache.expiresAt > now
+  ) {
+    return resolutionCache.value;
+  }
+
+  try {
+    const discovered = await Promise.all(
+      requested.map(async (underlying) => ({
+        underlying,
+        symbol: PYTH_PRIVATE_INDEX_SYMBOLS[underlying],
+        feedId: await discoverProFeedId(PYTH_PRIVATE_INDEX_SYMBOLS[underlying]),
+      }))
+    );
+
+    const proFeeds = discovered.filter(
+      (entry): entry is { underlying: string; symbol: string; feedId: number } =>
+        entry.feedId !== null
+    );
+
+    if (proFeeds.length === 0) {
+      const value: PythPrivateIndexResolution = {
+        benchmarks: {},
+        status: 'not_available_via_pro',
+        detail:
+          'Requested Pyth Index symbols did not resolve in the public Pyth Pro catalog; no benchmark value will be shown.',
+      };
+      if (!options?.throwOnError) {
+        resolutionCache = {
+          key: cacheKey,
+          value,
+          expiresAt: now + CACHE_MS,
+        };
+      }
+      return value;
+    }
+
+    const apiKey =
+      options?.apiKey ||
+      process.env.PYTH_PRO_API_KEY ||
+      process.env.PYTH_INDEX_API_KEY;
+
+    if (!apiKey) {
+      return {
+        benchmarks: {},
+        status: 'pro_key_missing',
+        detail: 'A server-side Pyth Pro API key is required for Pro REST reads.',
+      };
+    }
+
+    const feedIdToUnderlying = new Map(
+      proFeeds.map((entry) => [entry.feedId, entry.underlying])
+    );
+
+    const response = await fetch(`${PYTH_PRO_REST_BASE}/v1/latest_price`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'SynthaBasket-Protocol/1.0',
+      },
+      body: JSON.stringify({
+        priceFeedIds: proFeeds.map((entry) => entry.feedId),
+        properties: ['price', 'exponent', 'feedUpdateTimestamp'],
+        formats: ['leUnsigned'],
+        channel: 'fixed_rate@1000ms',
+        ignoreInvalidFeeds: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = `Pyth Pro latest-price request returned HTTP ${response.status}.`;
+      if (options?.throwOnError) throw new Error(detail);
+      return { benchmarks: {}, status: 'request_failed', detail };
+    }
+
+    const benchmarks = parseLatestPricePayload(
+      await response.json(),
+      feedIdToUnderlying
+    );
+    const value: PythPrivateIndexResolution = {
+      benchmarks,
+      status:
+        Object.keys(benchmarks).length > 0 ? 'available' : 'request_failed',
+      detail:
+        Object.keys(benchmarks).length > 0
+          ? undefined
+          : 'Pyth Pro returned no parseable price values for the resolved feeds.',
+    };
+
+    if (!options?.throwOnError) {
+      resolutionCache = {
+        key: cacheKey,
+        value,
+        expiresAt: now + CACHE_MS,
+      };
+    }
+    return value;
+  } catch (error: any) {
+    if (options?.throwOnError) throw error;
+    return {
+      benchmarks: {},
+      status: 'catalog_unavailable',
+      detail: String(error?.message || error),
+    };
+  }
+}
+
+export async function fetchPythPrivateIndexBenchmarks(
+  symbols: string[],
+  options?: { throwOnError?: boolean; apiKey?: string }
+): Promise<Record<string, PythIndexBenchmark>> {
+  const result = await resolvePythPrivateIndexBenchmarks(symbols, options);
+  return result.benchmarks;
 }

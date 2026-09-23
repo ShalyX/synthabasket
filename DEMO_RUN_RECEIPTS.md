@@ -1,156 +1,94 @@
-# SynthaBasket — Happy-Path Demo Execution Receipts
+# SynthaBasket — Verified Devnet Execution Receipts
 
-This document certifies the real, executable happy-path demonstration run of the **SynthaBasket** protocol on Solana Devnet for the **Stocklana 2026 Hackathon**.
+These receipts link to confirmed Solana Devnet transactions for constituent acquisition, Anchor basket issuance, basket-share balance verification, and Anchor redemption.
 
-**Execution Timestamp**: `2026-09-21T19:04:17.653Z`  
+**Execution Timestamp**: `2026-09-22T16:22:41.786Z`  
 **Runner Wallet**: [`Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR`](https://explorer.solana.com/address/Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR?cluster=devnet)  
 **Target Basket**: **AI Titans Index ($AIT)**  
-**Program ID**: [`BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh`](https://explorer.solana.com/address/BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh?cluster=devnet)  
+**Devnet Execution Basket**: **AITD**  
+**Devnet Basket Mint**: `3CLenKY9X1hniMKsTi2KPANfWi4C27qyus6HDknrZzUK`  
+**Program**: `4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA`
 
 ---
 
-## 🧾 Execution Lifecycle Receipts
+## 1. Underlying Acquisition
 
-### 1. STAGE 1: Account Inception
-- **Action**: `Keypair & Balance Verification`
-- **Execution Status**: `CONFIRMED`
+- **Action**: Atomic Devnet USDC payment + mirror-asset issuance
+- **Status**: **CONFIRMED**
+- **Transaction**: [`64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg`](https://explorer.solana.com/tx/64MVX5hGZZTcLdJ5w3vM8NdDHygD2E51sFtFJEf6gYc99yfMMnfwTMJt49gqmpXMecUkFRcQn1qX5Gav4auW77Yg?cluster=devnet)
 
-
-- **Telemetry & Technical Parameters**:
 ```json
 {
-  "runnerPublicKey": "Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR",
-  "cluster": "devnet",
-  "balanceSol": 4.994995
-}
-```
-
----
-
-### 2. STAGE 2: Pyth Hermes Ingestion
-- **Action**: `Live Authenticated Oracle Pricing`
-- **Execution Status**: `CONFIRMED`
-
-
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "pythPrices": {
-    "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d": 117.37220783000001,
-    "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d": 117.37220783000001,
-    "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a": 0.99995004,
-    "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a": 0.99995004
-  },
-  "authentication": "Bearer Token (Post-August 2026 Mandate)"
-}
-```
-
----
-
-### 3. STAGE 3: Jupiter Allocation Routing
-- **Action**: `Swap API V2 Multi-Asset Split`
-- **Execution Status**: `CONFIRMED`
-
-
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "basket": "AIT",
-  "depositUsdc": 100,
-  "expectedShares": 0.1245,
-  "allocationBreakdown": [
+  "depositUsdc": 10,
+  "constituents": [
     {
       "symbol": "T-OpenAI",
-      "inUsdcAmount": 49.88,
-      "actualQuotedOutAmount": 0.0614,
-      "routeSource": "devnet_synthetic_pool"
+      "devnetMint": "Bj47e5GCXuaxmbPjDRF5iSVjZ1Y4uEFoaDoPUAfD1xkB",
+      "rawAmount": "6200"
     },
     {
       "symbol": "ANTHROPIC",
-      "inUsdcAmount": 29.92,
-      "actualQuotedOutAmount": 0.0285,
-      "routeSource": "devnet_synthetic_pool"
+      "devnetMint": "GxtkS2jUU5br9JJB64FuvvUxwp2sadxwCCRsZwiqAR3p",
+      "rawAmount": "2900"
     },
     {
       "symbol": "T-Kalshi",
-      "inUsdcAmount": 19.95,
-      "actualQuotedOutAmount": 0.0482,
-      "routeSource": "devnet_synthetic_pool"
+      "devnetMint": "HSv2zqvfSXv2CQ7TW79HpQPYziNvoiY3CKpGu7Ec3hFh",
+      "rawAmount": "4800"
     }
-  ],
-  "versionedTransactionsGenerated": 0
+  ]
 }
 ```
 
 ---
 
-### 4. STAGE 4: Vault PDA Deposit & Mint
-- **Action**: `Anchor deposit_and_mint CPI & Vault Custody Inception`
-- **Execution Status**: `CONFIRMED`
-- **Transaction Signature**: [`2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1`](https://explorer.solana.com/tx/2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1?cluster=devnet)
-- **Solana Explorer**: [View on Solana Explorer](https://explorer.solana.com/tx/2si8SYfUyKrHPiqHAbQFJrTZxVKtiJ3JrZEb4pxz8sRbvmypTs2YqK5uw4cqVorVmLFpKM4rQLMzf2TB9GpQfJd1?cluster=devnet)
-- **Telemetry & Technical Parameters**:
+## 2. Vault Deposit & Basket Mint
+
+- **Action**: Anchor `deposit_and_mint` with SPL constituent transfers
+- **Status**: **CONFIRMED**
+- **Transaction**: [`eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8`](https://explorer.solana.com/tx/eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8?cluster=devnet)
+
 ```json
 {
-  "vaultPda": "27tzwSrxqyrrQj7oLxfVTAuUVZ9qM6z2Tk2ibfUYkq4Z",
-  "basketMint": "BdUTUY9JtFCQ1nu6xmy7hWZjPo38k6fn1atHFHnNAEQy",
-  "sharesMinted": 0.1245,
-  "instructionCount": 7,
-  "onChainBroadcast": true
+  "basket": "AIT",
+  "devnetExecutionSymbol": "AITD",
+  "expectedShares": 0.0125,
+  "basketMint": "3CLenKY9X1hniMKsTi2KPANfWi4C27qyus6HDknrZzUK",
+  "userBasketTokenAccount": "HXVoNVp9gk4NjGTHFifVH4YVKdgUGquSrgv4kBus8e4J",
+  "sharesBeforeMintRaw": "6250",
+  "sharesAfterMintRaw": "18750",
+  "mintedDeltaRaw": "12500"
 }
 ```
 
+The transaction increased the runner's AITD token balance by **12,500 raw units = 0.0125 AITD**.
+
 ---
 
-### 5. STAGE 5: Meteora DBC 1.5.12 Pool
-- **Action**: `PartnerService.createConfig & Pool Derivation`
-- **Execution Status**: `SIMULATED`
+## 3. Burn & Redeem
 
+- **Action**: Anchor `burn_and_redeem` with proportional SPL release
+- **Status**: **CONFIRMED**
+- **Transaction**: [`5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe`](https://explorer.solana.com/tx/5bSV4hjn9WdZsqnB12Eb5Srf8KGDcd4XpaFx5R74H7PCJWWztR3QCp1X7pSrEeLQXHEfN6izbmEwREcUqiFe7fBe?cluster=devnet)
 
-- **Telemetry & Technical Parameters**:
 ```json
 {
-  "programId": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-  "configPda": "ANsZWmu7DQfKAGLbL3SPhTC73FHYxYwKWuKv2PfuTiJJ",
-  "poolPda": "FXr27PGY4zvVoX4N6J7DSXs3n7Csa1Qx8N2WfaJuAkFv",
-  "migrationTarget": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
-  "feeBps": 25,
-  "graduationThresholdUsd": 2000000,
-  "onChainBroadcast": false
+  "sharesBurned": 0.00625,
+  "sharesBeforeRedeemRaw": "18750",
+  "sharesAfterRedeemRaw": "12500",
+  "burnedDeltaRaw": "6250",
+  "constituents": [
+    { "symbol": "T-OpenAI" },
+    { "symbol": "ANTHROPIC" },
+    { "symbol": "T-Kalshi" }
+  ]
 }
 ```
 
----
-
-### 6. STAGE 6: Vault PDA Burn & Redeem
-- **Action**: `Anchor burn_and_redeem CPI (Zero-Dust Solvency)`
-- **Execution Status**: `CONFIRMED`
-- **Transaction Signature**: [`41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt`](https://explorer.solana.com/tx/41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt?cluster=devnet)
-- **Solana Explorer**: [View on Solana Explorer](https://explorer.solana.com/tx/41W1CAjHYUtU5VFHdK8WBV7hB8WmqLm3DkR4D51XW3c1dSUvaFQJj8mxRwnRy4ZaDiod2bCyZhq4sbXXsUWpFZVt?cluster=devnet)
-- **Telemetry & Technical Parameters**:
-```json
-{
-  "sharesBurned": 0.1,
-  "settledValueUsd": 80.13,
-  "constituentsReturned": [
-    {
-      "symbol": "T-OpenAI"
-    },
-    {
-      "symbol": "ANTHROPIC"
-    },
-    {
-      "symbol": "T-Kalshi"
-    }
-  ],
-  "onChainBroadcast": true
-}
-```
-
+The transaction reduced the runner's AITD token balance by **6,250 raw units = 0.00625 AITD**.
 
 ---
 
-## 🛡️ Mathematical & Solvency Invariant Proof
-- **Deposit Invariant**: $S_{\text{mint}} \le S_{\text{total}} \times \min_i \left( \frac{\Delta A_i}{A_i} \right)$ enforced by Anchor CPI.
-- **Meteora Secondary Liquidity**: Derived pool PDA `[quoteMint, baseMint, config]` using official SDK `@meteora-ag/dynamic-bonding-curve-sdk@1.5.12` targeting Meteora DAMM v2.
-- **Redemption Invariant**: Exact proportional redemption executed with zero stranded dust in Vault PDA.
+## Receipt scope
+
+The receipt set covers custody and basket execution on Solana Devnet. Optional Pyth reference data is separate from this execution proof.

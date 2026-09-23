@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
-declare_id!("BKmpdn4owi7ktwt1Brn5v9fZkRv15wBSdJXGUYAU5gBh");
+declare_id!("4BLhUEXXqBBuciecSaVEo41NrXeDGGNhNLdfLmoeqstA");
 
 pub const MAX_CONSTITUENTS: usize = 8;
 pub const BASIS_POINTS_DIVISOR: u64 = 10_000;
@@ -45,7 +45,7 @@ pub mod synthabasket_vault {
     }
 
     pub fn deposit_and_mint<'info>(
-        ctx: Context<'_, '_, '_, 'info, DepositAndMint<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, DepositAndMint<'info>>,
         shares_to_mint: u64,
         constituent_amounts_in: Vec<u64>,
     ) -> Result<()> {
@@ -98,10 +98,38 @@ pub mod synthabasket_vault {
             BasketError::InvalidRemainingAccounts
         );
 
+        let basket_key = basket.key();
         for i in 0..num_constituents {
             let user_token_info = &remaining_accounts[i * 2];
             let vault_token_info = &remaining_accounts[i * 2 + 1];
             let amount = constituent_amounts_in[i];
+            let expected_mint = basket.constituents[i];
+
+            // Remaining accounts are intentionally dynamic, so validate every
+            // token account against the basket state before moving funds.
+            let user_token_account = Account::<TokenAccount>::try_from(user_token_info)?;
+            let vault_token_account = Account::<TokenAccount>::try_from(vault_token_info)?;
+
+            require_keys_eq!(
+                user_token_account.mint,
+                expected_mint,
+                BasketError::InvalidConstituentMint
+            );
+            require_keys_eq!(
+                vault_token_account.mint,
+                expected_mint,
+                BasketError::InvalidConstituentMint
+            );
+            require_keys_eq!(
+                user_token_account.owner,
+                ctx.accounts.user.key(),
+                BasketError::InvalidTokenAuthority
+            );
+            require_keys_eq!(
+                vault_token_account.owner,
+                basket_key,
+                BasketError::InvalidVaultAuthority
+            );
 
             token::transfer(
                 CpiContext::new(
@@ -154,7 +182,7 @@ pub mod synthabasket_vault {
     }
 
     pub fn burn_and_redeem<'info>(
-        ctx: Context<'_, '_, '_, 'info, BurnAndRedeem<'info>>,
+        ctx: Context<'_, '_, 'info, 'info, BurnAndRedeem<'info>>,
         shares_to_burn: u64,
     ) -> Result<()> {
         let basket = &mut ctx.accounts.basket;
@@ -184,18 +212,47 @@ pub mod synthabasket_vault {
             shares_to_burn,
         )?;
 
-        // Release proportional constituent tokens from Vault PDA to user
-        let symbol_bytes = basket.symbol.as_bytes();
+        // Release proportional constituent tokens from Vault PDA to user.
+        // Clone signer seed material so we do not keep an immutable borrow of
+        // basket alive while updating vault_reserves inside the loop.
+        let basket_symbol = basket.symbol.clone();
+        let basket_bump = basket.bump;
         let basket_seeds: &[&[u8]] = &[
             b"basket",
-            symbol_bytes,
-            &[basket.bump],
+            basket_symbol.as_bytes(),
+            &[basket_bump],
         ];
         let signer_seeds = &[&basket_seeds[..]];
 
+        let basket_key = basket.key();
         for i in 0..num_constituents {
             let vault_token_info = &remaining_accounts[i * 2];
             let user_token_info = &remaining_accounts[i * 2 + 1];
+            let expected_mint = basket.constituents[i];
+
+            let vault_token_account = Account::<TokenAccount>::try_from(vault_token_info)?;
+            let user_token_account = Account::<TokenAccount>::try_from(user_token_info)?;
+
+            require_keys_eq!(
+                vault_token_account.mint,
+                expected_mint,
+                BasketError::InvalidConstituentMint
+            );
+            require_keys_eq!(
+                user_token_account.mint,
+                expected_mint,
+                BasketError::InvalidConstituentMint
+            );
+            require_keys_eq!(
+                vault_token_account.owner,
+                basket_key,
+                BasketError::InvalidVaultAuthority
+            );
+            require_keys_eq!(
+                user_token_account.owner,
+                ctx.accounts.user.key(),
+                BasketError::InvalidTokenAuthority
+            );
 
             let amount_out = (basket.vault_reserves[i] as u128)
                 .checked_mul(shares_to_burn as u128)
@@ -374,4 +431,10 @@ pub enum BasketError {
     InvalidRemainingAccounts,
     #[msg("Math calculation overflow.")]
     MathOverflow,
+    #[msg("Token account mint does not match the configured basket constituent.")]
+    InvalidConstituentMint,
+    #[msg("User token account is not owned by the transaction signer.")]
+    InvalidTokenAuthority,
+    #[msg("Vault token account is not owned by the basket PDA.")]
+    InvalidVaultAuthority,
 }

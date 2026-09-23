@@ -10,17 +10,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#0c0d12",
+        background: "rgb(var(--background-rgb) / <alpha-value>)",
         surface: {
-          DEFAULT: "#13151d",
-          subtle: "#171a24",
-          elevated: "#1c202d",
-          hover: "#232737",
+          DEFAULT: "rgb(var(--surface-rgb) / <alpha-value>)",
+          subtle: "rgb(var(--surface-subtle-rgb) / <alpha-value>)",
+          elevated: "rgb(var(--surface-elevated-rgb) / <alpha-value>)",
+          hover: "rgb(var(--surface-hover-rgb) / <alpha-value>)",
         },
         border: {
-          subtle: "#181b26",
-          DEFAULT: "#222636",
-          strong: "#33394e",
+          subtle: "rgb(var(--border-subtle-rgb) / <alpha-value>)",
+          DEFAULT: "rgb(var(--border-rgb) / <alpha-value>)",
+          strong: "rgb(var(--border-strong-rgb) / <alpha-value>)",
         },
         brand: {
           primary: "#00d182", // Institutional emerald
@@ -31,7 +31,7 @@ const config: Config = {
         solana: {
           green: "#00d182",
           purple: "#6366f1", // Subdued indigo replacing neon purple
-          dark: "#0c0d12",
+          dark: "#000000",
         },
         accent: {
           DEFAULT: "#00d182",
@@ -39,10 +39,10 @@ const config: Config = {
           glow: "rgba(0, 209, 130, 0.08)",
         },
         ink: {
-          primary: "#f1f5f9",
-          secondary: "#94a3b8",
-          tertiary: "#64748b",
-          disabled: "#475569",
+          primary: "rgb(var(--ink-primary-rgb) / <alpha-value>)",
+          secondary: "rgb(var(--ink-secondary-rgb) / <alpha-value>)",
+          tertiary: "rgb(var(--ink-tertiary-rgb) / <alpha-value>)",
+          disabled: "rgb(var(--ink-disabled-rgb) / <alpha-value>)",
         },
         semantic: {
           positive: "#00d182",
