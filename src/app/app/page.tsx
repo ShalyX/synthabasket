@@ -957,7 +957,8 @@ export default function AppPage() {
       return;
     }
 
-    if (!signMessage) {
+    const signRegistrationMessage = signMessage;
+    if (!signRegistrationMessage) {
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
@@ -1129,8 +1130,10 @@ export default function AppPage() {
         );
       }
 
-      const signatureBytes = await signMessage(
-        new TextEncoder().encode(String(challengePayload.message))
+      const signatureBytes = Uint8Array.from(
+        await signRegistrationMessage(
+          new TextEncoder().encode(String(challengePayload.message))
+        )
       );
 
       const registrationResponse = await fetch('/api/baskets', {

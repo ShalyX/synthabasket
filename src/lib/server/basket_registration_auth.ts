@@ -1,4 +1,4 @@
-import { createHash, randomUUID, verify as verifySignature } from 'crypto';
+import { createHash, createPublicKey, randomUUID, verify as verifySignature } from 'crypto';
 import { PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { getRedisRestConfig } from './redis_config';
@@ -279,10 +279,16 @@ export async function verifyBasketRegistrationChallenge(input: {
     Buffer.from(authority.toBytes()),
   ]);
 
+  const publicKeyObject = createPublicKey({
+    key: spki,
+    format: 'der',
+    type: 'spki',
+  });
+
   const valid = verifySignature(
     null,
     Buffer.from(stored.message, 'utf8'),
-    { key: spki, format: 'der', type: 'spki' },
+    publicKeyObject,
     Buffer.from(signatureBytes)
   );
 
