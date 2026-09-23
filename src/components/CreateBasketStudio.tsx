@@ -104,16 +104,22 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
     { id: 4, label: 'Review & Deploy' },
   ];
 
+  const executionReady = selectedAssets.every(
+    (item) => Boolean(item.asset.devnetMint)
+  );
+
   const canDeploy =
     marketplaceStatus === 'ready' &&
     registryReady &&
     selectedAssets.length > 0 &&
     selectedAssets.length <= MAX_CONSTITUENTS &&
+    executionReady &&
     isValidWeight &&
     nameValid &&
     symbolValid;
 
   const handleAddAsset = (asset: AssetQuote) => {
+    if (!asset.devnetMint) return;
     if (selectedAssets.length >= MAX_CONSTITUENTS) return;
     if (
       selectedAssets.some(
@@ -269,17 +275,18 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                     );
                     const atLimit =
                       selectedAssets.length >= MAX_CONSTITUENTS && !selected;
+                    const executionUnavailable = !asset.devnetMint;
 
                     return (
                       <button
                         type="button"
                         key={asset.tokenMint}
                         onClick={() => handleAddAsset(asset)}
-                        disabled={selected || atLimit}
+                        disabled={selected || atLimit || executionUnavailable}
                         className={`group rounded-xl border p-3.5 text-left transition-all ${
                           selected
                             ? 'border-brand-primary/35 bg-brand-primary/5'
-                            : atLimit
+                            : atLimit || executionUnavailable
                             ? 'cursor-not-allowed border-border bg-surface-subtle opacity-45'
                             : 'border-border bg-surface-subtle hover:border-border-strong hover:bg-surface-elevated'
                         }`}
@@ -300,7 +307,7 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                               {asset.name}
                             </p>
                           </div>
-                          {!selected && !atLimit && (
+                          {!selected && !atLimit && !executionUnavailable && (
                             <Plus className="mt-0.5 h-4 w-4 shrink-0 text-ink-tertiary transition-colors group-hover:text-brand-primary" />
                           )}
                         </div>
@@ -311,7 +318,9 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                               {'$'}{asset.priceUsd.toFixed(2)}
                             </p>
                             <p className="mt-0.5 text-[10px] text-ink-tertiary">
-                              {providerLabel(asset)}
+                              {executionUnavailable
+                                ? 'Devnet execution unavailable'
+                                : providerLabel(asset)}
                             </p>
                           </div>
                           <span

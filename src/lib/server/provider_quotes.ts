@@ -1,5 +1,6 @@
 import { AssetQuote, ProviderMode } from '../types';
 import { withDevnetMirror } from '../execution/devnet_mirrors';
+import { getServerDevnetMirrorMint } from './devnet_mirror_resolver';
 import { fetchPreStocksAssets } from '../services/prestocks';
 import { fetchTesseraAssets } from '../services/tessera';
 import {
@@ -26,7 +27,15 @@ async function buildUnifiedAssetQuotes(
     prestocksPromise,
     tesseraPromise,
   ]);
-  const combined = [...prestocks, ...tessera].map(withDevnetMirror);
+  const combined = [...prestocks, ...tessera].map((asset) => {
+    const mirrored = withDevnetMirror(asset);
+    return {
+      ...mirrored,
+      devnetMint:
+        mirrored.devnetMint ||
+        getServerDevnetMirrorMint(mirrored.symbol),
+    };
+  });
 
   const underlyings = combined.map((asset) =>
     normalizePrivateMarketUnderlying(asset.symbol)

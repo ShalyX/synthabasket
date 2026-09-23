@@ -856,7 +856,7 @@ export default function AppPage() {
     const [basketPda] = vaultClient.getBasketPda(draft.symbol);
     const [basketMint] = vaultClient.getBasketMintPda(draft.symbol);
 
-    const newBasket: BasketDefinition = {
+    let executionBasket: BasketDefinition = {
       id: `custom-${draft.symbol.toLowerCase()}`,
       name: draft.name,
       symbol: draft.symbol,
@@ -980,6 +980,66 @@ export default function AppPage() {
     let initSignature: string | undefined;
 
     try {
+      if (isDevnet) {
+        setTxLifecycle((prev) => ({
+          ...prev,
+          steps: prev.steps.map((step, index) =>
+            index === 0
+              ? {
+                  ...step,
+                  statusMessage:
+                    'Preparing executable Devnet constituent mints.',
+                }
+              : step
+          ),
+        }));
+
+        const mirrorResponse = await fetch('/api/devnet-acquire', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'ensure_mirrors',
+            symbols: draft.constituents.map(
+              (constituent) => constituent.asset.symbol
+            ),
+          }),
+        });
+        const mirrorPayload = await mirrorResponse
+          .json()
+          .catch(() => ({}));
+
+        if (!mirrorResponse.ok) {
+          throw new Error(
+            mirrorPayload?.error ||
+              `Devnet mirror preparation returned HTTP ${mirrorResponse.status}.`
+          );
+        }
+
+        const mirrors = mirrorPayload?.mirrors || {};
+        executionBasket = {
+          ...executionBasket,
+          constituents: executionBasket.constituents.map((constituent) => {
+            const devnetMint = String(
+              mirrors[constituent.asset.symbol] ||
+                constituent.asset.devnetMint ||
+                ''
+            );
+            if (!devnetMint) {
+              throw new Error(
+                `No executable Devnet mirror mint available for ${constituent.asset.symbol}.`
+              );
+            }
+            return {
+              ...constituent,
+              asset: {
+                ...constituent.asset,
+                devnetMint,
+              },
+            };
+          }),
+        };
+      }
+
       const existingBasketAccount = await connection.getAccountInfo(
         basketPda,
         'confirmed'
@@ -988,7 +1048,7 @@ export default function AppPage() {
       if (!existingBasketAccount) {
         const initTx = await vaultClient.buildInitializeBasketTransaction(
           publicKey,
-          newBasket,
+          executionBasket,
           isDevnet,
           0
         );
@@ -1087,7 +1147,7 @@ export default function AppPage() {
         ),
       }));
 
-      await vaultClient.verifyBasketExecutionState(newBasket, isDevnet);
+      await vaultClient.verifyBasketExecutionState(executionBasket, isDevnet);
 
       activeStepIndex = 2;
       setTxLifecycle((prev) => ({

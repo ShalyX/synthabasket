@@ -1,48 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   Connection,
-  Keypair,
   PublicKey,
   Transaction,
   clusterApiUrl,
 } from '@solana/web3.js';
 import {
-  TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   createMintToCheckedInstruction,
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
   getMint,
 } from '@solana/spl-token';
-import bs58 from 'bs58';
 import { getUnifiedAssetQuotes } from '../../../lib/server/provider_quotes';
+import {
+  ensureServerDevnetMirrorMint,
+  getServerDevnetMirrorAuthority,
+  getServerDevnetMirrorMint,
+} from '../../../lib/server/devnet_mirror_resolver';
 
 const DEVNET_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
-const MIRROR_MINTS: Record<string, string | undefined> = {
-  'T-OpenAI': process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_OPENAI || 'Bj47e5GCXuaxmbPjDRF5iSVjZ1Y4uEFoaDoPUAfD1xkB',
-  ANTHROPIC: process.env.NEXT_PUBLIC_DEVNET_MIRROR_ANTHROPIC || 'GxtkS2jUU5br9JJB64FuvvUxwp2sadxwCCRsZwiqAR3p',
-  'T-Kalshi': process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_KALSHI || 'HSv2zqvfSXv2CQ7TW79HpQPYziNvoiY3CKpGu7Ec3hFh',
-  'T-SpaceX': process.env.NEXT_PUBLIC_DEVNET_MIRROR_T_SPACEX || 'B5SFgwf1nMGPAid4ngWWtn1fxpL2wTSbibmzsQzp4oaq',
-  ANDURIL: process.env.NEXT_PUBLIC_DEVNET_MIRROR_ANDURIL || 'F2ynAT6rER45pQPh62P63TLmDqhByepTJfDaypeETBJZ',
-  KALSHI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_KALSHI || '41ZBu1Frvec4r7TeQjYP4PnMSviU8vwd1wo5SZZZ5wMn',
-  POLYMARKET: process.env.NEXT_PUBLIC_DEVNET_MIRROR_POLYMARKET || '9qHJAujJTHxwn6gTzmwQKJZYDsoQGsBxAw1ygvtFboTN',
-  OPENAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_OPENAI || 'JBk4GN6xhW9rmu5pAM1Ub2pdgCZs3Bkc7xBAxbvH9Rr6',
-  NEURALINK: process.env.NEXT_PUBLIC_DEVNET_MIRROR_NEURALINK || 'DbUYkDnEvh9mVPJNNXdCtLksFg7RDeXgqteRvesJ2F7A',
-  FIGUREAI: process.env.NEXT_PUBLIC_DEVNET_MIRROR_FIGUREAI || '2bzfznWhXfHZqU1wRUyVCPrLAUkqP5gt5kAjjSj4b8e7',
-};
-
-function parseAuthoritySecret(value: string): Keypair {
-  const trimmed = value.trim();
-  if (trimmed.startsWith('[')) {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed)));
-  }
-  return Keypair.fromSecretKey(bs58.decode(trimmed));
-}
+const KNOWN_MIRROR_SYMBOLS = [
+  'T-OpenAI',
+  'ANTHROPIC',
+  'T-Kalshi',
+  'T-SpaceX',
+  'ANDURIL',
+  'KALSHI',
+  'POLYMARKET',
+  'OPENAI',
+  'NEURALINK',
+  'FIGUREAI',
+  'SPACEX',
+];
 
 export async function GET() {
   const configuredMirrors = Object.fromEntries(
-    Object.entries(MIRROR_MINTS).map(([symbol, value]) => [symbol, Boolean(value && value.trim())])
+    KNOWN_MIRROR_SYMBOLS.map((symbol) => [
+      symbol,
+      Boolean(getServerDevnetMirrorMint(symbol)),
+    ])
   );
 
   return NextResponse.json({
@@ -62,11 +60,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const secret =
-    process.env.DEVNET_MIRROR_AUTHORITY_SECRET ||
-    process.env.RUNNER_PRIVATE_KEY;
-
-  if (!secret) {
+  const authority = getServerDevnetMirrorAuthority();
+  if (!authority) {
     return NextResponse.json(
       { error: 'Devnet mirror authority is not configured on the server.' },
       { status: 503 }
@@ -75,13 +70,61 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const user = new PublicKey(body.userPublicKey);
-    const allocations = Array.isArray(body.allocations) ? body.allocations : [];
+    const endpoint =
+      process.env.SOLANA_DEVNET_RPC_URL ||
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+      clusterApiUrl('devnet');
+    const connection = new Connection(endpoint, 'confirmed');
 
     // Price Devnet mirrors from the same provider quote layer that hydrates
     // the marketplace. This keeps executable test issuance aligned with the
     // NAV the user actually sees instead of stale registry seed prices.
     const marketAssets = await getUnifiedAssetQuotes('multi');
+    const supportedSymbols = new Set(
+      marketAssets.map((asset) => asset.symbol)
+    );
+
+    if (body?.action === 'ensure_mirrors') {
+      const symbols = [
+        ...new Set(
+          (Array.isArray(body?.symbols) ? body.symbols : [])
+            .map((value: unknown) => String(value || '').trim())
+            .filter(Boolean)
+        ),
+      ];
+
+      if (symbols.length < 1 || symbols.length > 8) {
+        return NextResponse.json(
+          { error: 'Invalid Devnet mirror symbol count.' },
+          { status: 400 }
+        );
+      }
+
+      for (const symbol of symbols) {
+        if (!supportedSymbols.has(symbol)) {
+          return NextResponse.json(
+            { error: `Unsupported provider asset: ${symbol}.` },
+            { status: 400 }
+          );
+        }
+      }
+
+      const mirrors: Record<string, string> = {};
+      for (const symbol of symbols) {
+        mirrors[symbol] = await ensureServerDevnetMirrorMint(
+          connection,
+          symbol
+        );
+      }
+
+      return NextResponse.json({
+        network: 'devnet',
+        mirrors,
+      });
+    }
+
+    const user = new PublicKey(body.userPublicKey);
+    const allocations = Array.isArray(body.allocations) ? body.allocations : [];
     const priceBySymbol = new Map(
       marketAssets.map((asset) => [asset.symbol, asset.priceUsd])
     );
@@ -89,13 +132,6 @@ export async function POST(request: NextRequest) {
     if (allocations.length < 1 || allocations.length > 8) {
       return NextResponse.json({ error: 'Invalid mirror allocation count.' }, { status: 400 });
     }
-
-    const authority = parseAuthoritySecret(secret);
-    const endpoint =
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-      process.env.SOLANA_RPC_URL ||
-      clusterApiUrl('devnet');
-    const connection = new Connection(endpoint, 'confirmed');
 
     const userUsdcAta = getAssociatedTokenAddressSync(DEVNET_USDC_MINT, user);
     const treasuryUsdcAta = getAssociatedTokenAddressSync(
@@ -118,13 +154,10 @@ export async function POST(request: NextRequest) {
 
     for (const allocation of allocations) {
       const symbol = String(allocation.symbol || '');
-      const configuredMint = MIRROR_MINTS[symbol];
-      if (!configuredMint) {
-        return NextResponse.json(
-          { error: `No configured Devnet mirror mint for ${symbol}.` },
-          { status: 503 }
-        );
-      }
+      const configuredMint = await ensureServerDevnetMirrorMint(
+        connection,
+        symbol
+      );
 
       const requestedMint = new PublicKey(String(allocation.mint || ''));
       if (requestedMint.toBase58() !== configuredMint) {
