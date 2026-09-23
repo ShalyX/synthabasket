@@ -98,6 +98,8 @@ export interface TxStep {
 export interface TxReceiptAsset {
   symbol: string;
   amount: number;
+  mint?: string;
+  valueUsd?: number;
 }
 
 export interface TxReceipt {
@@ -106,6 +108,8 @@ export interface TxReceipt {
   sharesReceived?: number;
   sharesBurned?: number;
   resultingShareBalance?: number;
+  redemptionValueUsd?: number;
+  positionClosed?: boolean;
   assetsDeposited?: TxReceiptAsset[];
   assetsReturned?: TxReceiptAsset[];
 }

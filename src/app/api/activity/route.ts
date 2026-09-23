@@ -39,19 +39,39 @@ function cleanOptionalNumber(
   return parsed;
 }
 
+function cleanMint(value: unknown): string | undefined {
+  const candidate = cleanText(value, 64);
+  if (!candidate) return undefined;
+
+  try {
+    return new PublicKey(candidate).toBase58();
+  } catch {
+    return undefined;
+  }
+}
+
 function cleanAssets(value: unknown): AccountActivityAsset[] | undefined {
   if (!Array.isArray(value)) return undefined;
 
-  const assets = value
+  const assets: AccountActivityAsset[] = value
     .slice(0, 20)
     .map((item: any) => ({
       symbol: cleanText(item?.symbol, 20),
       amount: cleanOptionalNumber(item?.amount, { max: 1_000_000_000 }),
+      mint: cleanMint(item?.mint),
+      valueUsd: cleanOptionalNumber(item?.valueUsd),
     }))
     .filter(
-      (item): item is AccountActivityAsset =>
-        Boolean(item.symbol) && typeof item.amount === 'number'
-    );
+      (item) => Boolean(item.symbol) && typeof item.amount === 'number'
+    )
+    .map((item) => ({
+      symbol: item.symbol,
+      amount: item.amount as number,
+      ...(item.mint ? { mint: item.mint } : {}),
+      ...(typeof item.valueUsd === 'number'
+        ? { valueUsd: item.valueUsd }
+        : {}),
+    }));
 
   return assets.length > 0 ? assets : undefined;
 }
@@ -128,6 +148,11 @@ export async function POST(request: NextRequest) {
       allowNegative: true,
       max: 1_000_000_000,
     });
+    const resultingShareBalance = cleanOptionalNumber(
+      body?.resultingShareBalance,
+      { max: 1_000_000_000 }
+    );
+    const positionClosed = body?.positionClosed === true;
 
     if (
       (type === 'invest' && (!sharesDelta || sharesDelta <= 0)) ||
@@ -185,6 +210,14 @@ export async function POST(request: NextRequest) {
       status: 'confirmed',
       amountUsd,
       sharesDelta: type === 'create_basket' ? 0 : sharesDelta,
+      resultingShareBalance:
+        type === 'redeem' ? resultingShareBalance : undefined,
+      positionClosed:
+        type === 'redeem'
+          ? positionClosed ||
+            (typeof resultingShareBalance === 'number' &&
+              resultingShareBalance <= 0.000001)
+          : undefined,
       assets: cleanAssets(body?.assets),
     };
 

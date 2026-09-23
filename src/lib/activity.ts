@@ -3,6 +3,8 @@ export type AccountActivityType = 'invest' | 'redeem' | 'create_basket';
 export interface AccountActivityAsset {
   symbol: string;
   amount: number;
+  mint?: string;
+  valueUsd?: number;
 }
 
 export interface AccountActivity {
@@ -17,6 +19,8 @@ export interface AccountActivity {
   status: 'confirmed';
   amountUsd?: number;
   sharesDelta?: number;
+  resultingShareBalance?: number;
+  positionClosed?: boolean;
   assets?: AccountActivityAsset[];
 }
 

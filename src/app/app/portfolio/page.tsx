@@ -13,7 +13,9 @@ import {
   AlertCircle,
   ArrowRight,
   ExternalLink,
+  History,
   Layers,
+  PackageOpen,
   RefreshCw,
   ShieldCheck,
   Wallet,
@@ -43,6 +45,34 @@ type Holding = {
   tokenAccountCount: number;
   registrySource: 'curated' | 'custom';
   history: PositionHistorySummary;
+};
+
+type RedeemedAsset = {
+  symbol: string;
+  mint: string | null;
+  receivedAmount: number;
+  receivedValueUsd: number | null;
+  currentWalletBalance: number | null;
+  markPriceUsd: number | null;
+  currentValueUsd: number | null;
+  marketDataSource: 'live' | 'last_live' | 'snapshot';
+  marketDataUpdatedAt: number | null;
+  redemptionCount: number;
+  lastReceivedAt: number;
+};
+
+type ClosedPosition = {
+  basketId: string;
+  basketName: string;
+  basketSymbol: string;
+  closedAt: number;
+  lastSignature: string;
+  activityCount: number;
+  redemptionCount: number;
+  totalInvestedUsd: number | null;
+  totalRedeemedValueUsd: number | null;
+  realizedPnlUsd: number | null;
+  historyComplete: boolean;
 };
 
 type CustomRegistryStatus = 'loaded' | 'not_configured' | 'unavailable';
@@ -89,6 +119,8 @@ export default function PortfolioPage() {
   const [trackedBasketCount, setTrackedBasketCount] = useState(0);
   const [scannedTokenAccountCount, setScannedTokenAccountCount] = useState(0);
   const [activities, setActivities] = useState<AccountActivity[]>([]);
+  const [redeemedAssets, setRedeemedAssets] = useState<RedeemedAsset[]>([]);
+  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [activityHistoryStatus, setActivityHistoryStatus] = useState<
     'loaded' | 'not_configured' | 'unavailable'
   >('loaded');
@@ -109,6 +141,8 @@ export default function PortfolioPage() {
         setTrackedBasketCount(0);
         setScannedTokenAccountCount(0);
         setActivities([]);
+        setRedeemedAssets([]);
+        setClosedPositions([]);
         setSelectedPosition(null);
         return;
       }
@@ -220,6 +254,73 @@ export default function PortfolioPage() {
           Number(payload.scannedTokenAccountCount) || 0
         );
         setActivities(Array.isArray(payload.activities) ? payload.activities : []);
+        setRedeemedAssets(
+          Array.isArray(payload.redeemedAssets)
+            ? payload.redeemedAssets.map((asset: any) => ({
+                symbol: String(asset.symbol),
+                mint: asset.mint ? String(asset.mint) : null,
+                receivedAmount: Number(asset.receivedAmount || 0),
+                receivedValueUsd:
+                  asset.receivedValueUsd === null ||
+                  asset.receivedValueUsd === undefined
+                    ? null
+                    : Number(asset.receivedValueUsd),
+                currentWalletBalance:
+                  asset.currentWalletBalance === null ||
+                  asset.currentWalletBalance === undefined
+                    ? null
+                    : Number(asset.currentWalletBalance),
+                markPriceUsd:
+                  asset.markPriceUsd === null ||
+                  asset.markPriceUsd === undefined
+                    ? null
+                    : Number(asset.markPriceUsd),
+                currentValueUsd:
+                  asset.currentValueUsd === null ||
+                  asset.currentValueUsd === undefined
+                    ? null
+                    : Number(asset.currentValueUsd),
+                marketDataSource:
+                  asset.marketDataSource === 'live' ||
+                  asset.marketDataSource === 'last_live'
+                    ? asset.marketDataSource
+                    : 'snapshot',
+                marketDataUpdatedAt:
+                  Number(asset.marketDataUpdatedAt) || null,
+                redemptionCount: Number(asset.redemptionCount || 0),
+                lastReceivedAt: Number(asset.lastReceivedAt || 0),
+              }))
+            : []
+        );
+        setClosedPositions(
+          Array.isArray(payload.closedPositions)
+            ? payload.closedPositions.map((position: any) => ({
+                basketId: String(position.basketId),
+                basketName: String(position.basketName),
+                basketSymbol: String(position.basketSymbol),
+                closedAt: Number(position.closedAt || 0),
+                lastSignature: String(position.lastSignature || ''),
+                activityCount: Number(position.activityCount || 0),
+                redemptionCount: Number(position.redemptionCount || 0),
+                totalInvestedUsd:
+                  position.totalInvestedUsd === null ||
+                  position.totalInvestedUsd === undefined
+                    ? null
+                    : Number(position.totalInvestedUsd),
+                totalRedeemedValueUsd:
+                  position.totalRedeemedValueUsd === null ||
+                  position.totalRedeemedValueUsd === undefined
+                    ? null
+                    : Number(position.totalRedeemedValueUsd),
+                realizedPnlUsd:
+                  position.realizedPnlUsd === null ||
+                  position.realizedPnlUsd === undefined
+                    ? null
+                    : Number(position.realizedPnlUsd),
+                historyComplete: position.historyComplete === true,
+              }))
+            : []
+        );
         setActivityHistoryStatus(
           payload.activityHistoryStatus === 'not_configured' ||
             payload.activityHistoryStatus === 'unavailable'
@@ -686,6 +787,185 @@ export default function PortfolioPage() {
                 </div>
               )}
             </section>
+
+            {redeemedAssets.length > 0 && (
+              <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+                <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <PackageOpen className="h-4 w-4 text-brand-primary" />
+                      <h2 className="text-sm font-bold">Redeemed assets</h2>
+                    </div>
+                    <p className="mt-1 text-xs text-ink-tertiary">
+                      Constituents delivered by SynthaBasket redemptions, paired with the wallet&apos;s current on-chain balance.
+                    </p>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+                    {redeemedAssets.length} asset{redeemedAssets.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div className="border-b border-border bg-surface-subtle px-5 py-3 text-xs leading-5 text-ink-secondary">
+                  “Received via redemptions” is the durable SynthaBasket ledger. “Wallet balance” is the wallet&apos;s current total for that mint and can include tokens acquired elsewhere.
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[980px] text-left">
+                    <thead>
+                      <tr className="border-b border-border text-[10px] uppercase tracking-wider text-ink-tertiary">
+                        <th className="px-5 py-3">Asset</th>
+                        <th className="px-5 py-3 text-right">Wallet balance</th>
+                        <th className="px-5 py-3 text-right">Received via redemptions</th>
+                        <th className="px-5 py-3 text-right">Current mark</th>
+                        <th className="px-5 py-3 text-right">Wallet value</th>
+                        <th className="px-5 py-3 text-right">Last received</th>
+                        <th className="px-5 py-3 text-right">Mint</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {redeemedAssets.map((asset) => (
+                        <tr key={asset.mint || asset.symbol} className="hover:bg-surface-elevated/40">
+                          <td className="px-5 py-4">
+                            <div className="font-bold text-ink-primary">{asset.symbol}</div>
+                            <div className="mt-1 text-[10px] text-ink-tertiary">
+                              {asset.redemptionCount} redemption{asset.redemptionCount === 1 ? '' : 's'}
+                              {asset.receivedValueUsd !== null
+                                ? ' · $' + formatUsd(asset.receivedValueUsd) + ' marked when received'
+                                : ''}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
+                            {asset.currentWalletBalance === null
+                              ? '—'
+                              : asset.currentWalletBalance.toLocaleString(undefined, {
+                                  maximumFractionDigits: 6,
+                                })}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
+                            {asset.receivedAmount.toLocaleString(undefined, {
+                              maximumFractionDigits: 6,
+                            })}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
+                            {asset.markPriceUsd === null
+                              ? '—'
+                              : '$' + formatUsd(asset.markPriceUsd)}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-xs font-bold tabular-nums">
+                            {asset.currentValueUsd === null
+                              ? '—'
+                              : '$' + formatUsd(asset.currentValueUsd)}
+                          </td>
+                          <td className="px-5 py-4 text-right text-xs text-ink-secondary">
+                            {formatAge(asset.lastReceivedAt, freshnessNow)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            {asset.mint ? (
+                              <a
+                                href={'https://explorer.solana.com/address/' + asset.mint + '?cluster=devnet'}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-secondary hover:text-brand-primary"
+                              >
+                                {asset.mint.slice(0, 5)}...{asset.mint.slice(-4)}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-xs text-ink-tertiary">Unavailable</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {closedPositions.length > 0 && (
+              <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+                <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <History className="h-4 w-4 text-brand-primary" />
+                      <h2 className="text-sm font-bold">Closed positions</h2>
+                    </div>
+                    <p className="mt-1 text-xs text-ink-tertiary">
+                      Positions appear here only when indexed mint/redeem history reconciles exactly to zero shares.
+                    </p>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+                    {closedPositions.length} closed
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] text-left">
+                    <thead>
+                      <tr className="border-b border-border bg-surface-subtle text-[10px] uppercase tracking-wider text-ink-tertiary">
+                        <th className="px-5 py-3">Basket</th>
+                        <th className="px-5 py-3 text-right">Closed</th>
+                        <th className="px-5 py-3 text-right">Total invested</th>
+                        <th className="px-5 py-3 text-right">Redeemed value</th>
+                        <th className="px-5 py-3 text-right">Realized P&amp;L</th>
+                        <th className="px-5 py-3 text-right">Last transaction</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {closedPositions.map((position) => (
+                        <tr key={position.basketId} className="hover:bg-surface-elevated/40">
+                          <td className="px-5 py-4">
+                            <div className="font-bold text-ink-primary">{position.basketName}</div>
+                            <div className="mt-1 font-mono text-[10px] font-semibold text-brand-primary">
+                              {'$'}{position.basketSymbol}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-right text-xs text-ink-secondary">
+                            {formatAge(position.closedAt, freshnessNow)}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
+                            {position.totalInvestedUsd === null
+                              ? '—'
+                              : '$' + formatUsd(position.totalInvestedUsd)}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
+                            {position.totalRedeemedValueUsd === null
+                              ? '—'
+                              : '$' + formatUsd(position.totalRedeemedValueUsd)}
+                          </td>
+                          <td
+                            className={
+                              'px-5 py-4 text-right font-mono text-xs font-bold tabular-nums ' +
+                              (position.realizedPnlUsd === null
+                                ? 'text-ink-tertiary'
+                                : position.realizedPnlUsd >= 0
+                                ? 'text-brand-primary'
+                                : 'text-semantic-negative')
+                            }
+                          >
+                            {position.realizedPnlUsd === null
+                              ? '—'
+                              : (position.realizedPnlUsd >= 0 ? '+' : '') +
+                                '$' +
+                                formatUsd(position.realizedPnlUsd)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <a
+                              href={'https://explorer.solana.com/tx/' + position.lastSignature + '?cluster=devnet'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 font-mono text-[10px] text-brand-primary hover:underline"
+                            >
+                              View tx <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>

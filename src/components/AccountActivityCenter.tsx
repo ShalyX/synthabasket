@@ -58,10 +58,24 @@ function activityDetail(activity: AccountActivity): string {
   const shares = Math.abs(Number(activity.sharesDelta || 0));
   const shareText =
     shares > 0 ? `${shares.toFixed(6)} ${activity.basketSymbol}` : '';
+
+  if (activity.type === 'redeem') {
+    const assetCount = activity.assets?.length || 0;
+    const assetText =
+      assetCount > 0
+        ? `${assetCount} asset${assetCount === 1 ? '' : 's'} returned`
+        : 'underlying assets returned';
+    const closed =
+      activity.positionClosed === true ||
+      (typeof activity.resultingShareBalance === 'number' &&
+        activity.resultingShareBalance <= 0.000001);
+    return `${shareText ? shareText + ' burned · ' : ''}${assetText}${
+      closed ? ' · position closed' : ''
+    }`;
+  }
+
   if (typeof activity.amountUsd === 'number') {
-    return activity.type === 'redeem'
-      ? `${shareText} · $${formatUsd(activity.amountUsd)} marked value`
-      : `$${formatUsd(activity.amountUsd)} · ${shareText}`;
+    return `$${formatUsd(activity.amountUsd)} · ${shareText}`;
   }
   return shareText || activity.basketName;
 }
@@ -441,6 +455,46 @@ export function AccountActivityCenter({
                               <p className="mt-1 text-xs leading-5 text-ink-secondary">
                                 {activityDetail(activity)}
                               </p>
+
+                              {activity.type === 'redeem' &&
+                                activity.assets &&
+                                activity.assets.length > 0 && (
+                                  <div className="mt-2 rounded-lg border border-border bg-surface px-3 py-2">
+                                    {activity.assets.map((asset) => (
+                                      <div
+                                        key={asset.mint || asset.symbol}
+                                        className="flex items-center justify-between gap-3 py-0.5 text-[11px]"
+                                      >
+                                        <span className="text-ink-secondary">
+                                          {asset.symbol}
+                                        </span>
+                                        <span className="font-mono tabular-nums text-ink-primary">
+                                          +{asset.amount.toFixed(6)}
+                                          {typeof asset.valueUsd === 'number'
+                                            ? ' · $' + formatUsd(asset.valueUsd)
+                                            : ''}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                              {activity.type === 'redeem' &&
+                                typeof activity.amountUsd === 'number' && (
+                                  <p className="mt-2 text-[10px] text-ink-tertiary">
+                                    Marked value at redemption · {'$'}
+                                    {formatUsd(activity.amountUsd)}
+                                    {typeof activity.resultingShareBalance ===
+                                    'number'
+                                      ? activity.positionClosed
+                                        ? ' · Position closed'
+                                        : ` · ${activity.resultingShareBalance.toFixed(
+                                            6
+                                          )} ${activity.basketSymbol} remaining`
+                                      : ''}
+                                  </p>
+                                )}
+
                               <p className="mt-1 text-[10px] text-ink-tertiary">
                                 Confirmed · {formatAge(activity.timestamp)}
                               </p>

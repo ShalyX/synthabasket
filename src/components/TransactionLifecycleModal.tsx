@@ -24,6 +24,12 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
 }) => {
   if (!state.isOpen) return null;
 
+  const redemptionClosed =
+    state.actionType === 'redeem' &&
+    (state.receipt?.positionClosed === true ||
+      (typeof state.receipt?.resultingShareBalance === 'number' &&
+        state.receipt.resultingShareBalance <= 0.000001));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
       <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-2xl">
@@ -144,11 +150,17 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
           <div className="border-t border-border px-5 py-5">
             <div>
               <p className="text-base font-semibold text-ink-primary">
-                {state.actionType === 'redeem' ? 'Redemption complete' : 'Investment complete'}
+                {state.actionType === 'redeem'
+                  ? redemptionClosed
+                    ? 'Redemption complete — position closed'
+                    : 'Redemption complete — assets delivered'
+                  : 'Investment complete'}
               </p>
               <p className="mt-1 text-sm leading-6 text-ink-secondary">
                 {state.actionType === 'redeem'
-                  ? 'Your shares were burned and the underlying assets were returned to your wallet.'
+                  ? redemptionClosed
+                    ? 'Your basket shares were fully burned. The returned constituent assets now sit in your wallet and this basket moves to closed-position history.'
+                    : 'Your redeemed constituent assets are now in your wallet. The remaining basket shares stay active in your portfolio.'
                   : 'Your underlying assets are in the basket vault and your new shares are in your wallet.'}
               </p>
             </div>
@@ -182,6 +194,15 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   </div>
                 )}
 
+                {typeof state.receipt.redemptionValueUsd === 'number' && (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-ink-secondary">Marked value returned</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      {'$'}{state.receipt.redemptionValueUsd.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 {state.receipt.assetsDeposited &&
                   state.receipt.assetsDeposited.length > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
@@ -206,13 +227,20 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                       <p className="mb-2 text-xs text-ink-tertiary">Returned to wallet</p>
                       {state.receipt.assetsReturned.map((asset) => (
                         <div
-                          key={asset.symbol}
-                          className="flex items-center justify-between py-1"
+                          key={asset.mint || asset.symbol}
+                          className="flex items-center justify-between gap-4 py-1"
                         >
                           <span className="text-ink-secondary">{asset.symbol}</span>
-                          <span className="font-mono tabular-nums text-ink-primary">
-                            +{asset.amount.toFixed(6)}
-                          </span>
+                          <div className="text-right">
+                            <div className="font-mono tabular-nums text-ink-primary">
+                              +{asset.amount.toFixed(6)}
+                            </div>
+                            {typeof asset.valueUsd === 'number' && (
+                              <div className="mt-0.5 font-mono text-[10px] tabular-nums text-ink-tertiary">
+                                {'$'}{asset.valueUsd.toFixed(2)} at redemption
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -220,9 +248,16 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
 
                 {typeof state.receipt.resultingShareBalance === 'number' && (
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                    <span className="text-ink-secondary">Share balance</span>
+                    <span className="text-ink-secondary">
+                      {redemptionClosed ? 'Position status' : 'Remaining shares'}
+                    </span>
                     <span className="font-mono tabular-nums text-ink-primary">
-                      {state.receipt.resultingShareBalance.toFixed(6)}{state.receipt.basketSymbol ? ` ${state.receipt.basketSymbol}` : ''}
+                      {redemptionClosed
+                        ? 'Closed'
+                        : state.receipt.resultingShareBalance.toFixed(6) +
+                          (state.receipt.basketSymbol
+                            ? ` ${state.receipt.basketSymbol}`
+                            : '')}
                     </span>
                   </div>
                 )}

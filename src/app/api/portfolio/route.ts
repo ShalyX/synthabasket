@@ -234,6 +234,168 @@ export async function GET(request: NextRequest) {
       ),
     }));
 
+    const activeBasketIds = new Set(
+      positionsWithHistory.map((position) => position.basketId)
+    );
+    const activityByBasket = new Map<string, typeof activities>();
+
+    for (const activity of activities) {
+      if (activity.type !== 'invest' && activity.type !== 'redeem') continue;
+      const existing = activityByBasket.get(activity.basketId) || [];
+      existing.push(activity);
+      activityByBasket.set(activity.basketId, existing);
+    }
+
+    const closedPositions = Array.from(activityByBasket.entries())
+      .map(([basketId, basketActivities]) => {
+        const ordered = [...basketActivities].sort(
+          (left, right) => left.timestamp - right.timestamp
+        );
+        const latest = ordered[ordered.length - 1];
+        const hasInvestment = ordered.some(
+          (activity) => activity.type === 'invest'
+        );
+        const summary = summarizePositionHistory(ordered, 0, 0);
+
+        if (
+          activeBasketIds.has(basketId) ||
+          !hasInvestment ||
+          latest?.type !== 'redeem' ||
+          !summary.historyComplete ||
+          Math.abs(summary.indexedShares) > 0.000001
+        ) {
+          return null;
+        }
+
+        const redemptions = ordered.filter(
+          (activity) => activity.type === 'redeem'
+        );
+        const allRedemptionsValued =
+          redemptions.length > 0 &&
+          redemptions.every(
+            (activity) =>
+              typeof activity.amountUsd === 'number' &&
+              Number.isFinite(activity.amountUsd)
+          );
+
+        return {
+          basketId,
+          basketName: latest.basketName,
+          basketSymbol: latest.basketSymbol,
+          closedAt: latest.timestamp,
+          lastSignature: latest.signature,
+          activityCount: ordered.length,
+          redemptionCount: redemptions.length,
+          totalInvestedUsd: summary.totalInvestedUsd,
+          totalRedeemedValueUsd: allRedemptionsValued
+            ? redemptions.reduce(
+                (sum, activity) => sum + Number(activity.amountUsd || 0),
+                0
+              )
+            : null,
+          realizedPnlUsd: summary.realizedPnlUsd,
+          historyComplete: true,
+        };
+      })
+      .filter(
+        (
+          position
+        ): position is NonNullable<typeof position> => position !== null
+      )
+      .sort((left, right) => right.closedAt - left.closedAt);
+
+    const assetBySymbol = new Map(
+      snapshot.assets.map((asset) => [asset.symbol.toUpperCase(), asset])
+    );
+    const redeemedLedger = new Map<
+      string,
+      {
+        symbol: string;
+        mint: string | null;
+        receivedAmount: number;
+        receivedValueUsd: number;
+        hasReceivedValue: boolean;
+        redemptionCount: number;
+        lastReceivedAt: number;
+      }
+    >();
+
+    for (const activity of activities) {
+      if (activity.type !== 'redeem' || !activity.assets?.length) continue;
+
+      for (const asset of activity.assets) {
+        const quote = assetBySymbol.get(asset.symbol.toUpperCase());
+        const resolvedMint =
+          asset.mint || quote?.devnetMint || quote?.tokenMint || null;
+        const key = resolvedMint || asset.symbol.toUpperCase();
+        const existing = redeemedLedger.get(key);
+
+        redeemedLedger.set(key, {
+          symbol: asset.symbol,
+          mint: resolvedMint,
+          receivedAmount:
+            (existing?.receivedAmount || 0) + Number(asset.amount || 0),
+          receivedValueUsd:
+            (existing?.receivedValueUsd || 0) +
+            (typeof asset.valueUsd === 'number' &&
+            Number.isFinite(asset.valueUsd)
+              ? asset.valueUsd
+              : 0),
+          hasReceivedValue:
+            existing?.hasReceivedValue === true ||
+            (typeof asset.valueUsd === 'number' &&
+              Number.isFinite(asset.valueUsd)),
+          redemptionCount: (existing?.redemptionCount || 0) + 1,
+          lastReceivedAt: Math.max(
+            existing?.lastReceivedAt || 0,
+            activity.timestamp
+          ),
+        });
+      }
+    }
+
+    const redeemedAssets = Array.from(redeemedLedger.values())
+      .map((ledger) => {
+        const quote = assetBySymbol.get(ledger.symbol.toUpperCase());
+        const walletBalance =
+          ledger.mint !== null ? walletBalances.get(ledger.mint) : undefined;
+        const currentWalletBalance = walletBalance
+          ? Number(walletBalance.rawAmount) / 10 ** walletBalance.decimals
+          : ledger.mint
+          ? 0
+          : null;
+        const markPriceUsd =
+          quote && Number.isFinite(quote.priceUsd) ? quote.priceUsd : null;
+        const currentValueUsd =
+          currentWalletBalance !== null && markPriceUsd !== null
+            ? Number((currentWalletBalance * markPriceUsd).toFixed(2))
+            : null;
+
+        return {
+          symbol: ledger.symbol,
+          mint: ledger.mint,
+          receivedAmount: ledger.receivedAmount,
+          receivedValueUsd: ledger.hasReceivedValue
+            ? ledger.receivedValueUsd
+            : null,
+          currentWalletBalance,
+          markPriceUsd,
+          currentValueUsd,
+          marketDataSource: quote?.quoteSource || 'snapshot',
+          marketDataUpdatedAt: quote?.lastUpdated || null,
+          redemptionCount: ledger.redemptionCount,
+          lastReceivedAt: ledger.lastReceivedAt,
+        };
+      })
+      .sort((left, right) => {
+        if (left.currentValueUsd === null && right.currentValueUsd === null) {
+          return left.symbol.localeCompare(right.symbol);
+        }
+        if (left.currentValueUsd === null) return 1;
+        if (right.currentValueUsd === null) return -1;
+        return right.currentValueUsd - left.currentValueUsd;
+      });
+
     return NextResponse.json(
       {
         owner: owner.toBase58(),
@@ -245,6 +407,8 @@ export async function GET(request: NextRequest) {
         activityHistoryStatus,
         activities,
         positions: positionsWithHistory,
+        redeemedAssets,
+        closedPositions,
       },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );

@@ -12,6 +12,8 @@ export interface RecordAccountActivityInput {
   signature: string;
   amountUsd?: number;
   sharesDelta?: number;
+  resultingShareBalance?: number;
+  positionClosed?: boolean;
   assets?: AccountActivityAsset[];
 }
 

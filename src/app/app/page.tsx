@@ -772,6 +772,7 @@ export default function AppPage() {
           );
           return {
             symbol: item.asset.symbol,
+            mint: mint.toBase58(),
             balance: await vaultClient.getUserTokenBalance(publicKey, mint),
           };
         })
@@ -862,7 +863,12 @@ export default function AppPage() {
 
       let afterBasketBalance: number | null = null;
       let assetsReturned:
-        | Array<{ symbol: string; amount: number }>
+        | Array<{
+            symbol: string;
+            amount: number;
+            mint?: string;
+            valueUsd?: number;
+          }>
         | undefined;
 
       try {
@@ -880,6 +886,7 @@ export default function AppPage() {
             );
             return {
               symbol: item.asset.symbol,
+              mint: mint.toBase58(),
               balance: await vaultClient.getUserTokenBalance(publicKey, mint),
             };
           })
@@ -889,9 +896,22 @@ export default function AppPage() {
           const before = beforeConstituentBalances.find(
             (item) => item.symbol === after.symbol
           );
+          const quoteItem = executionRedeemQuote.constituentsToReturn.find(
+            (item) => item.asset.symbol === after.symbol
+          );
+          const amount = Math.max(
+            0,
+            after.balance - (before?.balance || 0)
+          );
+
           return {
             symbol: after.symbol,
-            amount: Math.max(0, after.balance - (before?.balance || 0)),
+            mint: after.mint,
+            amount,
+            valueUsd:
+              quoteItem && Number.isFinite(quoteItem.asset.priceUsd)
+                ? amount * quoteItem.asset.priceUsd
+                : undefined,
           };
         });
       } catch (receiptError) {
@@ -901,6 +921,40 @@ export default function AppPage() {
         );
       }
 
+      const recordedReturnedAssets =
+        assetsReturned ||
+        executionRedeemQuote.constituentsToReturn.map((item) => ({
+          symbol: item.asset.symbol,
+          mint:
+            (isDevnet
+              ? item.asset.devnetMint || item.asset.tokenMint
+              : item.asset.tokenMint) || undefined,
+          amount: item.tokenAmount,
+          valueUsd: item.valueUsd,
+        }));
+
+      const resultingShareBalance =
+        afterBasketBalance === null
+          ? Math.max(
+              0,
+              beforeBasketBalance -
+                executionRedeemQuote.burnBasketTokensAmount
+            )
+          : afterBasketBalance;
+      const positionClosed = resultingShareBalance <= 0.000001;
+      const markedReturnedValue = recordedReturnedAssets.reduce(
+        (sum, asset) =>
+          sum +
+          (typeof asset.valueUsd === 'number' && Number.isFinite(asset.valueUsd)
+            ? asset.valueUsd
+            : 0),
+        0
+      );
+      const redemptionValueUsd =
+        markedReturnedValue > 0
+          ? markedReturnedValue
+          : executionRedeemQuote.expectedUsdcValue;
+
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
@@ -908,9 +962,10 @@ export default function AppPage() {
         receipt: {
           basketSymbol: basket.symbol,
           sharesBurned: executionRedeemQuote.burnBasketTokensAmount,
-          resultingShareBalance:
-            afterBasketBalance === null ? undefined : afterBasketBalance,
-          assetsReturned,
+          resultingShareBalance,
+          redemptionValueUsd,
+          positionClosed,
+          assetsReturned: recordedReturnedAssets,
         },
         steps: prev.steps.map((step, index) =>
           index === 2
@@ -926,14 +981,11 @@ export default function AppPage() {
         basketName: basket.name,
         basketSymbol: basket.symbol,
         signature,
-        amountUsd: executionRedeemQuote.expectedUsdcValue,
+        amountUsd: redemptionValueUsd,
         sharesDelta: -executionRedeemQuote.burnBasketTokensAmount,
-        assets:
-          assetsReturned ||
-          executionRedeemQuote.constituentsToReturn.map((item) => ({
-            symbol: item.asset.symbol,
-            amount: item.tokenAmount,
-          })),
+        resultingShareBalance,
+        positionClosed,
+        assets: recordedReturnedAssets,
       });
 
       // Re-read the vault after settlement so the UI reflects actual reserves
