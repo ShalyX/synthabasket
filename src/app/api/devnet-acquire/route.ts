@@ -15,7 +15,7 @@ import {
   getMint,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
-import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
+import { getUnifiedAssetQuotes } from '../../../lib/server/provider_quotes';
 
 const DEVNET_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
