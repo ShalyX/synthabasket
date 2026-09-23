@@ -390,7 +390,8 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                           </span>
                         </div>
                         <p className="mt-1 text-[11px] text-ink-tertiary">
-                          {providerLabel(item.asset)} · {'
+                          {providerLabel(item.asset)} · ${item.asset.priceUsd.toFixed(2)}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-2">
