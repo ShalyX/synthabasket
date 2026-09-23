@@ -122,7 +122,7 @@ function normalizeBasketIntent(submitted: any): SubmittedBasketInput {
   }
 
   const seenMints = new Set<string>();
-  const constituents = rawConstituents.map((item: any) => {
+  const constituents: SubmittedBasketInput['constituents'] = rawConstituents.map((item: any) => {
     const tokenMint = String(item?.tokenMint || '').trim();
     const targetWeightBps = Number(item?.targetWeightBps);
 
