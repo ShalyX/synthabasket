@@ -178,7 +178,13 @@ export default function Home() {
                       {basket.constituents.length} constituent{basket.constituents.length === 1 ? '' : 's'}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold text-brand-primary">Live NAV in app</span>
+                  <Link
+                    href={`/app?basket=${encodeURIComponent(basket.id)}&action=invest`}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-primary hover:underline"
+                  >
+                    Invest
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
               </article>
               </ScrollReveal>

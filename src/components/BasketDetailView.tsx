@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, ArrowUpRight, ArrowDownRight, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { PublicKey } from '@solana/web3.js';
 import { BasketDefinition, BasketMintQuote, BasketRedeemQuote } from '../lib/types';
 import { calculateMintQuote } from '../lib/services/valuation_engine';
@@ -37,6 +38,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 }) => {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
+  const { setVisible: setWalletModalVisible } = useWalletModal();
   const [activeTab, setActiveTab] = useState<'inspect' | 'mint' | 'redeem'>(
     initialTab
   );
@@ -893,17 +895,29 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 <button
-                  onClick={() => liveMintQuote && onExecuteMint(basket, liveMintQuote)}
+                  onClick={() => {
+                    if (!publicKey) {
+                      setWalletModalVisible(true);
+                      return;
+                    }
+                    if (liveMintQuote) {
+                      onExecuteMint(basket, liveMintQuote);
+                    }
+                  }}
                   disabled={
-                    mintQuoteLoading ||
-                    !liveMintQuote ||
-                    !usdcAmount ||
-                    usdcAmount <= 0 ||
-                    (usdcBalance !== null && usdcAmount > usdcBalance)
+                    publicKey
+                      ? mintQuoteLoading ||
+                        !liveMintQuote ||
+                        !usdcAmount ||
+                        usdcAmount <= 0 ||
+                        (usdcBalance !== null && usdcAmount > usdcBalance)
+                      : false
                   }
                   className="w-full rounded-lg bg-brand-primary py-3 text-sm font-semibold text-black transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Invest {usdcAmount || 0} USDC
+                  {publicKey
+                    ? `Invest ${usdcAmount || 0} USDC`
+                    : 'Connect wallet to invest'}
                 </button>
               </div>
             )}
@@ -993,14 +1007,24 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 </div>
 
                 <button
-                  onClick={() => liveRedeemQuote && onExecuteRedeem(basket, liveRedeemQuote)}
+                  onClick={() => {
+                    if (!publicKey) {
+                      setWalletModalVisible(true);
+                      return;
+                    }
+                    if (liveRedeemQuote) {
+                      onExecuteRedeem(basket, liveRedeemQuote);
+                    }
+                  }}
                   disabled={
-                    !publicKey ||
-                    redeemQuoteLoading ||
-                    !liveRedeemQuote ||
-                    !redeemShares ||
-                    redeemShares <= 0 ||
-                    (basketBalance !== null && redeemShares > basketBalance)
+                    publicKey
+                      ? redeemQuoteLoading ||
+                        !liveRedeemQuote ||
+                        !redeemShares ||
+                        redeemShares <= 0 ||
+                        (basketBalance !== null &&
+                          redeemShares > basketBalance)
+                      : false
                   }
                   className="w-full rounded-lg bg-ink-primary py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >

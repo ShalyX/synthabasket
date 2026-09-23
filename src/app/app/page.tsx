@@ -60,6 +60,8 @@ export default function AppPage() {
       : searchParams.get('view') === 'create'
       ? 'create_studio'
       : 'baskets';
+  const requestedBasket = searchParams.get('basket');
+  const requestedAction = searchParams.get('action');
   const [network] = useState<string>('devnet');
 
   const [baskets, setBaskets] = useState<BasketDefinition[]>([]);
@@ -193,10 +195,67 @@ export default function AppPage() {
     };
   }, [activeTab, hydrationNonce]);
 
-  const handleSelectBasket = (basket: BasketDefinition, mode: 'mint' | 'redeem' | 'inspect') => {
+  const clearBasketRoute = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('basket');
+    params.delete('action');
+    const query = params.toString();
+    router.replace(query ? `/app?${query}` : '/app', { scroll: false });
+  };
+
+  const handleSelectBasket = (
+    basket: BasketDefinition,
+    mode: 'mint' | 'redeem' | 'inspect'
+  ) => {
     setSelectedBasket(basket);
     setDetailInitialTab(mode);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('view');
+    params.set('basket', basket.id);
+    params.set('action', mode === 'mint' ? 'invest' : mode);
+    router.replace(`/app?${params.toString()}`, { scroll: false });
   };
+
+  useEffect(() => {
+    if (
+      activeTab !== 'baskets' ||
+      !requestedBasket ||
+      baskets.length === 0
+    ) {
+      return;
+    }
+
+    const normalized = requestedBasket.toLowerCase();
+    const matched = baskets.find(
+      (basket) =>
+        basket.id.toLowerCase() === normalized ||
+        basket.symbol.toLowerCase() === normalized
+    );
+    if (!matched) return;
+
+    const mode: 'mint' | 'redeem' | 'inspect' =
+      requestedAction === 'redeem'
+        ? 'redeem'
+        : requestedAction === 'inspect'
+        ? 'inspect'
+        : 'mint';
+
+    if (
+      selectedBasket?.id !== matched.id ||
+      detailInitialTab !== mode
+    ) {
+      setSelectedBasket(matched);
+      setDetailInitialTab(mode);
+    }
+  }, [
+    activeTab,
+    baskets,
+    detailInitialTab,
+    requestedAction,
+    requestedBasket,
+    selectedBasket?.id,
+  ]);
 
   const getSegmentColor = (idx: number) => {
     const palette = ['bg-brand-primary', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-emerald-400', 'bg-cyan-500'];
@@ -206,6 +265,7 @@ export default function AppPage() {
   // 1-Click Mint Execution Flow
   const handleExecuteMint = async (basket: BasketDefinition, quote: BasketMintQuote) => {
     setSelectedBasket(null);
+    clearBasketRoute();
 
     const isDevnet = network === 'devnet';
     const initialSteps = [
@@ -590,6 +650,7 @@ export default function AppPage() {
   // Burn & Redeem Execution Flow
   const handleExecuteRedeem = async (basket: BasketDefinition, quote: BasketRedeemQuote) => {
     setSelectedBasket(null);
+    clearBasketRoute();
 
     const isDevnet = network === 'devnet';
     const initialSteps = [
@@ -1559,7 +1620,10 @@ export default function AppPage() {
             selectedBasket
           }
           initialTab={detailInitialTab}
-          onClose={() => setSelectedBasket(null)}
+          onClose={() => {
+            setSelectedBasket(null);
+            clearBasketRoute();
+          }}
           onExecuteMint={handleExecuteMint}
           onExecuteRedeem={handleExecuteRedeem}
           navHistory={navHistory[selectedBasket.id] || []}

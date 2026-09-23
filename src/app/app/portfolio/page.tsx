@@ -442,7 +442,7 @@ export default function PortfolioPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1040px] text-left">
+                  <table className="w-full min-w-[1120px] text-left">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-[10px] uppercase tracking-wider text-ink-tertiary">
                         <th className="px-5 py-3">Basket</th>
@@ -452,6 +452,7 @@ export default function PortfolioPage() {
                         <th className="px-5 py-3 text-right">NAV 24h</th>
                         <th className="px-5 py-3">Valuation data</th>
                         <th className="px-5 py-3 text-right">Execution mint</th>
+                        <th className="px-5 py-3 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -559,6 +560,17 @@ export default function PortfolioPage() {
                               {holding.basketMint.slice(-4)}
                               <ExternalLink className="h-3 w-3" />
                             </a>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <Link
+                              href={`/app?basket=${encodeURIComponent(
+                                holding.basketId
+                              )}&action=redeem`}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs font-semibold text-ink-primary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                            >
+                              Redeem
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
                           </td>
                         </tr>
                       ))}
