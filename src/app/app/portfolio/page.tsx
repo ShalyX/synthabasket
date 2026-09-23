@@ -19,6 +19,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Navbar } from '../../../components/Navbar';
+import { PositionDetailsModal } from '../../../components/PositionDetailsModal';
+import { AccountActivity, PositionHistorySummary } from '../../../lib/activity';
 
 type MarketDataSource = 'live' | 'snapshot' | 'mixed';
 
@@ -40,6 +42,7 @@ type Holding = {
   vaultPda: string;
   tokenAccountCount: number;
   registrySource: 'curated' | 'custom';
+  history: PositionHistorySummary;
 };
 
 type CustomRegistryStatus = 'loaded' | 'not_configured' | 'unavailable';
@@ -85,6 +88,11 @@ export default function PortfolioPage() {
     useState<CustomRegistryStatus>('loaded');
   const [trackedBasketCount, setTrackedBasketCount] = useState(0);
   const [scannedTokenAccountCount, setScannedTokenAccountCount] = useState(0);
+  const [activities, setActivities] = useState<AccountActivity[]>([]);
+  const [activityHistoryStatus, setActivityHistoryStatus] = useState<
+    'loaded' | 'not_configured' | 'unavailable'
+  >('loaded');
+  const [selectedPosition, setSelectedPosition] = useState<Holding | null>(null);
   const requestInFlightRef = useRef<Promise<void> | null>(null);
   const lastRefreshStartedRef = useRef(0);
 
@@ -100,6 +108,8 @@ export default function PortfolioPage() {
         setError(null);
         setTrackedBasketCount(0);
         setScannedTokenAccountCount(0);
+        setActivities([]);
+        setSelectedPosition(null);
         return;
       }
 
@@ -164,6 +174,37 @@ export default function PortfolioPage() {
             tokenAccountCount: Number(position.tokenAccountCount || 0),
             registrySource:
               position.registrySource === 'custom' ? 'custom' : 'curated',
+            history: {
+              historyComplete: position.history?.historyComplete === true,
+              activityCount: Number(position.history?.activityCount || 0),
+              lastActivityAt: Number(position.history?.lastActivityAt) || null,
+              indexedShares: Number(position.history?.indexedShares || 0),
+              totalInvestedUsd:
+                position.history?.totalInvestedUsd === null ||
+                position.history?.totalInvestedUsd === undefined
+                  ? null
+                  : Number(position.history.totalInvestedUsd),
+              netCostBasisUsd:
+                position.history?.netCostBasisUsd === null ||
+                position.history?.netCostBasisUsd === undefined
+                  ? null
+                  : Number(position.history.netCostBasisUsd),
+              averageEntryUsd:
+                position.history?.averageEntryUsd === null ||
+                position.history?.averageEntryUsd === undefined
+                  ? null
+                  : Number(position.history.averageEntryUsd),
+              realizedPnlUsd:
+                position.history?.realizedPnlUsd === null ||
+                position.history?.realizedPnlUsd === undefined
+                  ? null
+                  : Number(position.history.realizedPnlUsd),
+              unrealizedPnlUsd:
+                position.history?.unrealizedPnlUsd === null ||
+                position.history?.unrealizedPnlUsd === undefined
+                  ? null
+                  : Number(position.history.unrealizedPnlUsd),
+            },
           }));
 
         setHoldings(hydratedHoldings);
@@ -177,6 +218,13 @@ export default function PortfolioPage() {
         setTrackedBasketCount(Number(payload.trackedBasketCount) || 0);
         setScannedTokenAccountCount(
           Number(payload.scannedTokenAccountCount) || 0
+        );
+        setActivities(Array.isArray(payload.activities) ? payload.activities : []);
+        setActivityHistoryStatus(
+          payload.activityHistoryStatus === 'not_configured' ||
+            payload.activityHistoryStatus === 'unavailable'
+            ? payload.activityHistoryStatus
+            : 'loaded'
         );
       } catch (err: any) {
         setError(err?.message || 'Unable to load basket balances from Solana.');
@@ -377,9 +425,11 @@ export default function PortfolioPage() {
             </section>
 
             <p className="text-xs leading-5 text-ink-tertiary">
-              Marked value is not cost basis or realized/unrealized P&amp;L.
-              Portfolio performance is intentionally not inferred from wallet
-              balances alone.
+              {activityHistoryStatus === 'loaded'
+                ? 'Cost basis and P&L appear only when indexed activity reconciles exactly with the current on-chain share balance. Older or externally transferred positions remain marked as partial history.'
+                : activityHistoryStatus === 'not_configured'
+                ? 'Durable activity storage is not configured, so cost basis and P&L are withheld.'
+                : 'Activity history is temporarily unavailable. Wallet ownership and current marked value remain on-chain sourced.'}
             </p>
 
             {customRegistryStatus !== 'loaded' && (
@@ -442,17 +492,19 @@ export default function PortfolioPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1120px] text-left">
+                  <table className="w-full min-w-[1380px] text-left">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-[10px] uppercase tracking-wider text-ink-tertiary">
                         <th className="px-5 py-3">Basket</th>
                         <th className="px-5 py-3 text-right">Shares owned</th>
                         <th className="px-5 py-3 text-right">Vault NAV</th>
                         <th className="px-5 py-3 text-right">Marked value</th>
+                        <th className="px-5 py-3 text-right">Cost basis</th>
+                        <th className="px-5 py-3 text-right">Unrealized P&amp;L</th>
                         <th className="px-5 py-3 text-right">NAV 24h</th>
                         <th className="px-5 py-3">Valuation data</th>
                         <th className="px-5 py-3 text-right">Execution mint</th>
-                        <th className="px-5 py-3 text-right">Action</th>
+                        <th className="px-5 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -475,6 +527,7 @@ export default function PortfolioPage() {
                               </span>
                             </div>
                           </td>
+
                           <td className="px-5 py-4 text-right">
                             <div className="font-mono text-xs tabular-nums">
                               {holding.shares.toLocaleString(undefined, {
@@ -486,16 +539,50 @@ export default function PortfolioPage() {
                               {holding.tokenAccountCount === 1 ? '' : 's'}
                             </div>
                           </td>
+
                           <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
                             {holding.navUsd === null
                               ? '—'
                               : '$' + holding.navUsd.toFixed(2)}
                           </td>
+
                           <td className="px-5 py-4 text-right font-mono text-xs font-bold tabular-nums">
                             {holding.valueUsd === null
                               ? 'Valuation unavailable'
                               : '$' + formatUsd(holding.valueUsd)}
                           </td>
+
+                          <td className="px-5 py-4 text-right">
+                            <div className="font-mono text-xs font-semibold tabular-nums text-ink-primary">
+                              {holding.history.historyComplete &&
+                              holding.history.netCostBasisUsd !== null
+                                ? '$' + formatUsd(holding.history.netCostBasisUsd)
+                                : '—'}
+                            </div>
+                            {!holding.history.historyComplete && (
+                              <div className="mt-1 text-[10px] text-ink-tertiary">
+                                Partial history
+                              </div>
+                            )}
+                          </td>
+
+                          <td
+                            className={
+                              'px-5 py-4 text-right font-mono text-xs font-bold tabular-nums ' +
+                              (holding.history.unrealizedPnlUsd === null
+                                ? 'text-ink-tertiary'
+                                : holding.history.unrealizedPnlUsd >= 0
+                                ? 'text-brand-primary'
+                                : 'text-semantic-negative')
+                            }
+                          >
+                            {holding.history.unrealizedPnlUsd === null
+                              ? '—'
+                              : (holding.history.unrealizedPnlUsd >= 0 ? '+' : '') +
+                                '$' +
+                                formatUsd(holding.history.unrealizedPnlUsd)}
+                          </td>
+
                           <td
                             className={
                               'px-5 py-4 text-right font-mono text-xs font-bold tabular-nums ' +
@@ -512,6 +599,7 @@ export default function PortfolioPage() {
                                 '%'
                               : '—'}
                           </td>
+
                           <td className="px-5 py-4">
                             {holding.valuationAvailable ? (
                               <div>
@@ -545,6 +633,7 @@ export default function PortfolioPage() {
                               </div>
                             )}
                           </td>
+
                           <td className="px-5 py-4 text-right">
                             <a
                               href={
@@ -561,16 +650,34 @@ export default function PortfolioPage() {
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           </td>
+
                           <td className="px-5 py-4 text-right">
-                            <Link
-                              href={`/app?basket=${encodeURIComponent(
-                                holding.basketId
-                              )}&action=redeem`}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs font-semibold text-ink-primary transition-colors hover:border-brand-primary hover:text-brand-primary"
-                            >
-                              Redeem
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </Link>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPosition(holding)}
+                                className="rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs font-semibold text-ink-primary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                              >
+                                Details
+                              </button>
+                              <Link
+                                href={`/app?basket=${encodeURIComponent(
+                                  holding.basketId
+                                )}&action=mint`}
+                                className="rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs font-semibold text-ink-primary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                              >
+                                Invest
+                              </Link>
+                              <Link
+                                href={`/app?basket=${encodeURIComponent(
+                                  holding.basketId
+                                )}&action=redeem`}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-black transition-opacity hover:opacity-90"
+                              >
+                                Redeem
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -582,6 +689,12 @@ export default function PortfolioPage() {
           </>
         )}
       </div>
+
+      <PositionDetailsModal
+        holding={selectedPosition}
+        activities={activities}
+        onClose={() => setSelectedPosition(null)}
+      />
     </main>
   );
 }

@@ -6,6 +6,11 @@ import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
 import { getDevnetConnection } from '../../../lib/server/devnet_connection';
 import { getBasketSnapshot } from '../../../lib/server/basket_snapshot';
 import { hydrateBaskets } from '../../../lib/services/basket_hydration';
+import { summarizePositionHistory } from '../../../lib/activity';
+import {
+  durableActivityConfigured,
+  readAccountActivities,
+} from '../../../lib/server/activity_store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -139,6 +144,19 @@ export async function GET(request: NextRequest) {
 
     const customIds = new Set(customDefinitions.map((basket) => basket.id));
 
+    let activities: Awaited<ReturnType<typeof readAccountActivities>> = [];
+    let activityHistoryStatus: 'loaded' | 'not_configured' | 'unavailable' =
+      durableActivityConfigured() ? 'loaded' : 'not_configured';
+
+    if (activityHistoryStatus === 'loaded') {
+      try {
+        activities = await readAccountActivities(owner.toBase58(), 200);
+      } catch (activityError) {
+        console.warn('[Portfolio activity history]', activityError);
+        activityHistoryStatus = 'unavailable';
+      }
+    }
+
     const positions = definitions
       .map((definition) => {
         const hydrated = hydratedById.get(definition.id) || definition;
@@ -205,6 +223,17 @@ export async function GET(request: NextRequest) {
         return right.valueUsd - left.valueUsd;
       });
 
+    const positionsWithHistory = positions.map((position) => ({
+      ...position,
+      history: summarizePositionHistory(
+        activities.filter(
+          (activity) => activity.basketId === position.basketId
+        ),
+        position.shares,
+        position.valueUsd
+      ),
+    }));
+
     return NextResponse.json(
       {
         owner: owner.toBase58(),
@@ -213,7 +242,9 @@ export async function GET(request: NextRequest) {
         trackedBasketCount: definitions.length,
         scannedTokenAccountCount: tokenAccounts.value.length,
         customRegistryStatus,
-        positions,
+        activityHistoryStatus,
+        activities,
+        positions: positionsWithHistory,
       },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );

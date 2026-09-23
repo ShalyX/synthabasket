@@ -3,8 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
+import { AccountActivityCenter } from './AccountActivityCenter';
 
 const WalletMultiButtonDynamic = dynamic(
   () => import('@solana/wallet-adapter-react-ui').then((mod) => mod.WalletMultiButton),
@@ -16,6 +18,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
+  const { connected } = useWallet();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const view = searchParams.get('view');
@@ -90,9 +93,13 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
             <span className="capitalize">{network}</span>
           </div>
           <ThemeToggle />
-          <div className="wallet-btn-container">
-            <WalletMultiButtonDynamic />
-          </div>
+          {connected ? (
+            <AccountActivityCenter network={network} />
+          ) : (
+            <div className="wallet-btn-container">
+              <WalletMultiButtonDynamic />
+            </div>
+          )}
         </div>
       </div>
     </header>

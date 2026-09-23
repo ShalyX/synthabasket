@@ -40,6 +40,10 @@ import {
 import { AllocationRouter } from '../../lib/execution/allocation_router';
 import { SynthaBasketVaultClient } from '../../lib/execution/vault_client';
 import { waitForSignatureOutcome } from '../../lib/execution/confirmation';
+import {
+  publishActivityNotification,
+  recordConfirmedActivity,
+} from '../../lib/client/activity';
 
 import { PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
@@ -596,16 +600,18 @@ export default function AppPage() {
         );
       }
 
+      const spentUsdc =
+        afterUsdcBalance === null
+          ? quote.depositUsdcAmount
+          : Math.max(0, beforeUsdcBalance - afterUsdcBalance);
+
       setTxLifecycle((prev) => ({
         ...prev,
         isCompleted: true,
         finalSignature: depositSignature,
         receipt: {
           basketSymbol: basket.symbol,
-          spentUsdc:
-            afterUsdcBalance === null
-              ? undefined
-              : Math.max(0, beforeUsdcBalance - afterUsdcBalance),
+          spentUsdc,
           sharesReceived: depositQuote.expectedBasketTokens,
           resultingShareBalance:
             afterBasketBalance === null ? undefined : afterBasketBalance,
@@ -622,10 +628,30 @@ export default function AppPage() {
         ),
       }));
 
+      void recordConfirmedActivity({
+        owner: publicKey.toBase58(),
+        type: 'invest',
+        basketId: basket.id,
+        basketName: basket.name,
+        basketSymbol: basket.symbol,
+        signature: depositSignature,
+        amountUsd: spentUsdc,
+        sharesDelta: depositQuote.expectedBasketTokens,
+        assets: depositQuote.allocations.map((allocation) => ({
+          symbol: allocation.asset.symbol,
+          amount: allocation.estimatedTokensReceived,
+        })),
+      });
+
       // Refresh from actual provider prices + Solana state rather than
       // incrementing registry/demo numbers locally.
       setHydrationNonce((value) => value + 1);
     } catch (err: any) {
+      publishActivityNotification({
+        kind: 'error',
+        title: 'Investment did not complete',
+        message: 'Review the transaction details before retrying.',
+      });
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
@@ -893,10 +919,32 @@ export default function AppPage() {
         ),
       }));
 
+      void recordConfirmedActivity({
+        owner: publicKey.toBase58(),
+        type: 'redeem',
+        basketId: basket.id,
+        basketName: basket.name,
+        basketSymbol: basket.symbol,
+        signature,
+        amountUsd: executionRedeemQuote.expectedUsdcValue,
+        sharesDelta: -executionRedeemQuote.burnBasketTokensAmount,
+        assets:
+          assetsReturned ||
+          executionRedeemQuote.constituentsToReturn.map((item) => ({
+            symbol: item.asset.symbol,
+            amount: item.tokenAmount,
+          })),
+      });
+
       // Re-read the vault after settlement so the UI reflects actual reserves
       // and SPL supply rather than an estimated local subtraction.
       setHydrationNonce((value) => value + 1);
     } catch (err: any) {
+      publishActivityNotification({
+        kind: 'error',
+        title: 'Redemption did not complete',
+        message: 'Review the transaction details before retrying.',
+      });
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
@@ -1305,9 +1353,26 @@ export default function AppPage() {
         ),
       }));
 
+      if (initSignature) {
+        void recordConfirmedActivity({
+          owner: publicKey.toBase58(),
+          type: 'create_basket',
+          basketId: registeredBasket.id,
+          basketName: registeredBasket.name,
+          basketSymbol: registeredBasket.symbol,
+          signature: initSignature,
+          sharesDelta: 0,
+        });
+      }
+
       setHydrationNonce((value) => value + 1);
       router.push('/app');
     } catch (err: any) {
+      publishActivityNotification({
+        kind: 'error',
+        title: 'Basket deployment did not complete',
+        message: 'Review the deployment steps before retrying.',
+      });
       setTxLifecycle((prev) => ({
         ...prev,
         hasError: true,
