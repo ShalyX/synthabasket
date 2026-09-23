@@ -5,6 +5,7 @@ import { BasketDefinition } from '../../../lib/types';
 import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
 import { getDevnetConnection } from '../../../lib/server/devnet_connection';
 import { getBasketSnapshot } from '../../../lib/server/basket_snapshot';
+import { hydrateBaskets } from '../../../lib/services/basket_hydration';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -101,6 +102,40 @@ export async function GET(request: NextRequest) {
     );
     const walletBalances = aggregateWalletTokenBalances(tokenAccounts);
     const vaultClient = new SynthaBasketVaultClient(connection);
+
+    // A wallet balance can become visible before the shared basket snapshot
+    // refreshes after settlement. Freshen only owned baskets that would
+    // otherwise render as unpriced; do not rehydrate the whole registry.
+    const ownedUnpricedDefinitions = definitions.filter((definition) => {
+      const executionSymbol =
+        definition.devnetExecutionSymbol || definition.symbol + 'D';
+      const [executionMint] =
+        vaultClient.getBasketMintPda(executionSymbol);
+      const walletBalance = walletBalances.get(
+        executionMint.toBase58()
+      );
+      if (!walletBalance || walletBalance.rawAmount <= 0n) return false;
+
+      const hydrated =
+        hydratedById.get(definition.id) || definition;
+      return !(
+        hydrated.onChainStateLoaded === true &&
+        hydrated.navSource === 'onchain_reserves' &&
+        Number.isFinite(hydrated.navUsd)
+      );
+    });
+
+    if (ownedUnpricedDefinitions.length > 0) {
+      const refreshedOwned = await hydrateBaskets(
+        connection,
+        ownedUnpricedDefinitions,
+        snapshot.assets,
+        true
+      );
+      for (const refreshed of refreshedOwned) {
+        hydratedById.set(refreshed.id, refreshed);
+      }
+    }
 
     const customIds = new Set(customDefinitions.map((basket) => basket.id));
 

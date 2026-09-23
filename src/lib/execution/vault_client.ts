@@ -176,56 +176,93 @@ export class SynthaBasketVaultClient {
    * Verifies the live on-chain basket state before a user is asked to deposit.
    * This prevents the UI from treating a derived PDA or stale registry entry as custody proof.
    */
-  async verifyBasketExecutionState(
+  private async readVerifiedBasketExecutionState(
     basket: BasketDefinition,
     useDevnetMirrors: boolean = false
-  ): Promise<void> {
-    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
+  ): Promise<{
+    executionSymbol: string;
+    basketPda: PublicKey;
+    basketMint: PublicKey;
+    decoded: any;
+  }> {
+    const executionSymbol = this.getExecutionSymbol(
+      basket,
+      useDevnetMirrors
+    );
     const [basketPda] = this.getBasketPda(executionSymbol);
     const [basketMint] = this.getBasketMintPda(executionSymbol);
 
     if (!useDevnetMirrors) {
       if (basketPda.toBase58() !== basket.vaultPda) {
-        throw new Error(`Registry vault PDA mismatch for ${basket.symbol}.`);
+        throw new Error(
+          `Registry vault PDA mismatch for ${basket.symbol}.`
+        );
       }
       if (basketMint.toBase58() !== basket.basketMint) {
-        throw new Error(`Registry basket mint mismatch for ${basket.symbol}.`);
+        throw new Error(
+          `Registry basket mint mismatch for ${basket.symbol}.`
+        );
       }
     }
 
-    const basketInfo = await this.connection.getAccountInfo(basketPda, 'confirmed');
+    // Read the basket account and share mint in one RPC round-trip. This is
+    // the hot hydration path used by Baskets/Portfolio, so avoid separate
+    // account calls that multiply Devnet 429 pressure.
+    const [basketInfo, mintInfo] =
+      await this.connection.getMultipleAccountsInfo(
+        [basketPda, basketMint],
+        'confirmed'
+      );
+
     if (!basketInfo) {
-      throw new Error(`Basket vault ${basket.symbol} (${executionSymbol}) is not initialized on the connected cluster.`);
+      throw new Error(
+        `Basket vault ${basket.symbol} (${executionSymbol}) is not initialized on the connected cluster.`
+      );
     }
     if (!basketInfo.owner.equals(this.programId)) {
-      throw new Error(`Basket vault ${basket.symbol} (${executionSymbol}) is not owned by the SynthaBasket program.`);
+      throw new Error(
+        `Basket vault ${basket.symbol} (${executionSymbol}) is not owned by the SynthaBasket program.`
+      );
     }
-
-    const mintInfo = await this.connection.getAccountInfo(basketMint, 'confirmed');
     if (!mintInfo || !mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-      throw new Error(`Basket mint ${basket.symbol} is not initialized as an SPL mint on this cluster.`);
+      throw new Error(
+        `Basket mint ${basket.symbol} is not initialized as an SPL mint on this cluster.`
+      );
     }
 
     let decoded: any;
     try {
-      decoded = this.accountsCoder.decode('BasketState', basketInfo.data);
+      decoded = this.accountsCoder.decode(
+        'BasketState',
+        basketInfo.data
+      );
     } catch {
-      throw new Error(`Unable to decode live basket state for ${basket.symbol}; IDL/program version mismatch.`);
+      throw new Error(
+        `Unable to decode live basket state for ${basket.symbol}; IDL/program version mismatch.`
+      );
     }
 
-    const onChainBasketMint = new PublicKey(decoded.basketMint).toBase58();
+    const onChainBasketMint = new PublicKey(
+      decoded.basketMint
+    ).toBase58();
     if (onChainBasketMint !== basketMint.toBase58()) {
-      throw new Error(`On-chain basket mint does not match the registry for ${basket.symbol}.`);
+      throw new Error(
+        `On-chain basket mint does not match the registry for ${basket.symbol}.`
+      );
     }
 
     const onChainSymbol = String(decoded.symbol || '').toUpperCase();
     if (onChainSymbol !== executionSymbol.toUpperCase()) {
-      throw new Error(`On-chain basket symbol does not match ${executionSymbol}.`);
+      throw new Error(
+        `On-chain basket symbol does not match ${executionSymbol}.`
+      );
     }
 
     const expectedName = basket.name.slice(0, 32);
     if (String(decoded.name || '') !== expectedName) {
-      throw new Error(`On-chain basket name does not match the submitted definition for ${basket.symbol}.`);
+      throw new Error(
+        `On-chain basket name does not match the submitted definition for ${basket.symbol}.`
+      );
     }
 
     const onChainWeights = Array.isArray(decoded.weightsBps)
@@ -237,37 +274,63 @@ export class SynthaBasketVaultClient {
 
     if (
       onChainWeights.length !== expectedWeights.length ||
-      onChainWeights.some((weight: number, index: number) => weight !== expectedWeights[index])
+      onChainWeights.some(
+        (weight: number, index: number) =>
+          weight !== expectedWeights[index]
+      )
     ) {
       throw new Error(
         `On-chain target weights for ${basket.symbol} do not match the submitted definition.`
       );
     }
 
-    const expectedConstituents = basket.constituents.map((constituent) => {
-      const mint = useDevnetMirrors
-        ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
-        : constituent.asset.tokenMint;
-      if (!mint) {
-        throw new Error(`No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`);
+    const expectedConstituents = basket.constituents.map(
+      (constituent) => {
+        const mint = useDevnetMirrors
+          ? constituent.asset.devnetMint ||
+            getDevnetMirrorMint(constituent.asset.symbol)
+          : constituent.asset.tokenMint;
+        if (!mint) {
+          throw new Error(
+            `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`
+          );
+        }
+        return new PublicKey(mint).toBase58();
       }
-      return new PublicKey(mint).toBase58();
-    });
-
-    const onChainConstituents = (decoded.constituents as PublicKey[]).map((mint) =>
-      new PublicKey(mint).toBase58()
     );
+
+    const onChainConstituents = (
+      decoded.constituents as PublicKey[]
+    ).map((mint) => new PublicKey(mint).toBase58());
 
     if (
       onChainConstituents.length !== expectedConstituents.length ||
-      onChainConstituents.some((mint, index) => mint !== expectedConstituents[index])
+      onChainConstituents.some(
+        (mint, index) => mint !== expectedConstituents[index]
+      )
     ) {
       throw new Error(
         `On-chain constituent configuration for ${basket.symbol} does not match the active execution mints.`
       );
     }
+
+    return {
+      executionSymbol,
+      basketPda,
+      basketMint,
+      decoded,
+    };
   }
 
+  async verifyBasketExecutionState(
+    basket: BasketDefinition,
+    useDevnetMirrors: boolean = false
+  ): Promise<void> {
+    await this.readVerifiedBasketExecutionState(
+      basket,
+      useDevnetMirrors
+    );
+  }
 
   async getBasketAuthorityByExecutionSymbol(
     executionSymbol: string
@@ -333,28 +396,53 @@ export class SynthaBasketVaultClient {
   /**
    * Hydrates the execution basket from live Solana state.
    *
-   * Supply is read from the SPL basket mint and reserve balances are read from
-   * the vault's actual token accounts. Registry AUM/share counts are never
-   * substituted when this method succeeds.
+   * Supply and reserve accounting are read from the verified BasketState,
+   * which the program updates atomically with mint/redeem token transfers.
+   * Registry AUM/share counts are never substituted when this method succeeds.
    */
   async getBasketExecutionSnapshot(
     basket: BasketDefinition,
     useDevnetMirrors: boolean = false
   ): Promise<BasketExecutionSnapshot> {
-    await this.verifyBasketExecutionState(basket, useDevnetMirrors);
+    const {
+      executionSymbol,
+      basketPda,
+      basketMint,
+      decoded,
+    } = await this.readVerifiedBasketExecutionState(
+      basket,
+      useDevnetMirrors
+    );
 
-    const executionSymbol = this.getExecutionSymbol(basket, useDevnetMirrors);
-    const [basketPda] = this.getBasketPda(executionSymbol);
-    const [basketMint] = this.getBasketMintPda(executionSymbol);
+    // BasketState is updated atomically by deposit_and_mint /
+    // burn_and_redeem in the same transaction as the token CPIs. For
+    // read-only NAV hydration, use those program-accounted reserves instead
+    // of issuing one getTokenAccountBalance RPC per constituent.
+    const rawReserves = Array.isArray(decoded.vaultReserves)
+      ? decoded.vaultReserves.map((value: any) =>
+          BigInt(value.toString())
+        )
+      : [];
 
-    const basketMintInfo = await getMint(this.connection, basketMint, 'confirmed');
+    if (rawReserves.length !== basket.constituents.length) {
+      throw new Error(
+        `Live vault reserve count does not match ${basket.symbol} constituents.`
+      );
+    }
+
+    const totalSharesRaw = BigInt(
+      decoded.totalSharesMinted.toString()
+    );
+    const basketDecimals = 6;
     const totalSharesMinted =
-      Number(basketMintInfo.supply) / 10 ** basketMintInfo.decimals;
+      Number(totalSharesRaw) / 10 ** basketDecimals;
 
     const reserves: BasketExecutionSnapshot['reserves'] = [];
-    for (const constituent of basket.constituents) {
+    for (let index = 0; index < basket.constituents.length; index += 1) {
+      const constituent = basket.constituents[index];
       const executionMint = useDevnetMirrors
-        ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
+        ? constituent.asset.devnetMint ||
+          getDevnetMirrorMint(constituent.asset.symbol)
         : constituent.asset.tokenMint;
 
       if (!executionMint) {
@@ -364,15 +452,17 @@ export class SynthaBasketVaultClient {
       }
 
       const mint = new PublicKey(executionMint);
-      const decimals = await this.getMintDecimals(mint);
-      const vaultAta = this.getVaultTokenAccount(basketPda, mint);
-      const balance = await this.readTokenAccountBalance(vaultAta);
-      const rawAmount = balance.amount;
+      // Every SynthaBasket Devnet execution mirror is created with 6
+      // decimals. Mainnet/non-mirror reads retain strict mint lookup.
+      const decimals = useDevnetMirrors
+        ? 6
+        : await this.getMintDecimals(mint);
+      const rawAmount = rawReserves[index];
 
       reserves.push({
         symbol: constituent.asset.symbol,
         mint: mint.toBase58(),
-        rawAmount,
+        rawAmount: rawAmount.toString(),
         uiAmount: Number(rawAmount) / 10 ** decimals,
         decimals,
       });

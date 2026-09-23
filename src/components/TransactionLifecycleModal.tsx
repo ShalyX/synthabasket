@@ -26,8 +26,8 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-xl border border-border bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-4">
           <h3 className="text-sm font-semibold text-ink-primary">{state.title}</h3>
           {(state.isCompleted || state.hasError || state.hasPendingConfirmation) && (
             <button
@@ -113,11 +113,11 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
                   )}
 
                   {step.statusMessage && (
-                    <p className="mt-2 text-xs leading-5 text-amber-300">{step.statusMessage}</p>
+                    <p className="mt-2 break-words text-xs leading-5 text-amber-300">{step.statusMessage}</p>
                   )}
 
                   {step.error && (
-                    <p className="mt-2 text-xs leading-5 text-semantic-negative">{step.error}</p>
+                    <p className="mt-2 break-words text-xs leading-5 text-semantic-negative">{step.error}</p>
                   )}
                 </div>
               </div>
