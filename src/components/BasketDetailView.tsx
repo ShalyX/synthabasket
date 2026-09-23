@@ -450,6 +450,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close basket details"
             className="rounded-md p-1.5 text-ink-tertiary transition-colors hover:bg-surface-elevated hover:text-ink-primary"

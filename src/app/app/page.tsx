@@ -89,6 +89,7 @@ export default function AppPage() {
   // Selected Basket Modal
   const [selectedBasket, setSelectedBasket] = useState<BasketDefinition | null>(null);
   const [detailInitialTab, setDetailInitialTab] = useState<'mint' | 'redeem' | 'inspect'>('mint');
+  const basketRouteClosingRef = useRef(false);
 
   // Transaction Lifecycle Modal State
   const [txLifecycle, setTxLifecycle] = useState<TxLifecycleState>({
@@ -205,6 +206,9 @@ export default function AppPage() {
   }, [activeTab, hydrationNonce]);
 
   const clearBasketRoute = () => {
+    // Closing local modal state happens before Next updates useSearchParams.
+    // Suppress route-driven reopening during that transition.
+    basketRouteClosingRef.current = true;
     const params = new URLSearchParams(searchParams.toString());
     params.delete('basket');
     params.delete('action');
@@ -216,6 +220,7 @@ export default function AppPage() {
     basket: BasketDefinition,
     mode: 'mint' | 'redeem' | 'inspect'
   ) => {
+    basketRouteClosingRef.current = false;
     setSelectedBasket(basket);
     setDetailInitialTab(mode);
 
@@ -227,9 +232,14 @@ export default function AppPage() {
   };
 
   useEffect(() => {
+    if (!requestedBasket) {
+      basketRouteClosingRef.current = false;
+      return;
+    }
+
     if (
+      basketRouteClosingRef.current ||
       activeTab !== 'baskets' ||
-      !requestedBasket ||
       baskets.length === 0
     ) {
       return;
