@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { INITIAL_BASKETS } from '../../../lib/data/registry';
 import { BasketDefinition } from '../../../lib/types';
-import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
-import { hydrateBaskets } from '../../../lib/services/basket_hydration';
 import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
-import {
-  durableCustomBasketRegistryConfigured,
-  readCustomBasketDefinitions,
-} from '../../../lib/server/custom_basket_store';
+import { getDevnetConnection } from '../../../lib/server/devnet_connection';
+import { getBasketSnapshot } from '../../../lib/server/basket_snapshot';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,30 +14,6 @@ type WalletMintBalance = {
   decimals: number;
   accountCount: number;
 };
-
-function getDevnetConnection(): Connection {
-  return new Connection(
-    process.env.SOLANA_DEVNET_RPC_URL ||
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-      'https://api.devnet.solana.com',
-    'confirmed'
-  );
-}
-
-function mergeBasketDefinitions(
-  customDefinitions: BasketDefinition[]
-): BasketDefinition[] {
-  const reservedSymbols = new Set(
-    INITIAL_BASKETS.map((basket) => basket.symbol.toUpperCase())
-  );
-
-  return [
-    ...INITIAL_BASKETS,
-    ...customDefinitions.filter(
-      (basket) => !reservedSymbols.has(basket.symbol.toUpperCase())
-    ),
-  ];
-}
 
 function aggregateWalletTokenBalances(
   tokenAccounts: Awaited<ReturnType<Connection['getParsedTokenAccountsByOwner']>>
@@ -105,32 +76,16 @@ export async function GET(request: NextRequest) {
     }
 
     const connection = getDevnetConnection();
-    const assets = await getUnifiedAssetQuotes('multi');
-
-    const customRegistryConfigured = durableCustomBasketRegistryConfigured();
-    let customRegistryStatus: 'loaded' | 'not_configured' | 'unavailable' =
-      customRegistryConfigured ? 'loaded' : 'not_configured';
-    let customDefinitions: BasketDefinition[] = [];
-
-    if (customRegistryConfigured) {
-      try {
-        customDefinitions = await readCustomBasketDefinitions(assets);
-      } catch (error) {
-        customRegistryStatus = 'unavailable';
-        console.warn(
-          '[Portfolio API] Custom basket registry could not be read.',
-          error
-        );
-      }
-    }
-
-    const definitions = mergeBasketDefinitions(customDefinitions);
-    const hydratedBaskets = await hydrateBaskets(
-      connection,
+    // Portfolio ownership is scanned from the wallet every 30s, while
+    // wallet-independent vault state can safely be reused for up to 60s.
+    // This avoids re-reading every basket reserve on every portfolio tick.
+    const snapshot = await getBasketSnapshot({ maxAgeMs: 60_000 });
+    const {
       definitions,
-      assets,
-      true
-    );
+      customDefinitions,
+      baskets: hydratedBaskets,
+      customRegistryStatus,
+    } = snapshot;
     const hydratedById = new Map(
       hydratedBaskets.map((basket) => [basket.id, basket])
     );

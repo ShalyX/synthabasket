@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { Connection } from '@solana/web3.js';
 import { INITIAL_BASKETS } from '../../../lib/data/registry';
 import { BasketDefinition } from '../../../lib/types';
 import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
 import { hydrateBaskets } from '../../../lib/services/basket_hydration';
 import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
-import { recordDurableNavHistory } from '../../../lib/server/nav_history_store';
-import { recordDurableMarketHistory } from '../../../lib/server/market_history_store';
 import { getRedisRestConfigResult } from '../../../lib/server/redis_config';
+import { getDevnetConnection } from '../../../lib/server/devnet_connection';
+import { getBasketSnapshot, getStaleBasketSnapshot } from '../../../lib/server/basket_snapshot';
 import {
   durableCustomBasketRegistryConfigured,
   readCustomBasketDefinitions,
@@ -17,129 +16,27 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function getDevnetConnection(): Connection {
-  return new Connection(
-    process.env.SOLANA_DEVNET_RPC_URL ||
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-      'https://api.devnet.solana.com',
-    'confirmed'
-  );
-}
-
-type BasketPayload = {
-  generatedAt: number;
-  network: 'devnet';
-  assets: Awaited<ReturnType<typeof getUnifiedAssetQuotes>>;
-  baskets: BasketDefinition[];
-  durableHistory: boolean;
-  durableMarketHistory: boolean;
-  customRegistryConfigured: boolean;
-  durableStorageStatus: ReturnType<typeof getRedisRestConfigResult>['status'];
-};
-
-const BASKET_SNAPSHOT_TTL_MS = 15_000;
-let basketSnapshotCache:
-  | { payload: BasketPayload; expiresAt: number }
-  | null = null;
-let basketSnapshotInFlight: Promise<BasketPayload> | null = null;
-
-async function buildBasketPayload(): Promise<BasketPayload> {
-  const connection = getDevnetConnection();
-  const assets = await getUnifiedAssetQuotes('multi');
-
-  let customDefinitions: BasketDefinition[] = [];
-  try {
-    customDefinitions = await readCustomBasketDefinitions(assets);
-  } catch (error) {
-    console.warn(
-      '[Basket hydration] Durable custom basket registry read failed.',
-      error
-    );
-  }
-
-  const reservedSymbols = new Set(
-    INITIAL_BASKETS.map((basket) => basket.symbol.toUpperCase())
-  );
-  const definitions = [
-    ...INITIAL_BASKETS,
-    ...customDefinitions.filter(
-      (basket) => !reservedSymbols.has(basket.symbol.toUpperCase())
-    ),
-  ];
-
-  const baskets = await hydrateBaskets(connection, definitions, assets, true);
-
-  const generatedAt = Date.now();
-  let durableHistory = false;
-  let durableMarketHistory = false;
-
-  try {
-    durableHistory = await recordDurableNavHistory(baskets, generatedAt);
-  } catch {
-    console.warn('[Basket hydration] Durable NAV history write failed.');
-  }
-
-  try {
-    durableMarketHistory = await recordDurableMarketHistory(assets, generatedAt);
-  } catch {
-    console.warn('[Basket hydration] Durable market history write failed.');
-  }
-
-  const redisStatus = getRedisRestConfigResult();
-
-  return {
-    generatedAt,
-    network: 'devnet',
-    assets,
-    baskets,
-    durableHistory,
-    durableMarketHistory,
-    customRegistryConfigured: durableCustomBasketRegistryConfigured(),
-    durableStorageStatus: redisStatus.status,
-  };
-}
-
-async function getBasketPayload(): Promise<BasketPayload> {
-  const now = Date.now();
-  if (basketSnapshotCache && basketSnapshotCache.expiresAt > now) {
-    return basketSnapshotCache.payload;
-  }
-
-  if (!basketSnapshotInFlight) {
-    basketSnapshotInFlight = buildBasketPayload()
-      .then((payload) => {
-        basketSnapshotCache = {
-          payload,
-          expiresAt: Date.now() + BASKET_SNAPSHOT_TTL_MS,
-        };
-        return payload;
-      })
-      .finally(() => {
-        basketSnapshotInFlight = null;
-      });
-  }
-
-  return basketSnapshotInFlight;
-}
-
 export async function GET() {
   try {
-    const payload = await getBasketPayload();
+    const snapshot = await getBasketSnapshot();
+    const { definitions, customDefinitions, customRegistryStatus, ...payload } =
+      snapshot;
+
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
+        'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=30',
       },
     });
   } catch (error: any) {
-    // If a warm function has a previous good snapshot, prefer visibly stale
-    // market data over blanking the entire marketplace on a transient provider
-    // or RPC failure. generatedAt remains unchanged so the UI shows its age.
-    if (basketSnapshotCache?.payload) {
+    const stale = getStaleBasketSnapshot();
+    if (stale) {
+      const { definitions, customDefinitions, customRegistryStatus, ...payload } =
+        stale;
       return NextResponse.json(
-        { ...basketSnapshotCache.payload, stale: true },
+        { ...payload, stale: true },
         {
           headers: {
-            'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30',
+            'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
             'X-SynthaBasket-Stale': '1',
           },
         }

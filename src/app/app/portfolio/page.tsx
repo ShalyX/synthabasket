@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -84,9 +85,15 @@ export default function PortfolioPage() {
     useState<CustomRegistryStatus>('loaded');
   const [trackedBasketCount, setTrackedBasketCount] = useState(0);
   const [scannedTokenAccountCount, setScannedTokenAccountCount] = useState(0);
+  const requestInFlightRef = useRef<Promise<void> | null>(null);
+  const lastRefreshStartedRef = useRef(0);
 
   const loadPortfolio = useCallback(
     async (silent = false) => {
+      if (requestInFlightRef.current) {
+        return requestInFlightRef.current;
+      }
+
       if (!owner) {
         setHoldings([]);
         setLastUpdated(null);
@@ -102,7 +109,9 @@ export default function PortfolioPage() {
         setLoading(true);
       }
       setError(null);
+      lastRefreshStartedRef.current = Date.now();
 
+      const request = (async () => {
       try {
         const response = await fetch(
           '/api/portfolio?owner=' + encodeURIComponent(owner),
@@ -175,6 +184,16 @@ export default function PortfolioPage() {
         setLoading(false);
         setRefreshing(false);
       }
+      })();
+
+      requestInFlightRef.current = request;
+      try {
+        await request;
+      } finally {
+        if (requestInFlightRef.current === request) {
+          requestInFlightRef.current = null;
+        }
+      }
     },
     [owner]
   );
@@ -186,15 +205,13 @@ export default function PortfolioPage() {
     }
 
     const refreshIfActive = () => {
-      if (document.visibilityState === 'visible') {
-        void loadPortfolio(true);
-      }
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastRefreshStartedRef.current < 5_000) return;
+      void loadPortfolio(true);
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void loadPortfolio(true);
-      }
+      if (document.visibilityState === 'visible') refreshIfActive();
     };
 
     void loadPortfolio(false);
@@ -213,7 +230,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     const intervalId = window.setInterval(
       () => setFreshnessNow(Date.now()),
-      5_000
+      15_000
     );
     return () => window.clearInterval(intervalId);
   }, []);

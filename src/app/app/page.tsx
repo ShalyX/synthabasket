@@ -1,13 +1,26 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { Navbar } from '../../components/Navbar';
 import { BasketDetailView } from '../../components/BasketDetailView';
 import { CreateBasketStudio } from '../../components/CreateBasketStudio';
-import { BasisMonitor } from '../../components/BasisMonitor';
 import { TransactionLifecycleModal } from '../../components/TransactionLifecycleModal';
+
+const BasisMonitor = dynamic(
+  () =>
+    import('../../components/BasisMonitor').then((module) => module.BasisMonitor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-[420px] items-center justify-center text-sm text-ink-secondary">
+        Loading market analytics…
+      </div>
+    ),
+  }
+);
 
 import {
   AssetQuote,
@@ -58,6 +71,7 @@ export default function AppPage() {
   const [freshnessNow, setFreshnessNow] = useState<number>(() => Date.now());
   const [navHistory, setNavHistory] = useState<NavHistoryByBasket>({});
   const hasHydratedMarketplaceRef = useRef(false);
+  const lastMarketplaceRefreshRef = useRef(0);
 
   // Category filter for the basket cards
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -83,7 +97,7 @@ export default function AppPage() {
   }, []);
 
   useEffect(() => {
-    const id = window.setInterval(() => setFreshnessNow(Date.now()), 5_000);
+    const id = window.setInterval(() => setFreshnessNow(Date.now()), 15_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -100,28 +114,44 @@ export default function AppPage() {
       requestInFlight = true;
 
       try {
-        const response = await fetch('/api/baskets', { cache: 'no-store' });
+        const marketOnly = activeTab === 'basis_monitor';
+        const response = await fetch(
+          marketOnly ? '/api/market-data' : '/api/baskets',
+          { cache: 'no-store' }
+        );
         if (!response.ok) {
-          throw new Error(`Basket hydration request failed with HTTP ${response.status}.`);
+          throw new Error(
+            `${marketOnly ? 'Market data' : 'Basket hydration'} request failed with HTTP ${response.status}.`
+          );
         }
 
         const payload = await response.json();
-        const quotes: AssetQuote[] = Array.isArray(payload.assets) ? payload.assets : [];
+        const quotes: AssetQuote[] = Array.isArray(payload.assets)
+          ? payload.assets
+          : [];
         const hydrated: BasketDefinition[] = Array.isArray(payload.baskets)
           ? payload.baskets
           : [];
 
-        if (quotes.length === 0 || hydrated.length === 0) {
-          throw new Error('Hydrated basket response was incomplete.');
+        if (quotes.length === 0 || (!marketOnly && hydrated.length === 0)) {
+          throw new Error(
+            marketOnly
+              ? 'Market data response was incomplete.'
+              : 'Hydrated basket response was incomplete.'
+          );
         }
 
         if (cancelled) return;
         setAvailableAssets(quotes);
         setBasisItems(generateBasisMonitoringLedger(quotes));
-        setBaskets(hydrated);
-        setCustomRegistryConfigured(payload.customRegistryConfigured === true);
+
+        if (!marketOnly) {
+          setBaskets(hydrated);
+          setCustomRegistryConfigured(payload.customRegistryConfigured === true);
+          setNavHistory(recordBasketNavHistory(hydrated));
+        }
+
         setLastHydratedAt(Number(payload.generatedAt) || Date.now());
-        setNavHistory(recordBasketNavHistory(hydrated));
         hasHydratedMarketplaceRef.current = true;
         setMarketplaceStatus('ready');
       } catch (error) {
@@ -135,17 +165,19 @@ export default function AppPage() {
     }
 
     const refreshIfActive = () => {
-      if (document.visibilityState === 'visible') {
-        void hydrateMarketplace();
-      }
+      if (document.visibilityState !== 'visible') return;
+
+      const now = Date.now();
+      if (now - lastMarketplaceRefreshRef.current < 5_000) return;
+      lastMarketplaceRefreshRef.current = now;
+      void hydrateMarketplace();
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void hydrateMarketplace();
-      }
+      if (document.visibilityState === 'visible') refreshIfActive();
     };
 
+    lastMarketplaceRefreshRef.current = Date.now();
     void hydrateMarketplace();
 
     const intervalId = window.setInterval(refreshIfActive, 30_000);
@@ -158,7 +190,7 @@ export default function AppPage() {
       window.removeEventListener('focus', refreshIfActive);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [hydrationNonce]);
+  }, [activeTab, hydrationNonce]);
 
   const handleSelectBasket = (basket: BasketDefinition, mode: 'mint' | 'redeem' | 'inspect') => {
     setSelectedBasket(basket);
