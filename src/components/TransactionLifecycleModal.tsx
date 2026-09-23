@@ -31,8 +31,8 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
         state.receipt.resultingShareBalance <= 0.000001));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 sm:p-4">
-      <div className="relative h-[100dvh] max-h-[100dvh] w-full max-w-lg overflow-y-auto overscroll-contain border border-border bg-surface shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 backdrop-blur-sm sm:p-4">
+      <div className="relative h-[100dvh] max-h-[100dvh] w-full max-w-lg overflow-y-auto overscroll-contain bg-surface shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl sm:border sm:border-border">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-4">
           <h3 className="text-sm font-semibold text-ink-primary">{state.title}</h3>
           {(state.isCompleted || state.hasError || state.hasPendingConfirmation) && (
@@ -167,7 +167,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
         )}
 
         {state.isCompleted && (
-          <div className="border-t border-border px-5 py-5">
+          <div className="border-t border-border px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             <div>
               <p className="text-base font-semibold text-ink-primary">
                 {state.actionType === 'redeem'
@@ -296,7 +296,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
             )}
 
             {state.actionType === 'mint' || state.actionType === 'redeem' ? (
-              <div className="mt-5 flex gap-2">
+              <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                 <a
                   href="/app/portfolio"
                   className="flex-1 rounded-lg bg-brand-primary py-2.5 text-center text-sm font-semibold text-black transition-opacity hover:opacity-95"
@@ -322,7 +322,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
         )}
 
         {state.hasError && (
-          <div className="flex gap-3 border-t border-border px-5 py-4">
+          <div className="grid grid-cols-1 gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[1fr_auto]">
             {onRetry && (
               <button
                 onClick={onRetry}

@@ -6,7 +6,6 @@ import {
   Lock,
   ShieldCheck,
   Zap,
-  Bell,
 } from 'lucide-react';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ScrollReveal } from '../components/ScrollReveal';
@@ -27,7 +26,7 @@ export default function Home() {
                 <path d="M2 17L12 22L22 17" className="stroke-emerald-400 stroke-[1.75]" />
               </svg>
             </div>
-            <span className="text-base font-extrabold tracking-tight text-ink-primary">SYNTHABASKET</span>
+            <span className="hidden text-base font-extrabold tracking-tight text-ink-primary sm:inline">SYNTHABASKET</span>
           </Link>
 
           <nav className="hidden items-center gap-10 text-xs font-semibold text-ink-secondary md:flex">
@@ -38,18 +37,9 @@ export default function Home() {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button
-              type="button"
-              aria-label="Notifications"
-              title="Notifications"
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-ink-secondary transition-colors hover:border-brand-primary hover:text-ink-primary"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand-primary ring-2 ring-background" />
-            </button>
             <Link
               href="/app"
-              className="inline-flex items-center gap-2 rounded-full bg-brand-primary px-5 py-2.5 text-xs font-bold text-black transition-transform hover:scale-[1.02]"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-3.5 py-2.5 text-xs font-bold text-black transition-transform hover:scale-[1.02] sm:px-5"
             >
               Launch App
               <ArrowRight className="h-3.5 w-3.5" />
@@ -63,7 +53,7 @@ export default function Home() {
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-brand-primary">
             DIVERSIFY EARLY. OWN THE FUTURE.
           </span>
-          <h1 className="max-w-5xl text-5xl font-extrabold leading-[1.03] tracking-[-0.04em] text-ink-primary sm:text-6xl">
+          <h1 className="max-w-5xl text-4xl font-extrabold leading-[1.03] tracking-[-0.04em] text-ink-primary sm:text-6xl">
             <span className="block md:whitespace-nowrap">Tokenized Private Markets.</span>
             <span className="block text-brand-primary">In One Basket.</span>
           </h1>
@@ -88,7 +78,7 @@ export default function Home() {
         </div>
 
         <div className="lg:col-span-5 flex items-center justify-center lg:justify-end">
-          <div className="group/globe relative flex h-[460px] w-[460px] cursor-default items-center justify-center sm:h-[540px] sm:w-[540px] xl:h-[620px] xl:w-[620px]">
+          <div className="group/globe relative flex h-[88vw] w-[88vw] max-h-[460px] max-w-[460px] cursor-default items-center justify-center sm:h-[540px] sm:w-[540px] sm:max-h-none sm:max-w-none xl:h-[620px] xl:w-[620px]">
             <div className="absolute inset-[10%] rounded-full bg-brand-primary/10 blur-3xl transition-all duration-700 group-hover/globe:scale-110 group-hover/globe:bg-brand-primary/20" />
             <div className="absolute inset-[4%] rounded-full border border-brand-primary/10 transition-all duration-700 group-hover/globe:rotate-6 group-hover/globe:border-brand-primary/30" />
             <div className="absolute inset-[14%] rounded-full border border-brand-primary/15 transition-all duration-700 group-hover/globe:-rotate-6 group-hover/globe:border-brand-primary/30" />

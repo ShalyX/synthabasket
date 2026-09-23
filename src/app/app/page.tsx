@@ -1487,7 +1487,7 @@ export default function AppPage() {
     <main className="flex-1 pb-16 font-sans">
       <Navbar network={network} />
 
-      <div className="mx-auto max-w-[1440px] space-y-12 px-4 pt-10 sm:px-6 sm:pt-12 lg:px-8">
+      <div className="mx-auto max-w-[1440px] space-y-10 px-4 pt-6 sm:px-6 sm:pt-10 lg:px-8">
 
         {/* ========================================================================= */}
         {/* TAB 1: MAIN HOMEPAGE / BASKETS MARKETPLACE (MATCHING REFERENCE DESIGN) */}
@@ -1522,7 +1522,7 @@ export default function AppPage() {
             <div id="baskets-grid" className="space-y-4 pt-4">
               {/* Category Filter Pills & Search matching reference */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-6">
+                <div className="-mx-4 flex items-center gap-5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
                   {['all', 'ai', 'space_defense', 'fintech', 'custom'].map((cat) => {
                     const active = selectedCategory === cat;
                     return (
@@ -1542,15 +1542,15 @@ export default function AppPage() {
                   })}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="relative">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <div className="relative w-full sm:w-auto">
                     <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-tertiary" />
                     <input
                       type="text"
                       placeholder="Search baskets"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-full border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-ink-primary placeholder-ink-tertiary focus:border-brand-primary focus:outline-none sm:w-64"
+                      className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-xs text-ink-primary shadow-sm placeholder-ink-tertiary focus:border-brand-primary focus:outline-none sm:w-64"
                     />
                   </div>
 
@@ -1559,20 +1559,37 @@ export default function AppPage() {
 
               {/* Hydrated basket grid */}
               {marketplaceStatus === 'loading' ? (
-                <div className="py-16 text-sm text-ink-tertiary">Loading basket data…</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4" aria-label="Loading basket data">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="h-64 animate-pulse rounded-xl border border-border bg-surface p-4">
+                      <div className="h-4 w-2/3 rounded bg-surface-elevated" />
+                      <div className="mt-2 h-3 w-1/3 rounded bg-surface-elevated" />
+                      <div className="mt-8 h-10 w-1/2 rounded bg-surface-elevated" />
+                      <div className="mt-8 h-2 w-full rounded bg-surface-elevated" />
+                      <div className="mt-8 h-9 w-full rounded-lg bg-surface-elevated" />
+                    </div>
+                  ))}
+                </div>
               ) : marketplaceStatus === 'error' ? (
-                <div className="py-16 text-sm text-semantic-negative">
-                  Live basket data is temporarily unavailable.
+                <div className="rounded-xl border border-semantic-negative/20 bg-semantic-negative/5 px-5 py-10 text-center">
+                  <p className="text-sm font-semibold text-ink-primary">Basket data is temporarily unavailable</p>
+                  <p className="mt-1 text-xs leading-5 text-ink-secondary">Your wallet and on-chain positions are unaffected. Try the next automatic refresh or reload this view.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {filteredBaskets.length === 0 && (
+                  <div className="col-span-full rounded-xl border border-dashed border-border bg-surface px-6 py-12 text-center">
+                    <p className="text-sm font-semibold text-ink-primary">No baskets match this view</p>
+                    <p className="mt-1 text-xs text-ink-tertiary">Try another category or clear the search.</p>
+                  </div>
+                )}
                 {filteredBaskets.map((basket) => {
                   const isPositive = basket.navChange24h >= 0;
 
                   return (
                     <div
                       key={basket.id}
-                      className="flex flex-col justify-between rounded-xl border border-border bg-surface p-4 transition-all hover:border-border-strong hover:shadow-lg"
+                      className="flex min-w-0 flex-col justify-between rounded-xl border border-border bg-surface p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md"
                     >
                       <div>
                         {/* Basket identity: title first, ticker as metadata (not an avatar). */}

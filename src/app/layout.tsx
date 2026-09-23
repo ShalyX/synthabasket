@@ -12,9 +12,24 @@ export const metadata: Metadata = {
     '1-click thematic index baskets for tokenized private-market assets on Solana, with live provider marks from PreStocks and Tessera, on-chain basket custody, and benchmark or liquidity integrations only when available.',
 };
 
+const themeBootScript = `
+  (function () {
+    try {
+      var saved = localStorage.getItem('synthabasket-theme');
+      var dark = saved ? saved === 'dark' : true;
+      document.documentElement.classList.toggle('dark', dark);
+    } catch (error) {
+      document.documentElement.classList.add('dark');
+    }
+  })();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans bg-background text-ink-primary min-h-screen flex flex-col antialiased`}>
         <WalletContextProvider>{children}</WalletContextProvider>
       </body>

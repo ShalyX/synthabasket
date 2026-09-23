@@ -410,14 +410,14 @@ export default function PortfolioPage() {
     <main className="min-h-screen bg-background pb-16 font-sans text-ink-primary">
       <Navbar network="devnet" />
 
-      <div className="mx-auto max-w-[1440px] space-y-9 px-4 pt-10 sm:px-6 sm:pt-12 lg:px-8">
+      <div className="mx-auto max-w-[1440px] space-y-8 px-4 pt-6 sm:px-6 sm:pt-10 lg:px-8">
         <div className="flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
               <Wallet className="h-3.5 w-3.5" />
               Wallet portfolio
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
               Your SynthaBasket positions
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-secondary">
@@ -436,7 +436,7 @@ export default function PortfolioPage() {
             <button
               onClick={() => void loadPortfolio(true)}
               disabled={!owner || loading || refreshing}
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-border-strong bg-surface px-4 py-2 text-xs font-semibold text-ink-primary transition-colors hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-fit items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-xs font-semibold text-ink-primary shadow-sm transition-colors hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw
                 className={
@@ -467,8 +467,8 @@ export default function PortfolioPage() {
           </section>
         ) : (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-border bg-surface p-5">
+            <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <div className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
                   Marked portfolio value
                 </p>
@@ -485,7 +485,7 @@ export default function PortfolioPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
                   Active positions
                 </p>
@@ -498,7 +498,7 @@ export default function PortfolioPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
                   Valuation coverage
                 </p>
@@ -510,7 +510,7 @@ export default function PortfolioPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
                   Balance source
                 </p>
@@ -592,8 +592,31 @@ export default function PortfolioPage() {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1380px] text-left">
+                <>
+                  <div className="divide-y divide-border md:hidden">
+                    {holdings.map((holding) => (
+                      <article key={holding.basketId} className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0"><h3 className="truncate text-sm font-bold text-ink-primary">{holding.name}</h3><p className="mt-1 font-mono text-[10px] font-semibold text-brand-primary">{'$'}{holding.symbol}</p></div>
+                          <div className="shrink-0 text-right"><p className="font-mono text-base font-bold tabular-nums text-ink-primary">{holding.valueUsd === null ? '—' : '$' + formatUsd(holding.valueUsd)}</p><p className="mt-1 text-[10px] text-ink-tertiary">marked value</p></div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border py-3">
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Shares</p><p className="mt-1 font-mono text-xs tabular-nums text-ink-primary">{holding.shares.toLocaleString(undefined, { maximumFractionDigits: 6 })}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Vault NAV</p><p className="mt-1 font-mono text-xs tabular-nums text-ink-primary">{holding.navUsd === null ? '—' : '$' + holding.navUsd.toFixed(2)}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Cost basis</p><p className="mt-1 font-mono text-xs tabular-nums text-ink-primary">{holding.history.historyComplete && holding.history.netCostBasisUsd !== null ? '$' + formatUsd(holding.history.netCostBasisUsd) : '—'}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Unrealized P&amp;L</p><p className={'mt-1 font-mono text-xs font-semibold tabular-nums ' + (holding.history.unrealizedPnlUsd === null ? 'text-ink-tertiary' : holding.history.unrealizedPnlUsd >= 0 ? 'text-brand-primary' : 'text-semantic-negative')}>{holding.history.unrealizedPnlUsd === null ? '—' : (holding.history.unrealizedPnlUsd >= 0 ? '+' : '') + '$' + formatUsd(holding.history.unrealizedPnlUsd)}</p></div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3 text-[10px]"><span className="inline-flex items-center gap-1.5 text-ink-secondary"><span className={'h-1.5 w-1.5 rounded-full ' + (holding.valuationAvailable && holding.marketDataSource === 'live' ? 'bg-brand-primary' : 'bg-amber-500')} />{holding.valuationAvailable ? marketDataLabel(holding.marketDataSource).toLowerCase() : 'unpriced'}</span>{!holding.history.historyComplete && <span className="text-ink-tertiary">Partial history</span>}</div>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          <button type="button" onClick={() => setSelectedPosition(holding)} className="rounded-lg border border-border bg-surface-subtle px-2 py-2.5 text-xs font-semibold text-ink-primary">Details</button>
+                          <Link href={`/app?basket=${encodeURIComponent(holding.basketId)}&action=mint`} className="rounded-lg border border-border bg-surface-subtle px-2 py-2.5 text-center text-xs font-semibold text-ink-primary">Invest</Link>
+                          <Link href={`/app?basket=${encodeURIComponent(holding.basketId)}&action=redeem`} className="rounded-lg bg-brand-primary px-2 py-2.5 text-center text-xs font-bold text-black">Redeem</Link>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[1380px] text-left">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-[10px] uppercase tracking-wider text-ink-tertiary">
                         <th className="px-5 py-3">Basket</th>
@@ -704,14 +727,15 @@ export default function PortfolioPage() {
                           <td className="px-5 py-4">
                             {holding.valuationAvailable ? (
                               <div>
-                                <span
-                                  className={
-                                    'inline-flex rounded-full border px-2 py-1 font-mono text-[9px] font-bold tracking-wider ' +
-                                    (holding.marketDataSource === 'live'
-                                      ? 'border-brand-primary/30 bg-brand-primary/5 text-brand-primary'
-                                      : 'border-border bg-surface-elevated text-ink-secondary')
-                                  }
-                                >
+                                <span className="inline-flex items-center gap-1.5 font-mono text-[9px] font-semibold tracking-wider text-ink-secondary">
+                                  <span
+                                    className={
+                                      'h-1.5 w-1.5 rounded-full ' +
+                                      (holding.marketDataSource === 'live'
+                                        ? 'bg-brand-primary'
+                                        : 'bg-amber-500')
+                                    }
+                                  />
                                   {marketDataLabel(holding.marketDataSource)}
                                 </span>
                                 <div className="mt-1 text-[10px] text-ink-tertiary">
@@ -725,7 +749,8 @@ export default function PortfolioPage() {
                               </div>
                             ) : (
                               <div>
-                                <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-1 font-mono text-[9px] font-bold tracking-wider text-amber-300">
+                                <span className="inline-flex items-center gap-1.5 font-mono text-[9px] font-semibold tracking-wider text-amber-300">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                                   UNPRICED
                                 </span>
                                 <div className="mt-1 text-[10px] text-ink-tertiary">
@@ -784,7 +809,8 @@ export default function PortfolioPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
             </section>
 
@@ -809,8 +835,23 @@ export default function PortfolioPage() {
                   “Received via redemptions” is the durable SynthaBasket ledger. “Wallet balance” is the wallet&apos;s current total for that mint and can include tokens acquired elsewhere.
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-left">
+                <>
+                  <div className="divide-y divide-border md:hidden">
+                    {redeemedAssets.map((asset) => (
+                      <article key={asset.mint || asset.symbol} className="p-4">
+                        <div className="flex items-start justify-between gap-4"><div><h3 className="font-mono text-sm font-bold text-ink-primary">{asset.symbol}</h3><p className="mt-1 text-[10px] text-ink-tertiary">{asset.redemptionCount} redemption{asset.redemptionCount === 1 ? '' : 's'}</p></div><p className="font-mono text-sm font-bold tabular-nums text-ink-primary">{asset.currentValueUsd === null ? '—' : '$' + formatUsd(asset.currentValueUsd)}</p></div>
+                        <div className="mt-4 grid grid-cols-2 gap-3 border-y border-border py-3 text-xs">
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Wallet balance</p><p className="mt-1 font-mono tabular-nums text-ink-primary">{asset.currentWalletBalance === null ? '—' : asset.currentWalletBalance.toLocaleString(undefined,{maximumFractionDigits:6})}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Received here</p><p className="mt-1 font-mono tabular-nums text-ink-primary">{asset.receivedAmount.toLocaleString(undefined,{maximumFractionDigits:6})}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Current mark</p><p className="mt-1 font-mono tabular-nums text-ink-primary">{asset.markPriceUsd === null ? '—' : '$' + formatUsd(asset.markPriceUsd)}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Last received</p><p className="mt-1 text-ink-secondary">{formatAge(asset.lastReceivedAt, freshnessNow)}</p></div>
+                        </div>
+                        {asset.mint && <a href={'https://explorer.solana.com/address/' + asset.mint + '?cluster=devnet'} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-[10px] font-medium text-brand-primary">View mint <ExternalLink className="h-3 w-3" /></a>}
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[980px] text-left">
                     <thead>
                       <tr className="border-b border-border text-[10px] uppercase tracking-wider text-ink-tertiary">
                         <th className="px-5 py-3">Asset</th>
@@ -878,7 +919,8 @@ export default function PortfolioPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               </section>
             )}
 
@@ -899,8 +941,22 @@ export default function PortfolioPage() {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-left">
+                <>
+                  <div className="divide-y divide-border md:hidden">
+                    {closedPositions.map((position) => (
+                      <article key={position.basketId} className="p-4">
+                        <div className="flex items-start justify-between gap-4"><div><h3 className="text-sm font-bold text-ink-primary">{position.basketName}</h3><p className="mt-1 font-mono text-[10px] font-semibold text-brand-primary">{'$'}{position.basketSymbol}</p></div><p className="text-[10px] text-ink-tertiary">{formatAge(position.closedAt, freshnessNow)}</p></div>
+                        <div className="mt-4 grid grid-cols-2 gap-3 border-y border-border py-3">
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Invested</p><p className="mt-1 font-mono text-xs tabular-nums">{position.totalInvestedUsd === null ? '—' : '$' + formatUsd(position.totalInvestedUsd)}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Redeemed value</p><p className="mt-1 font-mono text-xs tabular-nums">{position.totalRedeemedValueUsd === null ? '—' : '$' + formatUsd(position.totalRedeemedValueUsd)}</p></div>
+                          <div className="col-span-2"><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Realized P&amp;L</p><p className={'mt-1 font-mono text-sm font-bold tabular-nums ' + (position.realizedPnlUsd === null ? 'text-ink-tertiary' : position.realizedPnlUsd >= 0 ? 'text-brand-primary' : 'text-semantic-negative')}>{position.realizedPnlUsd === null ? '—' : (position.realizedPnlUsd >= 0 ? '+' : '') + '$' + formatUsd(position.realizedPnlUsd)}</p></div>
+                        </div>
+                        <a href={'https://explorer.solana.com/tx/' + position.lastSignature + '?cluster=devnet'} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-[10px] font-medium text-brand-primary">Last transaction <ExternalLink className="h-3 w-3" /></a>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[900px] text-left">
                     <thead>
                       <tr className="border-b border-border bg-surface-subtle text-[10px] uppercase tracking-wider text-ink-tertiary">
                         <th className="px-5 py-3">Basket</th>
@@ -963,7 +1019,8 @@ export default function PortfolioPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               </section>
             )}
           </>

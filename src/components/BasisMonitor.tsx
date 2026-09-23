@@ -227,7 +227,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
 
   return (
     <div className="space-y-6 font-sans">
-      <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+      <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <div className="flex items-center gap-2.5">
@@ -238,9 +238,9 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-ink-secondary"><RefreshCw className="h-3.5 w-3.5 text-brand-primary" />Refreshed {formatAge(lastRefreshedAt, now)}</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-ink-secondary"><Database className="h-3.5 w-3.5 text-ink-tertiary" />{liveDisplayCount} connected markets</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] text-ink-tertiary">
+            <span className="inline-flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5 text-brand-primary" />Refreshed {formatAge(lastRefreshedAt, now)}</span>
+            <span className="inline-flex items-center gap-1.5"><Database className="h-3.5 w-3.5" />{liveDisplayCount} connected markets</span>
           </div>
         </div>
 
@@ -300,7 +300,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
         <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
           <div className="border-b border-border pb-4"><div className="flex items-center gap-2 text-sm font-bold text-ink-primary"><ArrowRightLeft className="h-4 w-4 text-brand-primary" />Cross-provider valuation signals</div><p className="mt-1 text-[11px] text-ink-secondary">Same-company implied valuations are compared where both providers expose a valuation mark. This is provider dispersion, not executable arbitrage.</p></div>
           <div className="mt-4 grid gap-3 lg:grid-cols-3">
-            {comparableGroups.slice(0, 3).map((group) => <div key={group.key} className="rounded-lg border border-border-subtle bg-surface-subtle p-4"><div className="flex items-start justify-between gap-4"><div><div className="font-mono text-sm font-bold text-ink-primary">{group.key}</div><div className="mt-0.5 text-[10px] uppercase tracking-wider text-ink-tertiary">Implied valuation</div></div><span className="rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-[10px] text-ink-secondary">{group.dispersionPct.toFixed(1)}% dispersion</span></div><div className="mt-4 space-y-2">{group.items.map((item) => <div key={item.tokenMint} className="flex items-center justify-between gap-3 text-xs"><span className="capitalize text-ink-secondary">{item.provider}</span><span className="font-mono font-semibold text-ink-primary">{formatUsd(item.impliedValuationUsd, true)}</span></div>)}</div></div>)}
+            {comparableGroups.slice(0, 3).map((group) => <div key={group.key} className="rounded-lg border border-border-subtle bg-surface-subtle p-4"><div className="flex items-start justify-between gap-4"><div><div className="font-mono text-sm font-bold text-ink-primary">{group.key}</div><div className="mt-0.5 text-[10px] uppercase tracking-wider text-ink-tertiary">Implied valuation</div></div><span className="font-mono text-[10px] text-ink-tertiary">{group.dispersionPct.toFixed(1)}% dispersion</span></div><div className="mt-4 space-y-2">{group.items.map((item) => <div key={item.tokenMint} className="flex items-center justify-between gap-3 text-xs"><span className="capitalize text-ink-secondary">{item.provider}</span><span className="font-mono font-semibold text-ink-primary">{formatUsd(item.impliedValuationUsd, true)}</span></div>)}</div></div>)}
           </div>
         </section>
       )}
@@ -308,13 +308,55 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
       {verifiedBasisRows.length > 0 && (
         <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
           <div className="border-b border-border pb-4"><div className="flex items-center gap-2 text-sm font-bold text-ink-primary"><Route className="h-4 w-4 text-brand-primary" />Verified Liquidity / Basis</div><p className="mt-1 text-[11px] text-ink-secondary">This layer appears only when Jupiter returns a real mainnet route for the canonical provider mint. Basis uses a 10 USDC routable quote and is not a guarantee of fill at larger size.</p></div>
-          <div className="mt-4 overflow-x-auto"><table className="min-w-[760px] w-full text-left text-xs"><thead className="text-[10px] uppercase tracking-wider text-ink-tertiary"><tr><th className="py-2">Asset</th><th className="py-2 text-right">Provider mark</th><th className="py-2 text-right">Jupiter quote</th><th className="py-2 text-right">Basis</th><th className="py-2">Route</th><th className="py-2 text-right">Verified</th></tr></thead><tbody className="divide-y divide-border-subtle">{verifiedBasisRows.map(({ item, route, basisPct }) => <tr key={item.tokenMint}><td className="py-3 font-mono font-semibold text-ink-primary">{item.symbol}</td><td className="py-3 text-right font-mono text-ink-secondary">{formatUsd(item.providerMarkPriceUsd)}</td><td className="py-3 text-right font-mono text-ink-primary">{formatUsd(route.dexPriceUsd)}</td><td className={basisPct >= 0 ? 'py-3 text-right font-mono font-semibold text-brand-primary' : 'py-3 text-right font-mono font-semibold text-semantic-negative'}>{basisPct >= 0 ? '+' : ''}{basisPct.toFixed(2)}%</td><td className="py-3 text-ink-secondary">{route.venueLabels.length ? route.venueLabels.join(' + ') : 'Jupiter route'}</td><td className="py-3 text-right font-mono text-ink-tertiary">{formatAge(route.verifiedAt, now)}</td></tr>)}</tbody></table></div>
+          <div className="mt-4 divide-y divide-border md:hidden">
+            {verifiedBasisRows.map(({ item, route, basisPct }) => (
+              <article key={item.tokenMint} className="py-4 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-sm font-bold text-ink-primary">{item.symbol}</p>
+                    <p className="mt-1 text-[10px] text-ink-tertiary">{route.venueLabels.length ? route.venueLabels.join(' + ') : 'Jupiter route'}</p>
+                  </div>
+                  <p className={basisPct >= 0 ? 'font-mono text-sm font-semibold text-brand-primary' : 'font-mono text-sm font-semibold text-semantic-negative'}>{basisPct >= 0 ? '+' : ''}{basisPct.toFixed(2)}%</p>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Provider mark</p><p className="mt-1 font-mono text-xs text-ink-secondary">{formatUsd(item.providerMarkPriceUsd)}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Jupiter quote</p><p className="mt-1 font-mono text-xs text-ink-primary">{formatUsd(route.dexPriceUsd)}</p></div>
+                </div>
+                <p className="mt-3 text-[10px] text-ink-tertiary">Verified {formatAge(route.verifiedAt, now)}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 hidden overflow-x-auto md:block"><table className="min-w-[760px] w-full text-left text-xs"><thead className="text-[10px] uppercase tracking-wider text-ink-tertiary"><tr><th className="py-2">Asset</th><th className="py-2 text-right">Provider mark</th><th className="py-2 text-right">Jupiter quote</th><th className="py-2 text-right">Basis</th><th className="py-2">Route</th><th className="py-2 text-right">Verified</th></tr></thead><tbody className="divide-y divide-border-subtle">{verifiedBasisRows.map(({ item, route, basisPct }) => <tr key={item.tokenMint}><td className="py-3 font-mono font-semibold text-ink-primary">{item.symbol}</td><td className="py-3 text-right font-mono text-ink-secondary">{formatUsd(item.providerMarkPriceUsd)}</td><td className="py-3 text-right font-mono text-ink-primary">{formatUsd(route.dexPriceUsd)}</td><td className={basisPct >= 0 ? 'py-3 text-right font-mono font-semibold text-brand-primary' : 'py-3 text-right font-mono font-semibold text-semantic-negative'}>{basisPct >= 0 ? '+' : ''}{basisPct.toFixed(2)}%</td><td className="py-3 text-ink-secondary">{route.venueLabels.length ? route.venueLabels.join(' + ') : 'Jupiter route'}</td><td className="py-3 text-right font-mono text-ink-tertiary">{formatAge(route.verifiedAt, now)}</td></tr>)}</tbody></table></div>
         </section>
       )}
 
       <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         <div className="flex flex-col gap-2 border-b border-border bg-surface-subtle px-5 py-3 sm:flex-row sm:items-center sm:justify-between"><div><span className="text-xs font-bold uppercase tracking-wider text-ink-primary">Provider market board</span><p className="mt-0.5 text-[10px] text-ink-tertiary">Raw token marks remain provider-specific; different token structures are not normalized into fake arbitrage.</p></div><span className="font-mono text-[10px] text-ink-tertiary">Refresh: 30s while active</span></div>
-        <div className="overflow-x-auto"><table className="min-w-[1040px] w-full text-left font-mono text-xs"><thead className="border-b border-border bg-surface-subtle font-sans text-[10px] uppercase tracking-wider text-ink-tertiary"><tr><th className="px-5 py-3">Asset</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3 text-right">Provider mark</th><th className="px-5 py-3 text-right">Implied valuation</th><th className="px-5 py-3 text-right">24h</th><th className="px-5 py-3">Source</th><th className="px-5 py-3 text-right">Quote age</th><th className="px-5 py-3 text-right">Pyth reference</th></tr></thead><tbody className="divide-y divide-border-subtle">{items.map((item) => <MarketRow key={item.tokenMint} item={item} now={now} />)}</tbody></table></div>
+        <div className="divide-y divide-border md:hidden">
+          {items.map((item) => {
+            const positive = item.change24h > 0;
+            const negative = item.change24h < 0;
+            return (
+              <article key={item.tokenMint} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-sm font-bold text-ink-primary">{item.symbol}</p>
+                    <p className="mt-1 text-[10px] capitalize text-ink-tertiary">{item.name} · {item.provider}</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase text-brand-primary"><span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />Live</span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 border-y border-border py-3">
+                  <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Provider mark</p><p className="mt-1 font-mono text-sm font-semibold text-ink-primary">{formatUsd(item.providerMarkPriceUsd)}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">24h</p><p className={positive ? 'mt-1 font-mono text-sm font-semibold text-brand-primary' : negative ? 'mt-1 font-mono text-sm font-semibold text-semantic-negative' : 'mt-1 font-mono text-sm font-semibold text-ink-secondary'}>{item.change24hAvailable ? (positive ? '+' : '') + item.change24h.toFixed(2) + '%' : '—'}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Implied valuation</p><p className="mt-1 font-mono text-xs text-ink-secondary">{formatUsd(item.impliedValuationUsd, true)}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Quote age</p><p className="mt-1 text-xs text-ink-secondary">{formatAge(item.lastUpdated, now)}</p></div>
+                </div>
+                <p className="mt-3 text-[10px] text-ink-tertiary">{typeof item.pythBenchmarkPriceUsd === 'number' ? 'Pyth reference ' + formatUsd(item.pythBenchmarkPriceUsd) + ' · indicative only' : 'No Pyth reference returned'}</p>
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto md:block"><table className="min-w-[1040px] w-full text-left font-mono text-xs"><thead className="border-b border-border bg-surface-subtle font-sans text-[10px] uppercase tracking-wider text-ink-tertiary"><tr><th className="px-5 py-3">Asset</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3 text-right">Provider mark</th><th className="px-5 py-3 text-right">Implied valuation</th><th className="px-5 py-3 text-right">24h</th><th className="px-5 py-3">Source</th><th className="px-5 py-3 text-right">Quote age</th><th className="px-5 py-3 text-right">Pyth reference</th></tr></thead><tbody className="divide-y divide-border-subtle">{items.map((item) => <MarketRow key={item.tokenMint} item={item} now={now} />)}</tbody></table></div>
       </section>
 
       <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-subtle p-4 text-[11px] leading-relaxed text-ink-secondary"><Layers className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" /><p>Provider marks are market data, not guaranteed liquidity. Pyth reference values are shown only when a supported value is returned; otherwise the table displays —. A liquidity/basis comparison is shown separately and only after the app verifies a live Jupiter route for the provider mint.</p></div>

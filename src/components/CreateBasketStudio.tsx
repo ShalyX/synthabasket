@@ -206,7 +206,8 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
               Basket Studio
             </span>
-            <span className="rounded-full border border-brand-primary/25 bg-brand-primary/5 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand-primary">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-ink-tertiary">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
               Devnet
             </span>
           </div>
@@ -223,7 +224,7 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="w-fit rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-ink-secondary transition-colors hover:border-border-strong hover:text-ink-primary"
+          className="w-fit rounded-lg border border-border bg-surface px-4 py-2 text-xs font-semibold text-ink-secondary shadow-sm transition-colors hover:border-border-strong hover:text-ink-primary"
         >
           Cancel
         </button>
@@ -249,7 +250,7 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                   </p>
                 </div>
 
-                <span className="w-fit rounded-full border border-border bg-surface-subtle px-3 py-1 font-mono text-[10px] text-ink-tertiary">
+                <span className="w-fit font-mono text-[10px] text-ink-tertiary">
                   {selectedAssets.length}/{MAX_CONSTITUENTS} selected
                 </span>
               </div>
@@ -357,7 +358,7 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                   <button
                     type="button"
                     onClick={handleEqualWeights}
-                    className="w-fit rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                    className="w-fit rounded-lg border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:border-brand-primary hover:text-brand-primary"
                   >
                     Equal weight
                   </button>

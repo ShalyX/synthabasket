@@ -56,14 +56,14 @@ export function PositionDetailsModal({
     .sort((left, right) => right.timestamp - left.timestamp);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-0 backdrop-blur-sm sm:p-4">
       <button
         type="button"
         aria-label="Close position details"
         onClick={onClose}
         className="absolute inset-0"
       />
-      <section className="relative max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-background shadow-2xl">
+      <section className="relative h-[100dvh] max-h-[100dvh] w-full max-w-2xl overflow-y-auto bg-surface shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-border">
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-border bg-background px-5 py-4 sm:px-6">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
@@ -85,7 +85,7 @@ export function PositionDetailsModal({
           </button>
         </div>
 
-        <div className="space-y-6 p-5 sm:p-6">
+        <div className="space-y-6 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-border bg-surface p-4">
               <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
@@ -184,12 +184,12 @@ export function PositionDetailsModal({
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Link
               href={`/app?basket=${encodeURIComponent(
                 holding.basketId
               )}&action=mint`}
-              className="rounded-lg bg-brand-primary px-3 py-2.5 text-center text-xs font-bold text-black"
+              className="col-span-2 rounded-lg bg-brand-primary px-3 py-2.5 text-center text-xs font-bold text-black sm:col-span-1"
             >
               Invest more
             </Link>

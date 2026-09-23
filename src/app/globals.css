@@ -3,41 +3,49 @@
 @tailwind utilities;
 
 :root {
-  --background-rgb: 248 250 252;
+  --background-rgb: 247 248 250;
   --surface-rgb: 255 255 255;
-  --surface-subtle-rgb: 241 245 249;
-  --surface-elevated-rgb: 248 250 252;
-  --surface-hover-rgb: 226 232 240;
-  --border-subtle-rgb: 226 232 240;
-  --border-rgb: 203 213 225;
-  --border-strong-rgb: 148 163 184;
-  --ink-primary-rgb: 15 23 42;
-  --ink-secondary-rgb: 71 85 105;
-  --ink-tertiary-rgb: 100 116 139;
-  --ink-disabled-rgb: 148 163 184;
-  --foreground: #0f172a;
+  --surface-subtle-rgb: 250 251 252;
+  --surface-elevated-rgb: 243 245 247;
+  --surface-hover-rgb: 238 241 244;
+  --border-subtle-rgb: 235 238 242;
+  --border-rgb: 220 224 230;
+  --border-strong-rgb: 194 201 211;
+  --ink-primary-rgb: 17 24 39;
+  --ink-secondary-rgb: 75 85 99;
+  --ink-tertiary-rgb: 107 114 128;
+  --ink-disabled-rgb: 156 163 175;
+  --foreground: #111827;
+  color-scheme: light;
 }
 
 .dark {
-  --background-rgb: 0 0 0;
-  --surface-rgb: 19 21 29;
-  --surface-subtle-rgb: 23 26 36;
-  --surface-elevated-rgb: 28 32 45;
-  --surface-hover-rgb: 35 39 55;
-  --border-subtle-rgb: 24 27 38;
-  --border-rgb: 34 38 54;
-  --border-strong-rgb: 51 57 78;
+  --background-rgb: 9 10 14;
+  --surface-rgb: 16 18 24;
+  --surface-subtle-rgb: 20 23 31;
+  --surface-elevated-rgb: 25 29 39;
+  --surface-hover-rgb: 31 36 48;
+  --border-subtle-rgb: 27 31 41;
+  --border-rgb: 39 44 58;
+  --border-strong-rgb: 58 65 84;
   --ink-primary-rgb: 241 245 249;
-  --ink-secondary-rgb: 148 163 184;
-  --ink-tertiary-rgb: 100 116 139;
-  --ink-disabled-rgb: 71 85 105;
+  --ink-secondary-rgb: 166 175 189;
+  --ink-tertiary-rgb: 113 123 140;
+  --ink-disabled-rgb: 76 85 103;
   --foreground: #f1f5f9;
+  color-scheme: dark;
+}
+
+html {
+  background: rgb(var(--background-rgb));
 }
 
 body {
+  min-width: 320px;
   color: var(--foreground);
-  background: var(--background);
+  background: rgb(var(--background-rgb));
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* Tabular figures for financial numbers */
@@ -45,23 +53,44 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Custom scrollbar for high-density terminal look */
+/* Quiet, theme-aware scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #222636;
-  border-radius: 2px;
+  background: rgb(var(--border-strong-rgb));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #33394e;
+  background: rgb(var(--ink-tertiary-rgb));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::selection {
+  background: rgba(0, 209, 130, 0.18);
+}
+
+:focus-visible {
+  outline: 2px solid rgba(0, 209, 130, 0.65);
+  outline-offset: 2px;
+}
+
+html:not(.dark) .text-amber-300 {
+  color: rgb(180 83 9);
+}
+
+html:not(.dark) .text-red-400 {
+  color: rgb(185 28 28);
 }
 
 /* Solana wallet adapter button customization - Reference Pill Style */

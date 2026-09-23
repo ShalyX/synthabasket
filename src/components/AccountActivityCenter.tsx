@@ -257,7 +257,7 @@ export function AccountActivityCenter({
     createPortal(
       <>
         {toast && (
-          <div className="fixed right-4 top-20 z-[110] w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-border bg-surface p-4 shadow-2xl">
+          <div className="fixed right-4 top-28 z-[110] w-[calc(100vw-2rem)] max-w-sm rounded-xl border border-border bg-surface p-4 shadow-2xl md:top-20">
             <div className="flex items-start gap-3">
               <div
                 className={
@@ -287,20 +287,21 @@ export function AccountActivityCenter({
               type="button"
               aria-label="Close account panel"
               onClick={() => setOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
             />
 
             <aside
               role="dialog"
               aria-modal="true"
               aria-label="Account"
-              className="relative flex h-[100dvh] w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-2xl"
+              className="relative flex h-[100dvh] w-full max-w-[420px] flex-col bg-surface shadow-2xl sm:border-l sm:border-border"
             >
               <div className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-bold text-ink-primary">Account</p>
-                    <span className="rounded-full border border-border bg-surface-subtle px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-ink-tertiary">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium capitalize text-ink-tertiary">
+                      <span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
                       {network}
                     </span>
                   </div>
@@ -354,7 +355,7 @@ export function AccountActivityCenter({
                   </div>
                 </div>
 
-                <div className="mt-5 grid grid-cols-3 overflow-hidden rounded-xl border border-border bg-background">
+                <div className="mt-5 grid grid-cols-3 overflow-hidden rounded-xl border border-border bg-surface-subtle">
                   <div className="px-3 py-3.5">
                     <p className="text-[9px] uppercase tracking-wider text-ink-tertiary">
                       USDC
@@ -516,7 +517,7 @@ export function AccountActivityCenter({
                 </div>
               </div>
 
-              <div className="shrink-0 border-t border-border bg-surface px-5 py-4">
+              <div className="shrink-0 border-t border-border bg-surface px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <button
                   type="button"
                   onClick={() => void disconnect()}
@@ -538,7 +539,7 @@ export function AccountActivityCenter({
       <button
         type="button"
         onClick={openPanel}
-        className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-ink-primary transition-colors hover:border-brand-primary"
+        className="relative inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-xs font-semibold text-ink-primary shadow-sm transition-colors hover:border-brand-primary sm:h-10 sm:px-3"
         aria-label="Open account activity"
       >
         <Bell className="h-4 w-4" />

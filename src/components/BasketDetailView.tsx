@@ -430,8 +430,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 sm:p-6">
-      <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border border-border bg-background shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 backdrop-blur-sm sm:p-6">
+      <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden bg-surface shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-xl sm:border sm:border-border">
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-ink-primary sm:text-lg">
@@ -458,8 +458,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
           </button>
         </div>
 
-        <div className="grid flex-1 overflow-y-auto lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-7 border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r">
+        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="order-2 space-y-7 border-t border-border p-4 sm:p-6 lg:order-1 lg:border-r lg:border-t-0">
             <div>
               <div className="flex items-end justify-between gap-4">
                 <div>
@@ -492,8 +492,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
               <p className="mt-4 max-w-2xl text-sm leading-6 text-ink-secondary">
                 {basket.description}
               </p>
-              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-                <span className="rounded border border-border bg-surface px-2 py-1 text-ink-secondary">
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-ink-secondary">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${dataIsStale ? 'bg-amber-500' : 'bg-brand-primary'}`} />
                   {dataIsStale
                     ? 'Last known snapshot'
                     : hydrationAgeSeconds === null
@@ -502,10 +503,12 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     ? 'Updated just now'
                     : `Updated ${hydrationAgeSeconds}s ago`}
                 </span>
-                <span className="rounded border border-border bg-surface px-2 py-1 text-ink-secondary">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${basket.onChainStateLoaded ? 'bg-brand-primary' : 'bg-amber-500'}`} />
                   {vaultStateLabel}
                 </span>
-                <span className="rounded border border-border bg-surface px-2 py-1 text-ink-secondary">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${basket.marketDataSource === 'live' ? 'bg-brand-primary' : 'bg-amber-500'}`} />
                   {marketStateLabel}
                 </span>
               </div>
@@ -523,7 +526,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             </div>
 
             <section>
-              <div className="mb-3 flex items-center justify-between gap-4">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-ink-primary">NAV history</h3>
                   <p className="mt-0.5 text-xs text-ink-tertiary">
@@ -533,7 +536,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-4 overflow-x-auto text-xs">
                   {TIMEFRAMES.map((timeframe) => (
                     <button
                       key={timeframe.label}
@@ -552,7 +555,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
               {chartPoints.length >= 2 ? (
                 <>
-                  <div className="h-44 w-full">
+                  <div className="h-40 w-full sm:h-44">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={chartPoints}
@@ -659,7 +662,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 {basket.constituents.map((constituent, index) => (
                   <div
                     key={constituent.asset.tokenMint}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 py-3"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-4"
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${getSegmentColor(index)}`} />
@@ -678,7 +681,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                       </div>
                       <div className="text-[11px] text-ink-tertiary">weight</div>
                     </div>
-                    <div className="w-20 text-right font-mono text-sm tabular-nums text-ink-secondary">
+                    <div className="hidden w-20 text-right font-mono text-sm tabular-nums text-ink-secondary sm:block">
                       $ {constituent.asset.priceUsd.toFixed(2)}
                     </div>
                   </div>
@@ -686,80 +689,46 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
               </div>
             </section>
 
-            <section className="rounded-xl border border-border bg-surface-subtle p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-2.5">
-                  <ShieldCheck
-                    className={
-                      'mt-0.5 h-4 w-4 shrink-0 ' +
-                      (executionVerification.verified
-                        ? 'text-brand-primary'
-                        : 'text-ink-tertiary')
-                    }
-                  />
-                  <div>
-                    <h3 className="text-sm font-semibold text-ink-primary">
-                      On-chain verification
-                    </h3>
-                    <p className="mt-1 text-xs leading-5 text-ink-secondary">
-                      {executionVerification.verified
-                        ? `This refresh verified the ${executionVerification.executionSymbol} Devnet vault, deterministic share mint, and live reserve state.`
-                        : 'The deterministic execution addresses are shown below, but live basket state was not verified in this refresh. Invest and redeem remain gated by a fresh on-chain verification before signing.'}
-                    </p>
-                  </div>
-                </div>
-                <span
+            <section className="border-y border-border py-4">
+              <div className="flex items-start gap-2.5">
+                <ShieldCheck
                   className={
-                    'w-fit rounded-full border px-2 py-1 font-mono text-[9px] font-bold tracking-wider ' +
-                    (executionVerification.verified
-                      ? 'border-brand-primary/30 bg-brand-primary/5 text-brand-primary'
-                      : 'border-border bg-surface text-ink-tertiary')
+                    'mt-0.5 h-4 w-4 shrink-0 ' +
+                    (executionVerification.verified ? 'text-brand-primary' : 'text-ink-tertiary')
                   }
-                >
-                  {executionVerification.verified
-                    ? 'VERIFIED LIVE'
-                    : 'NOT VERIFIED'}
-                </span>
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h3 className="text-sm font-semibold text-ink-primary">On-chain verification</h3>
+                    <span className={'inline-flex items-center gap-1.5 text-[10px] font-semibold ' + (executionVerification.verified ? 'text-brand-primary' : 'text-ink-tertiary')}>
+                      <span className={'h-1.5 w-1.5 rounded-full ' + (executionVerification.verified ? 'bg-brand-primary' : 'bg-ink-tertiary')} />
+                      {executionVerification.verified ? 'Verified live' : 'Not verified'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-ink-secondary">
+                    {executionVerification.verified
+                      ? `This refresh verified the ${executionVerification.executionSymbol} Devnet vault, deterministic share mint, and live reserve state.`
+                      : 'The deterministic execution addresses are shown below, but live basket state was not verified in this refresh. Invest and redeem remain gated by a fresh on-chain verification before signing.'}
+                  </p>
+                </div>
               </div>
 
-              <div className="mt-4 grid gap-2 text-[11px] sm:grid-cols-3">
+              <div className="mt-4 divide-y divide-border text-[11px]">
                 {[
-                  {
-                    label: 'Program',
-                    value: executionVerification.programId,
-                    address: executionVerification.programId,
-                  },
-                  {
-                    label: executionVerification.verified
-                      ? 'Vault PDA'
-                      : 'Expected vault PDA',
-                    value: executionVerification.vaultPda,
-                    address: executionVerification.vaultPda,
-                  },
-                  {
-                    label: executionVerification.verified
-                      ? 'Share mint'
-                      : 'Expected share mint',
-                    value: executionVerification.basketMint,
-                    address: executionVerification.basketMint,
-                  },
+                  { label: 'Program', value: executionVerification.programId, address: executionVerification.programId },
+                  { label: executionVerification.verified ? 'Vault PDA' : 'Expected vault PDA', value: executionVerification.vaultPda, address: executionVerification.vaultPda },
+                  { label: executionVerification.verified ? 'Share mint' : 'Expected share mint', value: executionVerification.basketMint, address: executionVerification.basketMint },
                 ].map((item) => (
                   <a
                     key={item.label}
                     href={`https://explorer.solana.com/address/${item.address}?cluster=devnet`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-brand-primary"
+                    className="grid grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 py-2.5 transition-colors hover:text-brand-primary"
                   >
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-ink-tertiary">
-                      {item.label}
-                    </div>
-                    <div className="mt-1 flex items-center gap-1 font-mono text-[10px] text-ink-secondary">
-                      <span>
-                        {item.value.slice(0, 6)}...{item.value.slice(-5)}
-                      </span>
-                      <ExternalLink className="h-3 w-3" />
-                    </div>
+                    <span className="font-medium text-ink-tertiary">{item.label}</span>
+                    <span className="truncate font-mono text-ink-secondary">{item.value.slice(0, 8)}...{item.value.slice(-6)}</span>
+                    <ExternalLink className="h-3 w-3 text-ink-tertiary" />
                   </a>
                 ))}
               </div>
@@ -782,7 +751,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
             </div>
           </div>
 
-          <div className="bg-surface-subtle p-5 sm:p-6">
+          <div className="order-1 bg-surface-subtle p-4 sm:p-6 lg:order-2">
             <div className="flex border-b border-border">
               <button
                 onClick={() => setActiveTab('inspect')}

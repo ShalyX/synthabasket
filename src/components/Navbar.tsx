@@ -38,8 +38,11 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
         : 'text-ink-secondary hover:text-ink-primary'
     }`;
 
+  const mobileNavClass = (active: boolean) =>
+    `relative flex h-10 shrink-0 items-center text-xs font-semibold transition-colors ${active ? 'text-brand-primary' : 'text-ink-secondary hover:text-ink-primary'}`;
+
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex items-center gap-3 text-left">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-strong group-hover:border-brand-primary transition-colors shadow-sm">
@@ -55,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
             </svg>
           </div>
 
-          <span className="font-sans text-base font-extrabold tracking-tight text-ink-primary">
+          <span className="hidden font-sans text-base font-extrabold tracking-tight text-ink-primary sm:inline">
             SYNTHABASKET
           </span>
         </Link>
@@ -102,6 +105,22 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
           )}
         </div>
       </div>
+
+      <nav className="mx-auto flex h-10 max-w-[1440px] items-center gap-6 overflow-x-auto px-4 md:hidden">
+        {[
+          { href: '/app', label: 'Baskets', target: 'baskets' as const },
+          { href: '/app?view=markets', label: 'Markets', target: 'markets' as const },
+          { href: '/app?view=create', label: 'Create', target: 'create' as const },
+          { href: '/app/portfolio', label: 'Portfolio', target: 'portfolio' as const },
+        ].map((item) => (
+          <Link key={item.target} href={item.href} className={mobileNavClass(isActive(item.target))}>
+            {item.label}
+            {isActive(item.target) && (
+              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-brand-primary" />
+            )}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 };
