@@ -1,7 +1,7 @@
 import { PublicKey } from '@solana/web3.js';
 import { fetchPreStocksAssets } from '../src/lib/services/prestocks';
 import { fetchTesseraAssets } from '../src/lib/services/tessera';
-import { fetchPythPrivateIndexBenchmarks } from '../src/lib/services/pyth';
+import { resolvePythPrivateIndexBenchmarks } from '../src/lib/services/pyth';
 import { calculateBasketNav } from '../src/lib/services/valuation_engine';
 import { INITIAL_BASKETS } from '../src/lib/data/registry';
 import { AssetQuote } from '../src/lib/types';
@@ -98,32 +98,41 @@ async function main() {
   }
 
   // 3. Pyth private-company indices
-  console.log('\n3. Testing optional Pyth private-index entitlement...');
+  console.log('\n3. Checking Pyth private-index access contract...');
   try {
-    const apiKey = process.env.PYTH_INDEX_API_KEY;
-
-    if (!apiKey) {
-      console.warn('   [WARNING] No PYTH_INDEX_API_KEY found; skipping entitled private-index reads.');
-      console.log('   [PASS] Pyth private-index integration is correctly optional.');
-    } else {
-      const benchmarks = await fetchPythPrivateIndexBenchmarks(
-        ['OPENAI', 'ANTHROPIC'],
-        { throwOnError: true, apiKey }
-      );
-
-      const received = Object.keys(benchmarks);
-      if (received.length === 0) {
-        throw new Error(
-          'Pyth private-index API returned no entitled OpenAI/Anthropic benchmark values'
-        );
+    const resolution = await resolvePythPrivateIndexBenchmarks(
+      ['OPENAI', 'ANTHROPIC'],
+      {
+        apiKey:
+          process.env.PYTH_PRO_API_KEY ||
+          process.env.PYTH_INDEX_API_KEY,
       }
+    );
 
+    if (resolution.status === 'available') {
       console.log(
-        `   [PASS] Received ${received.length} entitled Pyth private-index benchmark(s).`
+        `   [PASS] Received ${Object.keys(resolution.benchmarks).length} Pyth Index benchmark value(s).`
+      );
+    } else if (resolution.status === 'index_access_required') {
+      console.warn(
+        '   [WARNING] OpenAI/Anthropic are Pyth Indices with separate commercial access from Pyth Pro.'
+      );
+      console.log(
+        '   [PASS] Integration fails closed instead of treating Pyth Indices as ordinary Pro feeds.'
+      );
+    } else if (resolution.status === 'pro_key_missing') {
+      console.warn(
+        '   [WARNING] No Pyth Pro API key configured; authenticated Pro reads are skipped.'
+      );
+      console.log('   [PASS] Optional Pyth integration remains fail-closed.');
+    } else {
+      throw new Error(
+        resolution.detail ||
+          `Unexpected Pyth resolution status: ${resolution.status}`
       );
     }
   } catch (err: any) {
-    console.error('   [FAIL] Pyth private-index check failed loudly:', err.message);
+    console.error('   [FAIL] Pyth integration contract check failed:', err.message);
     failureCount++;
   }
 

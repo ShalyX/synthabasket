@@ -3,7 +3,7 @@ import { withDevnetMirror } from '../execution/devnet_mirrors';
 import { fetchPreStocksAssets } from '../services/prestocks';
 import { fetchTesseraAssets } from '../services/tessera';
 import {
-  fetchPythPrivateIndexBenchmarks,
+  resolvePythPrivateIndexBenchmarks,
   getPythPrivateIndexSymbol,
   normalizePrivateMarketUnderlying,
 } from '../services/pyth';
@@ -31,8 +31,18 @@ async function buildUnifiedAssetQuotes(
   const underlyings = combined.map((asset) =>
     normalizePrivateMarketUnderlying(asset.symbol)
   );
-  const privateIndexBenchmarks =
-    await fetchPythPrivateIndexBenchmarks(underlyings);
+  const privateIndexResolution =
+    await resolvePythPrivateIndexBenchmarks(underlyings);
+  const privateIndexBenchmarks = privateIndexResolution.benchmarks;
+
+  if (
+    privateIndexResolution.status !== 'available' &&
+    privateIndexResolution.detail
+  ) {
+    console.info(
+      `[Pyth Index] ${privateIndexResolution.detail}`
+    );
+  }
 
   return combined.map((asset) => {
     const underlying = normalizePrivateMarketUnderlying(asset.symbol);
