@@ -167,7 +167,9 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
 
   const liveDisplayCount = items.length;
   const providers = new Set(items.map((item) => item.provider)).size;
-  const benchmarkedCount = items.filter((item) => typeof item.pythBenchmarkPriceUsd === 'number').length;
+  const benchmarkedCount = items.filter(
+    (item) => typeof item.pythBenchmarkPriceUsd === 'number'
+  ).length;
 
   const comparableGroups = useMemo(() => {
     const grouped = new Map<string, BasisMonitorItem[]>();
@@ -246,7 +248,11 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
           <Metric label="Tracked assets" value={String(items.length)} detail="Connected provider instruments" />
           <Metric label="Providers" value={String(providers)} detail="PreStocks + Tessera" />
           <Metric label="Comparable names" value={String(comparableGroups.length)} detail="2+ valuation marks" />
-          <Metric label="Pyth Index values" value={String(benchmarkedCount)} detail="Separate Index entitlement" />
+          <Metric
+            label="Pyth reference"
+            value={benchmarkedCount > 0 ? String(benchmarkedCount) : '—'}
+            detail={benchmarkedCount > 0 ? 'Indicative values available' : 'No value returned'}
+          />
         </div>
       </section>
 
@@ -311,7 +317,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
         <div className="overflow-x-auto"><table className="min-w-[1040px] w-full text-left font-mono text-xs"><thead className="border-b border-border bg-surface-subtle font-sans text-[10px] uppercase tracking-wider text-ink-tertiary"><tr><th className="px-5 py-3">Asset</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3 text-right">Provider mark</th><th className="px-5 py-3 text-right">Implied valuation</th><th className="px-5 py-3 text-right">24h</th><th className="px-5 py-3">Source</th><th className="px-5 py-3 text-right">Quote age</th><th className="px-5 py-3 text-right">Pyth reference</th></tr></thead><tbody className="divide-y divide-border-subtle">{items.map((item) => <MarketRow key={item.tokenMint} item={item} now={now} />)}</tbody></table></div>
       </section>
 
-      <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-subtle p-4 text-[11px] leading-relaxed text-ink-secondary"><Layers className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" /><p>Provider marks are market data, not guaranteed liquidity. OpenAI and Anthropic have official Pyth Indices, but Pyth describes Indices as a separately entitled product from Pyth Pro; values appear here only when this deployment has supported Index access. A liquidity/basis comparison is shown separately and only after the app verifies a live Jupiter route for the provider mint.</p></div>
+      <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-subtle p-4 text-[11px] leading-relaxed text-ink-secondary"><Layers className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" /><p>Provider marks are market data, not guaranteed liquidity. Pyth reference values are shown only when a supported value is returned; otherwise the table displays —. A liquidity/basis comparison is shown separately and only after the app verifies a live Jupiter route for the provider mint.</p></div>
     </div>
   );
 };

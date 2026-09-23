@@ -113,12 +113,12 @@ async function main() {
       console.log(
         `   [PASS] Received ${Object.keys(resolution.benchmarks).length} Pyth Index benchmark value(s).`
       );
-    } else if (resolution.status === 'index_access_required') {
+    } else if (resolution.status === 'not_available_via_pro') {
       console.warn(
-        '   [WARNING] OpenAI/Anthropic are Pyth Indices with separate commercial access from Pyth Pro.'
+        '   [WARNING] OpenAI/Anthropic did not resolve through the public Pyth Pro catalog; UI will display —.'
       );
       console.log(
-        '   [PASS] Integration fails closed instead of treating Pyth Indices as ordinary Pro feeds.'
+        '   [PASS] Integration fails closed without inferring an entitlement requirement.'
       );
     } else if (resolution.status === 'pro_key_missing') {
       console.warn(

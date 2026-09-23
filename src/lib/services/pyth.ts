@@ -9,7 +9,8 @@ export interface PythIndexBenchmark {
 
 export type PythPrivateIndexAccessStatus =
   | 'available'
-  | 'index_access_required'
+  | 'not_applicable'
+  | 'not_available_via_pro'
   | 'pro_key_missing'
   | 'catalog_unavailable'
   | 'request_failed';
@@ -20,9 +21,9 @@ export interface PythPrivateIndexResolution {
   detail?: string;
 }
 
-// Pyth launched these as indicative private-market indices on 2026-09-17.
-// Pyth's own launch material describes Pyth Indices as a separate product line
-// with separate commercial terms from Pyth Pro.
+// Canonical Pyth Index symbols surfaced by Pyth for these private companies.
+// The transport used by Pyth Terminal is not assumed to be the same as the
+// public Pyth Pro catalog/API below.
 export const PYTH_PRIVATE_INDEX_SYMBOLS: Record<string, string> = {
   OPENAI: 'Pyth.Index.OPENAI/USD',
   ANTHROPIC: 'Pyth.Index.ANTHROPIC/USD',
@@ -177,8 +178,8 @@ function parseLatestPricePayload(
  * 1. Discover the exact symbol in Pyth's public Pro catalog.
  * 2. Only if the symbol resolves there, call the documented Pyth Pro latest
  *    price REST endpoint by numeric feed ID.
- * 3. If it does not resolve, classify it as separately entitled Pyth Indices
- *    access rather than generating a misleading History API 404.
+ * 3. If it does not resolve, fail closed and show no benchmark value. Absence
+ *    from the Pro catalog is not treated as proof of an entitlement problem.
  */
 export async function resolvePythPrivateIndexBenchmarks(
   symbols: string[],
@@ -193,7 +194,7 @@ export async function resolvePythPrivateIndexBenchmarks(
   ].filter((underlying) => Boolean(PYTH_PRIVATE_INDEX_SYMBOLS[underlying]));
 
   if (requested.length === 0) {
-    return { benchmarks: {}, status: 'index_access_required' };
+    return { benchmarks: {}, status: 'not_applicable' };
   }
 
   const cacheKey = requested.slice().sort().join(',');
@@ -224,9 +225,9 @@ export async function resolvePythPrivateIndexBenchmarks(
     if (proFeeds.length === 0) {
       const value: PythPrivateIndexResolution = {
         benchmarks: {},
-        status: 'index_access_required',
+        status: 'not_available_via_pro',
         detail:
-          'OpenAI/Anthropic Pyth Indices are not present in the public Pyth Pro catalog; dedicated Pyth Indices access is required.',
+          'Requested Pyth Index symbols did not resolve in the public Pyth Pro catalog; no benchmark value will be shown.',
       };
       if (!options?.throwOnError) {
         resolutionCache = {
@@ -275,13 +276,6 @@ export async function resolvePythPrivateIndexBenchmarks(
 
     if (!response.ok) {
       const detail = `Pyth Pro latest-price request returned HTTP ${response.status}.`;
-      if (response.status === 403) {
-        return {
-          benchmarks: {},
-          status: 'index_access_required',
-          detail,
-        };
-      }
       if (options?.throwOnError) throw new Error(detail);
       return { benchmarks: {}, status: 'request_failed', detail };
     }
