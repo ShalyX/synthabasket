@@ -85,13 +85,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (body?.action === 'ensure_mirrors') {
-      const symbols = [
-        ...new Set(
-          (Array.isArray(body?.symbols) ? body.symbols : [])
-            .map((value: unknown) => String(value || '').trim())
-            .filter(Boolean)
-        ),
-      ];
+      const requestedSymbols = (
+        Array.isArray(body?.symbols) ? body.symbols : []
+      )
+        .map((value: unknown) => String(value || '').trim())
+        .filter((value: string) => value.length > 0);
+      const symbols: string[] = Array.from(
+        new Set<string>(requestedSymbols)
+      );
 
       if (symbols.length < 1 || symbols.length > 8) {
         return NextResponse.json(
