@@ -81,9 +81,11 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
       selectedAssets.map((item) => item.asset.quoteSource || 'snapshot')
     );
     if (sources.size === 1) {
-      return sources.has('live') ? 'Live provider marks' : 'Verified snapshots';
+      if (sources.has('live')) return 'Live provider marks';
+      if (sources.has('last_live')) return 'Last live provider marks';
+      return 'Verified snapshots';
     }
-    return 'Mixed live + snapshot';
+    return 'Mixed provider freshness';
   }, [selectedAssets]);
 
   const currentStep =

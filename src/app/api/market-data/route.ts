@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
+import { getUnifiedAssetQuotes } from '../../../lib/server/provider_quotes';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'no-store, max-age=0',
+          'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=30',
         },
       }
     );

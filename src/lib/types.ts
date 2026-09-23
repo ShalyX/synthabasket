@@ -15,7 +15,7 @@ export interface AssetQuote {
   /** True only when the provider response supplied a real 24h change value. */
   change24hAvailable?: boolean;
   /** Whether this quote came from the live provider response or the verified fallback snapshot. */
-  quoteSource?: 'live' | 'snapshot';
+  quoteSource?: 'live' | 'last_live' | 'snapshot';
   marketCapUsd?: number;
   volume24hUsd?: number;
   /** Official Pyth Index symbol when one exists for the underlying company. */
@@ -163,7 +163,7 @@ export interface BasisMonitorItem {
   impliedValuationUsd?: number;
   change24h: number;
   change24hAvailable: boolean;
-  quoteSource: 'live' | 'snapshot';
+  quoteSource: 'live' | 'last_live' | 'snapshot';
   pythBenchmarkSymbol?: string;
   pythBenchmarkPriceUsd?: number;
   pythBenchmarkSource?: 'pyth_index';

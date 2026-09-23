@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { INITIAL_BASKETS } from '../../../lib/data/registry';
 import { BasketDefinition } from '../../../lib/types';
-import { getUnifiedAssetQuotes } from '../../../lib/services/valuation_engine';
+import { getUnifiedAssetQuotes } from '../../../lib/server/provider_quotes';
 import { hydrateBaskets } from '../../../lib/services/basket_hydration';
 import { SynthaBasketVaultClient } from '../../../lib/execution/vault_client';
 import { getRedisRestConfigResult } from '../../../lib/server/redis_config';

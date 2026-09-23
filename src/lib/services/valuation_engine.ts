@@ -1,52 +1,5 @@
-import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, BasisMonitorItem, ProviderMode } from '../types';
-import { fetchPreStocksAssets } from './prestocks';
-import { fetchTesseraAssets } from './tessera';
-import {
-  fetchPythPrivateIndexBenchmarks,
-  getPythPrivateIndexSymbol,
-  normalizePrivateMarketUnderlying,
-} from './pyth';
+import { AssetQuote, BasketDefinition, BasketMintQuote, BasketRedeemQuote, BasisMonitorItem } from '../types';
 import { withDevnetMirror } from '../execution/devnet_mirrors';
-
-export async function getUnifiedAssetQuotes(mode: ProviderMode = 'multi'): Promise<AssetQuote[]> {
-  const prestocksPromise = fetchPreStocksAssets();
-  const tesseraPromise = mode === 'multi' ? fetchTesseraAssets() : Promise.resolve([]);
-
-  const [prestocks, tessera] = await Promise.all([prestocksPromise, tesseraPromise]);
-  const combined = [...prestocks, ...tessera].map(withDevnetMirror);
-
-  const underlyings = combined.map((asset) =>
-    normalizePrivateMarketUnderlying(asset.symbol)
-  );
-  const privateIndexBenchmarks =
-    await fetchPythPrivateIndexBenchmarks(underlyings);
-
-  return combined.map((asset) => {
-    const underlying = normalizePrivateMarketUnderlying(asset.symbol);
-    const privateIndex = privateIndexBenchmarks[underlying];
-    const privateIndexSymbol = getPythPrivateIndexSymbol(asset.symbol);
-
-    if (privateIndex) {
-      return {
-        ...asset,
-        pythBenchmarkSymbol: privateIndex.symbol,
-        pythBenchmarkPriceUsd: privateIndex.priceUsd,
-        pythBenchmarkSource: 'pyth_index' as const,
-        pythBenchmarkIndicative: true,
-        pythBenchmarkPublishedAt: privateIndex.publishedAt,
-        // Pyth private-company indices are indicative company-level signals,
-        // not executable token prices or token-price basis references.
-      };
-    }
-
-    return {
-      ...asset,
-      // Surface that an official Pyth Index exists even when the deployment has
-      // not yet been granted index access. This is metadata, not a live value.
-      pythBenchmarkSymbol: privateIndexSymbol || asset.pythBenchmarkSymbol,
-    };
-  });
-}
 
 export function calculateBasketNav(
   basket: BasketDefinition,

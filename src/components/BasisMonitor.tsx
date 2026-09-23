@@ -167,7 +167,14 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
   }, [items]);
 
   const liveCount = items.filter((item) => item.quoteSource === 'live').length;
-  const snapshotCount = items.length - liveCount;
+  const lastLiveItems = items.filter((item) => item.quoteSource === 'last_live');
+  const lastLiveCount = lastLiveItems.length;
+  const snapshotCount = items.filter(
+    (item) => item.quoteSource === 'snapshot'
+  ).length;
+  const delayedProviders = Array.from(
+    new Set(lastLiveItems.map((item) => item.provider))
+  );
   const providers = new Set(items.map((item) => item.provider)).size;
   const benchmarkedCount = items.filter((item) => typeof item.pythBenchmarkPriceUsd === 'number').length;
 
@@ -240,7 +247,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
           </div>
           <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-ink-secondary"><RefreshCw className="h-3.5 w-3.5 text-brand-primary" />Refreshed {formatAge(lastRefreshedAt, now)}</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-ink-secondary"><Database className="h-3.5 w-3.5 text-ink-tertiary" />{liveCount} live / {snapshotCount} snapshot</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-ink-secondary"><Database className="h-3.5 w-3.5 text-ink-tertiary" />{liveCount} live{lastLiveCount > 0 ? ` / ${lastLiveCount} last live` : ''}{snapshotCount > 0 ? ` / ${snapshotCount} snapshot` : ''}</span>
           </div>
         </div>
 
@@ -253,7 +260,13 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
       </section>
 
       {snapshotCount > 0 ? (
-        <Notice warning title="Fallback snapshots are visible, not disguised as live data">{snapshotCount} quote{snapshotCount === 1 ? '' : 's'} currently use the verified provider fallback snapshot. Snapshots are not written into market-price history.</Notice>
+        <Notice warning title="Verified static fallback in use">
+          {snapshotCount} quote{snapshotCount === 1 ? '' : 's'} could not be recovered from a recent live observation and are using the dated verified snapshot. Static snapshots never create market-history points.
+        </Notice>
+      ) : lastLiveCount > 0 ? (
+        <Notice title="Provider refresh delayed">
+          {lastLiveCount} {delayedProviders.map((provider) => provider === 'tessera' ? 'Tessera' : provider).join(' + ')} quote{lastLiveCount === 1 ? '' : 's'} are using the last successful live observation while the provider refresh recovers. Their original quote time is preserved and they do not create new market-history points.
+        </Notice>
       ) : (
         <Notice title="All provider quotes loaded from live endpoints">Durable charts are built from these real refresh observations, not synthetic backfills.</Notice>
       )}
@@ -331,5 +344,5 @@ const Notice = ({ title, children, warning = false }: { title: string; children:
 const MarketRow = ({ item, now }: { item: BasisMonitorItem; now: number }) => {
   const positive = item.change24h > 0;
   const negative = item.change24h < 0;
-  return <tr className="transition-colors hover:bg-surface-elevated/40"><td className="px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-subtle font-sans text-[10px] font-bold text-ink-secondary">{underlyingKey(item.symbol).slice(0, 2)}</div><div><div className="font-bold text-ink-primary">{item.symbol}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">{item.name}</div></div></div></td><td className="px-5 py-4"><span className="rounded border border-border bg-surface-subtle px-2 py-0.5 text-[10px] uppercase text-ink-secondary">{item.provider}</span></td><td className="px-5 py-4 text-right font-semibold text-ink-primary">{formatUsd(item.providerMarkPriceUsd)}</td><td className="px-5 py-4 text-right text-ink-secondary">{formatUsd(item.impliedValuationUsd, true)}</td><td className="px-5 py-4 text-right">{item.change24hAvailable ? <span className={positive ? 'font-semibold text-brand-primary' : negative ? 'font-semibold text-semantic-negative' : 'font-semibold text-ink-secondary'}>{positive ? '+' : ''}{item.change24h.toFixed(2)}%</span> : <span className="text-ink-tertiary">—</span>}</td><td className="px-5 py-4"><span className={item.quoteSource === 'live' ? 'inline-flex items-center gap-1.5 rounded-full border border-brand-primary/25 bg-brand-primary/5 px-2 py-0.5 font-sans text-[10px] font-semibold uppercase text-brand-primary' : 'inline-flex items-center gap-1.5 rounded-full border border-brand-warning/30 bg-brand-warning/5 px-2 py-0.5 font-sans text-[10px] font-semibold uppercase text-brand-warning'}><span className={item.quoteSource === 'live' ? 'h-1.5 w-1.5 rounded-full bg-brand-primary' : 'h-1.5 w-1.5 rounded-full bg-brand-warning'} />{item.quoteSource}</span></td><td className="px-5 py-4 text-right text-ink-tertiary"><span className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" />{formatAge(item.lastUpdated, now)}</span></td><td className="px-5 py-4 text-right">{typeof item.pythBenchmarkPriceUsd === 'number' ? <div><div className="font-semibold text-ink-primary">{formatUsd(item.pythBenchmarkPriceUsd)}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">Indicative Pyth Index · not executable</div></div> : item.pythBenchmarkSymbol ? <div className="font-sans text-[10px] text-ink-tertiary"><div>{item.pythBenchmarkSymbol}</div><div className="mt-0.5">Index access not connected</div></div> : <span className="font-sans text-[10px] text-ink-tertiary">Not available</span>}</td></tr>;
+  return <tr className="transition-colors hover:bg-surface-elevated/40"><td className="px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-subtle font-sans text-[10px] font-bold text-ink-secondary">{underlyingKey(item.symbol).slice(0, 2)}</div><div><div className="font-bold text-ink-primary">{item.symbol}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">{item.name}</div></div></div></td><td className="px-5 py-4"><span className="rounded border border-border bg-surface-subtle px-2 py-0.5 text-[10px] uppercase text-ink-secondary">{item.provider}</span></td><td className="px-5 py-4 text-right font-semibold text-ink-primary">{formatUsd(item.providerMarkPriceUsd)}</td><td className="px-5 py-4 text-right text-ink-secondary">{formatUsd(item.impliedValuationUsd, true)}</td><td className="px-5 py-4 text-right">{item.change24hAvailable ? <span className={positive ? 'font-semibold text-brand-primary' : negative ? 'font-semibold text-semantic-negative' : 'font-semibold text-ink-secondary'}>{positive ? '+' : ''}{item.change24h.toFixed(2)}%</span> : <span className="text-ink-tertiary">—</span>}</td><td className="px-5 py-4"><span className={item.quoteSource === 'live' ? 'inline-flex items-center gap-1.5 rounded-full border border-brand-primary/25 bg-brand-primary/5 px-2 py-0.5 font-sans text-[10px] font-semibold uppercase text-brand-primary' : item.quoteSource === 'last_live' ? 'inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-surface-subtle px-2 py-0.5 font-sans text-[10px] font-semibold uppercase text-ink-secondary' : 'inline-flex items-center gap-1.5 rounded-full border border-brand-warning/30 bg-brand-warning/5 px-2 py-0.5 font-sans text-[10px] font-semibold uppercase text-brand-warning'}><span className={item.quoteSource === 'live' ? 'h-1.5 w-1.5 rounded-full bg-brand-primary' : item.quoteSource === 'last_live' ? 'h-1.5 w-1.5 rounded-full bg-ink-tertiary' : 'h-1.5 w-1.5 rounded-full bg-brand-warning'} />{item.quoteSource === 'last_live' ? 'last live' : item.quoteSource}</span></td><td className="px-5 py-4 text-right text-ink-tertiary"><span className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" />{formatAge(item.lastUpdated, now)}</span></td><td className="px-5 py-4 text-right">{typeof item.pythBenchmarkPriceUsd === 'number' ? <div><div className="font-semibold text-ink-primary">{formatUsd(item.pythBenchmarkPriceUsd)}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">Indicative Pyth Index · not executable</div></div> : item.pythBenchmarkSymbol ? <div className="font-sans text-[10px] text-ink-tertiary"><div>{item.pythBenchmarkSymbol}</div><div className="mt-0.5">Index access not connected</div></div> : <span className="font-sans text-[10px] text-ink-tertiary">Not available</span>}</td></tr>;
 };

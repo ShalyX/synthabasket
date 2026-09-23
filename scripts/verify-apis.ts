@@ -68,8 +68,30 @@ async function main() {
       if (!isValidBase58(asset.tokenMint)) {
         throw new Error(`Invalid base58 token mint for ${asset.symbol}: ${asset.tokenMint}`);
       }
+      if (asset.quoteSource !== 'live') {
+        throw new Error(
+          `Strict Tessera verification unexpectedly returned ${asset.quoteSource || 'unknown'} data for ${asset.symbol}`
+        );
+      }
     }
-    console.log('   [PASS] All Tessera assets passed base58 address & price sanity checks.');
+
+    const expectedTesseraMints = [
+      'oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ',
+      'TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ',
+      'TSPXcLV76s6V2zDiZQ18kBfcbnjaE2ZzNT3ga2Pd99v',
+    ];
+    const tesseraMints = new Set(tesseraAssets.map((asset) => asset.tokenMint));
+    for (const mint of expectedTesseraMints) {
+      if (!tesseraMints.has(mint)) {
+        throw new Error(
+          `Tessera Product API omitted expected STOCKLANA integration mint ${mint}`
+        );
+      }
+    }
+
+    console.log(
+      '   [PASS] Tessera returned live data for all expected STOCKLANA T-Token mints.'
+    );
   } catch (err: any) {
     console.error('   [FAIL] Tessera API failed loudly:', err.message);
     failureCount++;

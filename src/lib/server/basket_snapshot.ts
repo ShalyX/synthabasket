@@ -1,6 +1,6 @@
 import { INITIAL_BASKETS } from '../data/registry';
 import { BasketDefinition } from '../types';
-import { getUnifiedAssetQuotes } from '../services/valuation_engine';
+import { getUnifiedAssetQuotes } from './provider_quotes';
 import { hydrateBaskets } from '../services/basket_hydration';
 import { recordDurableNavHistory } from './nav_history_store';
 import { recordDurableMarketHistory } from './market_history_store';
