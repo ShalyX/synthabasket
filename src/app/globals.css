@@ -135,24 +135,62 @@ html:not(.dark) .text-red-400 {
 }
 
 .wallet-adapter-modal-wrapper {
+  flex: 0 1 352px !important;
+  width: min(352px, calc(100vw - 32px)) !important;
+  max-width: 352px !important;
   background: #13151d !important;
   border: 1px solid #222636 !important;
   font-family: var(--font-sans), 'Inter', sans-serif !important;
-  border-radius: 8px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.38) !important;
 }
 
 .wallet-adapter-modal-title {
+  margin: 0 !important;
+  padding: 52px 28px 26px !important;
   color: #f1f5f9 !important;
   font-size: 14px !important;
+  line-height: 1.4 !important;
   letter-spacing: -0.01em !important;
   font-weight: 700 !important;
+  text-align: center !important;
+}
+
+.wallet-adapter-modal-list {
+  margin: 0 !important;
+  padding: 0 14px 14px !important;
 }
 
 .wallet-adapter-modal-list .wallet-adapter-button {
+  min-height: 46px !important;
+  height: 46px !important;
+  padding: 0 14px !important;
   background-color: #171a24 !important;
   color: #f1f5f9 !important;
   border: 1px solid #222636 !important;
-  border-radius: 6px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button-start-icon,
+.wallet-adapter-modal-list .wallet-adapter-button-start-icon img {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.wallet-adapter-modal-button-close {
+  top: 14px !important;
+  right: 14px !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 9px !important;
+  border-radius: 10px !important;
+  background: rgb(var(--surface-elevated-rgb)) !important;
+}
+
+.wallet-adapter-modal-overlay {
+  background: rgba(0, 0, 0, 0.58) !important;
+  backdrop-filter: blur(3px);
 }
 
 .wallet-adapter-modal-list .wallet-adapter-button:hover {
@@ -176,7 +214,12 @@ html:not(.dark) .wallet-adapter-button:hover {
 
 html:not(.dark) .wallet-adapter-modal-wrapper {
   background: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  border-color: rgb(var(--border-rgb)) !important;
+  box-shadow: 0 24px 72px rgba(15, 23, 42, 0.16) !important;
+}
+
+html:not(.dark) .wallet-adapter-modal-button-close {
+  background: rgb(var(--surface-elevated-rgb)) !important;
 }
 
 html:not(.dark) .wallet-adapter-modal-title {
