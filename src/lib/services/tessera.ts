@@ -206,16 +206,22 @@ function expectedCoveragePresent(assets: AssetQuote[]): boolean {
 
 async function fallbackTesseraAssets(error: Error): Promise<AssetQuote[]> {
   try {
-    const durable = await readTesseraLastLive();
+    const durable = await readTesseraLastLive(TESSERA_VERIFIED_SNAPSHOT);
     if (durable.length > 0) {
-      console.warn(
-        `[Tessera API] Official Product API unavailable after retries (${error.message}). Using last successful live observation from durable storage.`
-      );
-      return durable.map((asset) => ({
+      const durableMints = new Set(durable.map((asset) => asset.tokenMint));
+      const recovered = durable.map((asset) => ({
         ...asset,
         quoteSource: 'last_live' as const,
         change24hAvailable: false,
       }));
+      const staticMissing = TESSERA_VERIFIED_SNAPSHOT.filter(
+        (asset) => !durableMints.has(asset.tokenMint)
+      );
+
+      console.warn(
+        `[Tessera API] Official Product API unavailable after retries (${error.message}). Using ${recovered.length} last-live quote(s) from durable storage${staticMissing.length ? ` plus ${staticMissing.length} static cold-start fallback(s)` : ''}.`
+      );
+      return [...recovered, ...staticMissing];
     }
   } catch (storeError: any) {
     console.warn(
@@ -255,7 +261,7 @@ async function fetchFreshTesseraAssets(
       const liveMints = new Set(liveAssets.map((asset) => asset.tokenMint));
       let durable: AssetQuote[] = [];
       try {
-        durable = await readTesseraLastLive();
+        durable = await readTesseraLastLive(TESSERA_VERIFIED_SNAPSHOT);
       } catch (storeError: any) {
         console.warn(
           '[Tessera API] Partial live response; last-live recovery read failed:',

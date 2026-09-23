@@ -2,6 +2,7 @@ import { AssetQuote } from '../types';
 import { getRedisRestConfig, redisRestConfigured } from './redis_config';
 
 const KEY = 'synthabasket:tessera-last-live:v1';
+const MARKET_HISTORY_META_KEY = 'synthabasket:market-history-meta:v1';
 const TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export function durableTesseraLastLiveConfigured(): boolean {
@@ -40,25 +41,89 @@ export async function writeTesseraLastLive(
   return true;
 }
 
-export async function readTesseraLastLive(): Promise<AssetQuote[]> {
+function validStoredAssets(value: unknown): AssetQuote[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (asset: AssetQuote) =>
+      asset?.provider === 'tessera' &&
+      typeof asset.tokenMint === 'string' &&
+      typeof asset.symbol === 'string' &&
+      Number.isFinite(asset.priceUsd) &&
+      asset.priceUsd > 0 &&
+      Number.isFinite(asset.lastUpdated)
+  );
+}
+
+export async function readTesseraLastLive(
+  seedAssets: AssetQuote[] = []
+): Promise<AssetQuote[]> {
   if (!durableTesseraLastLiveConfigured()) return [];
 
   const raw = await redisCommand(['GET', KEY]);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(String(raw));
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (asset: AssetQuote) =>
-        asset?.provider === 'tessera' &&
-        typeof asset.tokenMint === 'string' &&
-        typeof asset.symbol === 'string' &&
-        Number.isFinite(asset.priceUsd) &&
-        asset.priceUsd > 0 &&
-        Number.isFinite(asset.lastUpdated)
-    );
-  } catch {
-    return [];
+  if (raw) {
+    try {
+      const stored = validStoredAssets(JSON.parse(String(raw)));
+      if (stored.length > 0) return stored;
+    } catch {
+      // Fall through to the durable market-history migration below.
+    }
   }
+
+  // Bootstrap the dedicated last-live cache from market-history metadata that
+  // was already written only from genuinely live provider observations.
+  if (seedAssets.length === 0) return [];
+
+  const recovered: AssetQuote[] = [];
+  for (const seed of seedAssets) {
+    const pointRaw = await redisCommand([
+      'HGET',
+      MARKET_HISTORY_META_KEY,
+      seed.tokenMint,
+    ]);
+    if (!pointRaw) continue;
+
+    try {
+      const point = JSON.parse(String(pointRaw));
+      const priceUsd = Number(point?.priceUsd);
+      const timestamp = Number(point?.timestamp);
+      const impliedValuationUsd = Number(point?.impliedValuationUsd);
+
+      if (
+        point?.provider !== 'tessera' ||
+        !Number.isFinite(priceUsd) ||
+        priceUsd <= 0 ||
+        !Number.isFinite(timestamp) ||
+        timestamp <= seed.lastUpdated
+      ) {
+        continue;
+      }
+
+      recovered.push({
+        ...seed,
+        priceUsd,
+        marketCapUsd:
+          Number.isFinite(impliedValuationUsd) && impliedValuationUsd > 0
+            ? impliedValuationUsd
+            : seed.marketCapUsd,
+        change24h: 0,
+        change24hAvailable: false,
+        quoteSource: 'live',
+        lastUpdated: timestamp,
+      });
+    } catch {
+      // A malformed historical metadata row is ignored independently.
+    }
+  }
+
+  if (recovered.length > 0) {
+    await redisCommand([
+      'SET',
+      KEY,
+      JSON.stringify(recovered),
+      'EX',
+      TTL_SECONDS,
+    ]);
+  }
+
+  return recovered;
 }
