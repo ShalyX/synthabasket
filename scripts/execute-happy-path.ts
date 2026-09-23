@@ -17,7 +17,6 @@ import bs58 from 'bs58';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SynthaBasketVaultClient } from '../src/lib/execution/vault_client';
-import { fetchPythPrices, PYTH_FEED_MAP } from '../src/lib/services/pyth';
 import { INITIAL_BASKETS } from '../src/lib/data/registry';
 import {
   calculateMintQuote,
@@ -270,34 +269,23 @@ async function runHappyPath() {
   }
   const mirrorAuthority = parseKeypair(authoritySecret);
 
-  const targetBasket = attachConfiguredMirrors(INITIAL_BASKETS[0]);
+  const registryBasket = attachConfiguredMirrors(INITIAL_BASKETS[0]);
+  const indicativeNav = registryBasket.constituents.reduce(
+    (sum, constituent) =>
+      sum +
+      constituent.asset.priceUsd * (constituent.targetWeightBps / 10_000),
+    0
+  );
+  const targetBasket = {
+    ...registryBasket,
+    navUsd: Number(indicativeNav.toFixed(2)),
+  };
   const vaultClient = new SynthaBasketVaultClient(connection);
   const receipts: DemoStepReceipt[] = [];
 
   console.log('SynthaBasket REAL Devnet happy-path proof');
   console.log('Runner:', runner.publicKey.toBase58());
   console.log('Basket:', targetBasket.symbol);
-
-  if (process.env.PYTH_API_KEY) {
-    const pythPrices = await fetchPythPrices(
-      [PYTH_FEED_MAP['SOL/USD'].id, PYTH_FEED_MAP['USDC/USD'].id],
-      {
-        apiKey: process.env.PYTH_API_KEY,
-        throwOnError: true,
-      }
-    );
-
-    receipts.push({
-      step: 'Oracle Ingestion',
-      action: 'Authenticated Pyth Hermes price read',
-      status: 'CONFIRMED',
-      details: { pythPrices },
-    });
-  } else {
-    console.log(
-      'PYTH_API_KEY is not configured; skipping the optional oracle side-check. No oracle proof will be claimed.'
-    );
-  }
 
   await vaultClient.verifyBasketExecutionState(targetBasket, true);
 

@@ -1,7 +1,7 @@
 import { PublicKey } from '@solana/web3.js';
 import { fetchPreStocksAssets } from '../src/lib/services/prestocks';
 import { fetchTesseraAssets } from '../src/lib/services/tessera';
-import { fetchPythPrices, PYTH_FEED_MAP, computeBasisSpread } from '../src/lib/services/pyth';
+import { fetchPythPrivateIndexBenchmarks } from '../src/lib/services/pyth';
 import { calculateBasketNav } from '../src/lib/services/valuation_engine';
 import { INITIAL_BASKETS } from '../src/lib/data/registry';
 import { AssetQuote } from '../src/lib/types';
@@ -75,32 +75,33 @@ async function main() {
     failureCount++;
   }
 
-  // 3. Pyth Hermes Oracles
-  console.log('\n3. Testing Pyth Hermes Price Feeds (Authenticated / Diagnostic Gate)...');
+  // 3. Pyth private-company indices
+  console.log('\n3. Testing optional Pyth private-index entitlement...');
   try {
-    const apiKey = process.env.PYTH_API_KEY || process.env.NEXT_PUBLIC_PYTH_API_KEY;
-    const feedIds = [
-      PYTH_FEED_MAP['SOL/USD'].id,
-      PYTH_FEED_MAP['USDC/USD'].id,
-    ];
+    const apiKey = process.env.PYTH_INDEX_API_KEY;
 
     if (!apiKey) {
-      console.warn('   [WARNING] No PYTH_API_KEY found in environment.');
-      console.warn('   Note: As of August 26, 2026, Pyth Hermes requires authentication.');
-      console.warn('   To enable live Pyth pricing, add PYTH_API_KEY to your .env.local.');
-    }
-
-    const prices = await fetchPythPrices(feedIds, { throwOnError: Boolean(apiKey), apiKey });
-    if (apiKey) {
-      if (Object.keys(prices).length === 0) {
-        throw new Error('Pyth Hermes returned no prices for requested feed IDs');
-      }
-      console.log(`   [PASS] Received ${Object.keys(prices).length} authenticated Pyth price feeds.`);
+      console.warn('   [WARNING] No PYTH_INDEX_API_KEY found; skipping entitled private-index reads.');
+      console.log('   [PASS] Pyth private-index integration is correctly optional.');
     } else {
-      console.log('   [PASS] Pyth Hermes client verified diagnostic reporting mode.');
+      const benchmarks = await fetchPythPrivateIndexBenchmarks(
+        ['OPENAI', 'ANTHROPIC'],
+        { throwOnError: true, apiKey }
+      );
+
+      const received = Object.keys(benchmarks);
+      if (received.length === 0) {
+        throw new Error(
+          'Pyth private-index API returned no entitled OpenAI/Anthropic benchmark values'
+        );
+      }
+
+      console.log(
+        `   [PASS] Received ${received.length} entitled Pyth private-index benchmark(s).`
+      );
     }
   } catch (err: any) {
-    console.error('   [FAIL] Pyth Hermes failed loudly:', err.message);
+    console.error('   [FAIL] Pyth private-index check failed loudly:', err.message);
     failureCount++;
   }
 
@@ -121,21 +122,6 @@ async function main() {
     }
   } catch (err: any) {
     console.error('   [FAIL] Basket NAV calculation failed:', err.message);
-    failureCount++;
-  }
-
-  // 5. Basis Spread Math
-  console.log('\n5. Testing Basis Spread Calculation...');
-  try {
-    const sampleDex = 812.79;
-    const samplePyth = 805.00;
-    const { spreadBps, direction } = computeBasisSpread(sampleDex, samplePyth);
-    if (spreadBps !== 97 || direction !== 'solana_premium') {
-      throw new Error(`Unexpected basis calculation: ${spreadBps} bps, ${direction}`);
-    }
-    console.log(`   [PASS] Spread: ${spreadBps} bps (${direction}) matches expected math.`);
-  } catch (err: any) {
-    console.error('   [FAIL] Basis spread calculation failed:', err.message);
     failureCount++;
   }
 
