@@ -72,10 +72,6 @@ export interface BasketDefinition {
    * executable test custody isolated from canonical provider-mint metadata.
    */
   devnetExecutionSymbol?: string;
-  meteoraDbcPoolAddress?: string;
-  meteoraDammPoolAddress?: string;
-  meteoraGraduated: boolean;
-  meteoraMarketCapUsd?: number;
   creatorAddress?: string;
   createdAt: number;
 }

@@ -37,9 +37,9 @@ Jupiter V2        mirror adapter
               │
               ▼
        Basket SPL shares
-          ┌───┴────┐
-          ▼        ▼
-      Redeem    Meteora config
+              │
+              ▼
+           Redeem
 ```
 
 ### Mainnet execution
@@ -178,7 +178,6 @@ For first issuance, positive constituent reserves establish the initial basket s
 - **PreStocks** and **Tessera** — private-market asset/provider data.
 - **Pyth Hermes** — benchmark/oracle context used by NAV and basis analytics.
 - **Jupiter Swap API V2** — executable constituent acquisition on supported mainnet routes.
-- **Meteora DBC SDK** — optional basket-liquidity configuration path. A DBC pool is not described as active unless its deployment is actually verified.
 
 ---
 

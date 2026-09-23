@@ -37,8 +37,8 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 }) => {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
-  const [activeTab, setActiveTab] = useState<'mint' | 'redeem'>(
-    initialTab === 'redeem' ? 'redeem' : 'mint'
+  const [activeTab, setActiveTab] = useState<'inspect' | 'mint' | 'redeem'>(
+    initialTab
   );
   const [usdcAmount, setUsdcAmount] = useState<number>(100);
   const [redeemShares, setRedeemShares] = useState<number>(0);
@@ -48,6 +48,10 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   const [durableHistoryEnabled, setDurableHistoryEnabled] = useState(false);
   const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
   const [basketBalance, setBasketBalance] = useState<number | null>(null);
+  const [balanceStatus, setBalanceStatus] = useState<
+    'idle' | 'loading' | 'ready' | 'error'
+  >('idle');
+  const [balanceError, setBalanceError] = useState<string | null>(null);
   const [liveMintQuote, setLiveMintQuote] = useState<BasketMintQuote | null>(null);
   const [mintQuoteLoading, setMintQuoteLoading] = useState(false);
   const [mintQuoteError, setMintQuoteError] = useState<string | null>(null);
@@ -84,37 +88,71 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
+    let requestInFlight = false;
 
     async function loadWalletBalances() {
       if (!publicKey) {
         if (!cancelled) {
           setUsdcBalance(null);
           setBasketBalance(null);
+          setBalanceStatus('idle');
+          setBalanceError(null);
         }
         return;
       }
 
-      const vaultClient = new SynthaBasketVaultClient(connection);
-      const devnetUsdcMint = new PublicKey(
-        '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-      );
+      if (requestInFlight) return;
+      requestInFlight = true;
+      if (!cancelled) setBalanceStatus('loading');
 
-      const [usdc, shares] = await Promise.all([
-        vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
-        vaultClient.getUserBasketBalance(publicKey, basket, true),
-      ]);
+      try {
+        const vaultClient = new SynthaBasketVaultClient(connection);
+        const devnetUsdcMint = new PublicKey(
+          '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+        );
 
-      if (!cancelled) {
-        setUsdcBalance(usdc);
-        setBasketBalance(shares);
+        const [usdc, shares] = await Promise.all([
+          vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
+          vaultClient.getUserBasketBalance(publicKey, basket, true),
+        ]);
+
+        if (!cancelled) {
+          setUsdcBalance(usdc);
+          setBasketBalance(shares);
+          setBalanceStatus('ready');
+          setBalanceError(null);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          const message = String(error?.message || error || '');
+          setBalanceStatus('error');
+          setBalanceError(
+            /429|rate limit|too many requests/i.test(message)
+              ? 'Solana Devnet is rate-limiting balance reads. Existing balances are preserved and are not replaced with zero.'
+              : 'Wallet balances could not be refreshed from Solana. Existing balances are preserved until a confirmed read succeeds.'
+          );
+        }
+      } finally {
+        requestInFlight = false;
       }
     }
 
+    const refreshIfActive = () => {
+      if (document.visibilityState === 'visible') {
+        void loadWalletBalances();
+      }
+    };
+
     void loadWalletBalances();
-    const id = window.setInterval(loadWalletBalances, 30_000);
+    const id = window.setInterval(refreshIfActive, 30_000);
+    window.addEventListener('focus', refreshIfActive);
+    document.addEventListener('visibilitychange', refreshIfActive);
+
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      window.removeEventListener('focus', refreshIfActive);
+      document.removeEventListener('visibilitychange', refreshIfActive);
     };
   }, [basket, connection, publicKey]);
 
@@ -670,6 +708,16 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
           <div className="bg-surface-subtle p-5 sm:p-6">
             <div className="flex border-b border-border">
               <button
+                onClick={() => setActiveTab('inspect')}
+                className={`flex-1 border-b-2 px-2 pb-3 text-sm font-semibold transition-colors ${
+                  activeTab === 'inspect'
+                    ? 'border-brand-primary text-ink-primary'
+                    : 'border-transparent text-ink-tertiary hover:text-ink-primary'
+                }`}
+              >
+                Overview
+              </button>
+              <button
                 onClick={() => setActiveTab('mint')}
                 className={`flex-1 border-b-2 px-2 pb-3 text-sm font-semibold transition-colors ${
                   activeTab === 'mint'
@@ -690,6 +738,71 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 Redeem
               </button>
             </div>
+
+            {activeTab === 'inspect' && (
+              <div className="mt-6 space-y-5">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-primary">
+                    Execution snapshot
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-ink-tertiary">
+                    This panel separates current on-chain state from indicative market pricing.
+                  </p>
+                </div>
+
+                <div className="divide-y divide-border rounded-lg border border-border bg-surface px-4">
+                  <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                    <span className="text-ink-secondary">Vault state</span>
+                    <span className={executionVerification.verified ? 'font-medium text-brand-primary' : 'text-ink-tertiary'}>
+                      {executionVerification.verified ? 'Verified this refresh' : 'Fresh verification required'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                    <span className="text-ink-secondary">Share supply</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      {basket.onChainStateLoaded
+                        ? basket.totalSharesMinted.toLocaleString(undefined, { maximumFractionDigits: 6 })
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                    <span className="text-ink-secondary">Your shares</span>
+                    <span className="font-mono tabular-nums text-ink-primary">
+                      {!publicKey
+                        ? 'Connect wallet'
+                        : balanceStatus === 'loading' && basketBalance === null
+                        ? 'Loading…'
+                        : basketBalance === null
+                        ? '—'
+                        : basketBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                    <span className="text-ink-secondary">Secondary liquidity</span>
+                    <span className="text-ink-tertiary">Not advertised</span>
+                  </div>
+                </div>
+
+                {balanceError && (
+                  <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                )}
+
+                <p className="text-xs leading-5 text-ink-tertiary">
+                  Investing acquires the underlying constituents and deposits them into the program vault.
+                  Redemption burns basket shares for the current pro-rata underlying assets. No secondary pool
+                  is presented as active unless a compatible venue is actually verified.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setActiveTab('mint')} className="rounded-lg bg-brand-primary py-2.5 text-sm font-semibold text-black">
+                    Invest
+                  </button>
+                  <button onClick={() => setActiveTab('redeem')} className="rounded-lg border border-border bg-surface py-2.5 text-sm font-semibold text-ink-primary transition-colors hover:border-border-strong">
+                    Redeem
+                  </button>
+                </div>
+              </div>
+            )}
 
             {activeTab === 'mint' && (
               <div className="mt-6 space-y-5">
@@ -732,6 +845,10 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {balanceError && (
+                  <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                )}
 
                 <div className="border-y border-border py-4">
                   <div className="flex items-center justify-between">
@@ -823,6 +940,10 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {balanceError && (
+                  <p className="text-xs leading-5 text-amber-300">{balanceError}</p>
+                )}
 
                 <div className="border-y border-border py-4">
                   {!redeemShares || redeemShares <= 0 ? (

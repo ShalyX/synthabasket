@@ -232,6 +232,7 @@ export default function AppPage() {
     }
 
     let activeStepIndex = 0;
+    let constituentAcquisitionReady = false;
 
     const activateStep = (nextIndex: number, completedIndex?: number, evidence?: string[]) => {
       activeStepIndex = nextIndex;
@@ -342,6 +343,10 @@ export default function AppPage() {
           true
         ));
 
+      if (canReuseExistingAcquisition) {
+        constituentAcquisitionReady = true;
+      }
+
       if (
         !canReuseExistingAcquisition &&
         beforeUsdcBalance + 1e-9 < quote.depositUsdcAmount
@@ -390,6 +395,7 @@ export default function AppPage() {
           }
           allocationSignatures.push(signature);
         }
+        constituentAcquisitionReady = true;
       } else {
         setTxLifecycle((prev) => ({
           ...prev,
@@ -405,14 +411,17 @@ export default function AppPage() {
         }));
       }
 
+      // Once acquisition is confirmed, reflect that truth immediately. Any
+      // subsequent RPC/preflight failure belongs to the vault-deposit step;
+      // the acquired tokens stay in the user's wallet and are reusable.
+      activateStep(3, 2, allocationSignatures);
+
       await vaultClient.verifyDepositBalances(
         publicKey,
         basket,
         depositQuote,
         isDevnet
       );
-
-      activateStep(3, 2, allocationSignatures);
 
       // Step 4: Build the actual Anchor deposit transaction only after all
       // acquisition signatures are confirmed and token balances are present.
@@ -480,10 +489,19 @@ export default function AppPage() {
         throw new Error(`Vault deposit ${depositOutcome.state}: ${depositOutcome.error}`);
       }
 
-      const [afterUsdcBalance, afterBasketBalance] = await Promise.all([
-        vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
-        vaultClient.getUserBasketBalance(publicKey, basket, isDevnet),
-      ]);
+      let afterUsdcBalance: number | null = null;
+      let afterBasketBalance: number | null = null;
+      try {
+        [afterUsdcBalance, afterBasketBalance] = await Promise.all([
+          vaultClient.getUserTokenBalance(publicKey, devnetUsdcMint),
+          vaultClient.getUserBasketBalance(publicKey, basket, isDevnet),
+        ]);
+      } catch (receiptError) {
+        console.warn(
+          '[Mint receipt] Transaction confirmed but post-settlement balance enrichment failed.',
+          receiptError
+        );
+      }
 
       setTxLifecycle((prev) => ({
         ...prev,
@@ -491,9 +509,13 @@ export default function AppPage() {
         finalSignature: depositSignature,
         receipt: {
           basketSymbol: basket.symbol,
-          spentUsdc: Math.max(0, beforeUsdcBalance - afterUsdcBalance),
-          sharesReceived: Math.max(0, afterBasketBalance - beforeBasketBalance),
-          resultingShareBalance: afterBasketBalance,
+          spentUsdc:
+            afterUsdcBalance === null
+              ? undefined
+              : Math.max(0, beforeUsdcBalance - afterUsdcBalance),
+          sharesReceived: depositQuote.expectedBasketTokens,
+          resultingShareBalance:
+            afterBasketBalance === null ? undefined : afterBasketBalance,
           assetsDeposited: depositQuote.allocations.map((allocation) => ({
             symbol: allocation.asset.symbol,
             amount: allocation.estimatedTokensReceived,
@@ -520,7 +542,11 @@ export default function AppPage() {
             ? {
                 ...step,
                 status: 'failed',
-                error: err?.message || 'Transaction failed',
+                error:
+                  (err?.message || 'Transaction failed') +
+                  (constituentAcquisitionReady
+                    ? ' Any constituent tokens already acquired remain in your wallet. Retry the same investment to reuse those exact deposit balances; SynthaBasket will not send another Devnet USDC acquisition while they are still present.'
+                    : ''),
               }
             : step
         ),
@@ -714,34 +740,46 @@ export default function AppPage() {
         throw new Error(`Redemption ${outcome.state}: ${outcome.error}`);
       }
 
-      const afterBasketBalance = await vaultClient.getUserBasketBalance(
-        publicKey,
-        basket,
-        isDevnet
-      );
-      const afterConstituentBalances = await Promise.all(
-        executionRedeemQuote.constituentsToReturn.map(async (item) => {
-          const mint = new PublicKey(
-            isDevnet
-              ? item.asset.devnetMint || item.asset.tokenMint
-              : item.asset.tokenMint
+      let afterBasketBalance: number | null = null;
+      let assetsReturned:
+        | Array<{ symbol: string; amount: number }>
+        | undefined;
+
+      try {
+        afterBasketBalance = await vaultClient.getUserBasketBalance(
+          publicKey,
+          basket,
+          isDevnet
+        );
+        const afterConstituentBalances = await Promise.all(
+          executionRedeemQuote.constituentsToReturn.map(async (item) => {
+            const mint = new PublicKey(
+              isDevnet
+                ? item.asset.devnetMint || item.asset.tokenMint
+                : item.asset.tokenMint
+            );
+            return {
+              symbol: item.asset.symbol,
+              balance: await vaultClient.getUserTokenBalance(publicKey, mint),
+            };
+          })
+        );
+
+        assetsReturned = afterConstituentBalances.map((after) => {
+          const before = beforeConstituentBalances.find(
+            (item) => item.symbol === after.symbol
           );
           return {
-            symbol: item.asset.symbol,
-            balance: await vaultClient.getUserTokenBalance(publicKey, mint),
+            symbol: after.symbol,
+            amount: Math.max(0, after.balance - (before?.balance || 0)),
           };
-        })
-      );
-
-      const assetsReturned = afterConstituentBalances.map((after) => {
-        const before = beforeConstituentBalances.find(
-          (item) => item.symbol === after.symbol
+        });
+      } catch (receiptError) {
+        console.warn(
+          '[Redeem receipt] Transaction confirmed but post-settlement balance enrichment failed.',
+          receiptError
         );
-        return {
-          symbol: after.symbol,
-          amount: Math.max(0, after.balance - (before?.balance || 0)),
-        };
-      });
+      }
 
       setTxLifecycle((prev) => ({
         ...prev,
@@ -749,8 +787,9 @@ export default function AppPage() {
         finalSignature: signature,
         receipt: {
           basketSymbol: basket.symbol,
-          sharesBurned: Math.max(0, beforeBasketBalance - afterBasketBalance),
-          resultingShareBalance: afterBasketBalance,
+          sharesBurned: executionRedeemQuote.burnBasketTokensAmount,
+          resultingShareBalance:
+            afterBasketBalance === null ? undefined : afterBasketBalance,
           assetsReturned,
         },
         steps: prev.steps.map((step, index) =>
@@ -812,7 +851,6 @@ export default function AppPage() {
       vaultPda: basketPda.toBase58(),
       basketMint: basketMint.toBase58(),
       devnetExecutionSymbol: draft.symbol,
-      meteoraGraduated: false,
       createdAt: Date.now(),
     };
 

@@ -162,15 +162,22 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                     )}
                   </div>
 
-                  {/* Prominent Trust Signals: Physically Backed & Redeemable 1:1 */}
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 rounded border border-brand-primary/30 bg-brand-primary/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-brand-primary font-semibold">
+                  {/* Execution state: only claim what this refresh actually verified. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span
+                      className={
+                        'inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider ' +
+                        (basket.onChainStateLoaded
+                          ? 'border-brand-primary/30 bg-brand-primary/5 text-brand-primary'
+                          : 'border-border bg-surface-elevated text-ink-tertiary')
+                      }
+                    >
                       <Lock className="h-2.5 w-2.5" />
-                      PHYSICALLY BACKED
+                      {basket.onChainStateLoaded ? 'LIVE VAULT' : 'VAULT UNVERIFIED'}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded border border-border bg-surface-elevated px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-ink-secondary font-semibold">
+                    <span className="inline-flex items-center gap-1 rounded border border-border bg-surface-elevated px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-ink-secondary">
                       <ArrowRightLeft className="h-2.5 w-2.5 text-brand-primary" />
-                      REDEEMABLE 1:1
+                      {basket.onChainStateLoaded ? 'PRO-RATA REDEEM' : 'VERIFY ON TRADE'}
                     </span>
                   </div>
 
@@ -183,7 +190,7 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                   <div className="mt-4 flex items-baseline justify-between border-t border-border pt-3">
                     <div>
                       <span className="block font-sans text-[10px] uppercase tracking-wider text-ink-tertiary">
-                        Live Net Asset Value
+                        {basket.navSource === 'onchain_reserves' ? 'Vault NAV' : 'Indicative NAV'}
                       </span>
                       <div className="font-mono text-xl font-bold text-ink-primary tabular-nums">
                         ${basket.navUsd.toFixed(2)}
@@ -193,19 +200,23 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                       <span className="block font-sans text-[10px] uppercase tracking-wider text-ink-tertiary">
                         24h Return
                       </span>
-                      <div
-                        className={`flex items-center justify-end font-mono text-sm font-bold tabular-nums ${
-                          isPositive ? 'text-brand-primary' : 'text-semantic-negative'
-                        }`}
-                      >
-                        {isPositive ? '+' : ''}
-                        {basket.navChange24h.toFixed(2)}%
-                        {isPositive ? (
-                          <ArrowUpRight className="h-3.5 w-3.5 ml-0.5" />
-                        ) : (
-                          <ArrowDownRight className="h-3.5 w-3.5 ml-0.5" />
-                        )}
-                      </div>
+                      {basket.navChange24hAvailable ? (
+                        <div
+                          className={`flex items-center justify-end font-mono text-sm font-bold tabular-nums ${
+                            isPositive ? 'text-brand-primary' : 'text-semantic-negative'
+                          }`}
+                        >
+                          {isPositive ? '+' : ''}
+                          {basket.navChange24h.toFixed(2)}%
+                          {isPositive ? (
+                            <ArrowUpRight className="h-3.5 w-3.5 ml-0.5" />
+                          ) : (
+                            <ArrowDownRight className="h-3.5 w-3.5 ml-0.5" />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="font-mono text-sm text-ink-tertiary">—</div>
+                      )}
                     </div>
                   </div>
 
@@ -213,7 +224,9 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                   <div className="mt-4 space-y-1.5">
                     <div className="flex items-center justify-between font-sans text-[11px] text-ink-tertiary">
                       <span className="font-medium">Portfolio Composition</span>
-                      <span className="font-mono text-[10px] text-brand-primary">100% Backed</span>
+                      <span className="font-mono text-[10px] text-ink-tertiary">
+                        {basket.navSource === 'onchain_reserves' ? 'Live reserves' : 'Target weights'}
+                      </span>
                     </div>
 
                     {/* The Segmented Composition Bar */}
@@ -284,7 +297,7 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                 <th className="px-4 py-2.5 font-medium text-right font-mono">24h Delta</th>
                 <th className="px-4 py-2.5 font-medium">Backing Proof</th>
                 <th className="px-4 py-2.5 font-medium">Composition</th>
-                <th className="px-4 py-2.5 font-medium">Secondary Pool</th>
+                <th className="px-4 py-2.5 font-medium">Secondary Liquidity</th>
                 <th className="px-4 py-2.5 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -338,11 +351,18 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                       </span>
                     </td>
 
-                    {/* Backing Proof */}
+                    {/* Vault verification state */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 rounded bg-brand-primary/10 px-2 py-0.5 text-[10px] text-brand-primary font-semibold font-mono">
+                      <span
+                        className={
+                          'inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold font-mono ' +
+                          (basket.onChainStateLoaded
+                            ? 'bg-brand-primary/10 text-brand-primary'
+                            : 'bg-surface-elevated text-ink-tertiary')
+                        }
+                      >
                         <ShieldCheck className="h-3 w-3" />
-                        100% Backed
+                        {basket.onChainStateLoaded ? 'Live vault' : 'Not verified'}
                       </span>
                     </td>
 
@@ -364,17 +384,11 @@ export const BasketGrid: React.FC<BasketGridProps> = ({
                       </div>
                     </td>
 
-                    {/* Secondary Pool */}
+                    {/* Secondary liquidity is not claimed without a verified venue. */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {basket.meteoraGraduated ? (
-                        <span className="rounded border border-brand-primary/40 bg-brand-primary/10 px-1.5 py-0.5 text-[10px] text-brand-primary">
-                          DAMM v2 Graduated
-                        </span>
-                      ) : (
-                        <span className="rounded border border-border bg-surface-elevated px-1.5 py-0.5 text-[10px] text-ink-secondary">
-                          Meteora DBC 1.5.12
-                        </span>
-                      )}
+                      <span className="rounded border border-border bg-surface-elevated px-1.5 py-0.5 text-[10px] text-ink-tertiary">
+                        Not advertised
+                      </span>
                     </td>
 
                     {/* Actions */}

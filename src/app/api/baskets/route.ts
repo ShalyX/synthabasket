@@ -288,7 +288,6 @@ export async function POST(request: Request) {
       vaultPda: basketPda.toBase58(),
       basketMint: basketMint.toBase58(),
       devnetExecutionSymbol: symbol,
-      meteoraGraduated: false,
       createdAt: Date.now(),
     };
 

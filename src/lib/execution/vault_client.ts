@@ -79,6 +79,35 @@ export class SynthaBasketVaultClient {
     return getAssociatedTokenAddressSync(tokenMint, userPublicKey);
   }
 
+  private isMissingTokenAccountError(error: unknown): boolean {
+    const message = String((error as any)?.message || error || '');
+    return /could not find account|account not found|AccountNotFound/i.test(message);
+  }
+
+  private async readTokenAccountBalance(
+    tokenAccount: PublicKey
+  ): Promise<{ amount: string; uiAmountString: string }> {
+    try {
+      const balance = await this.connection.getTokenAccountBalance(
+        tokenAccount,
+        'confirmed'
+      );
+      return {
+        amount: balance.value.amount,
+        uiAmountString: balance.value.uiAmountString || '0',
+      };
+    } catch (error) {
+      if (this.isMissingTokenAccountError(error)) {
+        return { amount: '0', uiAmountString: '0' };
+      }
+
+      const message = String((error as any)?.message || error || 'unknown RPC error');
+      throw new Error(
+        `Unable to read Solana token balance for ${tokenAccount.toBase58()}: ${message}`
+      );
+    }
+  }
+
   /**
    * Reads SPL token mint decimals dynamically from the cluster with cached fallbacks.
    */
@@ -280,36 +309,32 @@ export class SynthaBasketVaultClient {
     const totalSharesMinted =
       Number(basketMintInfo.supply) / 10 ** basketMintInfo.decimals;
 
-    const reserves = await Promise.all(
-      basket.constituents.map(async (constituent) => {
-        const executionMint = useDevnetMirrors
-          ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
-          : constituent.asset.tokenMint;
+    const reserves: BasketExecutionSnapshot['reserves'] = [];
+    for (const constituent of basket.constituents) {
+      const executionMint = useDevnetMirrors
+        ? constituent.asset.devnetMint || getDevnetMirrorMint(constituent.asset.symbol)
+        : constituent.asset.tokenMint;
 
-        if (!executionMint) {
-          throw new Error(
-            `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`
-          );
-        }
+      if (!executionMint) {
+        throw new Error(
+          `No executable ${useDevnetMirrors ? 'Devnet mirror ' : ''}mint configured for ${constituent.asset.symbol}.`
+        );
+      }
 
-        const mint = new PublicKey(executionMint);
-        const decimals = await this.getMintDecimals(mint);
-        const vaultAta = this.getVaultTokenAccount(basketPda, mint);
-        const balance = await this.connection
-          .getTokenAccountBalance(vaultAta, 'confirmed')
-          .catch(() => null);
+      const mint = new PublicKey(executionMint);
+      const decimals = await this.getMintDecimals(mint);
+      const vaultAta = this.getVaultTokenAccount(basketPda, mint);
+      const balance = await this.readTokenAccountBalance(vaultAta);
+      const rawAmount = balance.amount;
 
-        const rawAmount = balance?.value.amount || '0';
-
-        return {
-          symbol: constituent.asset.symbol,
-          mint: mint.toBase58(),
-          rawAmount,
-          uiAmount: Number(rawAmount) / 10 ** decimals,
-          decimals,
-        };
-      })
-    );
+      reserves.push({
+        symbol: constituent.asset.symbol,
+        mint: mint.toBase58(),
+        rawAmount,
+        uiAmount: Number(rawAmount) / 10 ** decimals,
+        decimals,
+      });
+    }
 
     return {
       executionSymbol,
@@ -325,10 +350,8 @@ export class SynthaBasketVaultClient {
     mint: PublicKey
   ): Promise<number> {
     const ata = this.getUserTokenAccount(userPublicKey, mint);
-    const balance = await this.connection
-      .getTokenAccountBalance(ata, 'confirmed')
-      .catch(() => null);
-    return balance ? Number(balance.value.uiAmountString || '0') : 0;
+    const balance = await this.readTokenAccountBalance(ata);
+    return Number(balance.uiAmountString || '0');
   }
 
   async getUserBasketBalance(
@@ -440,10 +463,7 @@ export class SynthaBasketVaultClient {
 
       const mint = new PublicKey(executionMint);
       const userAta = this.getUserTokenAccount(userPublicKey, mint);
-      const account = await this.connection
-        .getTokenAccountBalance(userAta, 'confirmed')
-        .catch(() => null);
-      if (!account) return false;
+      const account = await this.readTokenAccountBalance(userAta);
 
       const requiredRaw = allocation.rawTokenAmount
         ? BigInt(allocation.rawTokenAmount)
@@ -454,7 +474,7 @@ export class SynthaBasketVaultClient {
             )
           );
 
-      if (BigInt(account.value.amount) < requiredRaw) return false;
+      if (BigInt(account.amount) < requiredRaw) return false;
     }
 
     return true;
@@ -485,9 +505,26 @@ export class SynthaBasketVaultClient {
     const decoded: any = this.accountsCoder.decode('BasketState', basketInfo.data);
     const totalShares = BigInt(decoded.totalSharesMinted.toString());
 
-    // First issuance establishes reserves, so the quoted basket amount can be
-    // used directly as long as every constituent amount is positive.
-    if (totalShares === 0n) return quote;
+    // First issuance establishes reserves. Validate the exact executable
+    // amounts rather than accepting a display-only quote with a zero leg.
+    if (totalShares === 0n) {
+      const sharesRaw = BigInt(
+        Math.floor(quote.expectedBasketTokens * 1_000_000)
+      );
+      if (sharesRaw <= 0n) {
+        throw new Error('First basket issuance would mint zero shares.');
+      }
+
+      for (const allocation of quote.allocations) {
+        if (!allocation.rawTokenAmount || BigInt(allocation.rawTokenAmount) <= 0n) {
+          throw new Error(
+            `First basket issuance requires a positive confirmed amount for ${allocation.asset.symbol}.`
+          );
+        }
+      }
+
+      return quote;
+    }
 
     const reserves = (decoded.vaultReserves as any[]).map((value) =>
       BigInt(value.toString())
@@ -605,13 +642,7 @@ export class SynthaBasketVaultClient {
 
       const mint = new PublicKey(executionMint);
       const userAta = this.getUserTokenAccount(userPublicKey, mint);
-      const account = await this.connection.getTokenAccountBalance(userAta, 'confirmed').catch(() => null);
-
-      if (!account) {
-        throw new Error(
-          `Acquisition did not create a usable ${allocation.asset.symbol} token account for the connected wallet.`
-        );
-      }
+      const account = await this.readTokenAccountBalance(userAta);
 
       const requiredRaw = allocation.rawTokenAmount
         ? BigInt(allocation.rawTokenAmount)
@@ -621,7 +652,7 @@ export class SynthaBasketVaultClient {
             )
           );
 
-      const availableRaw = BigInt(account.value.amount);
+      const availableRaw = BigInt(account.amount);
       if (availableRaw < requiredRaw) {
         throw new Error(
           `Insufficient confirmed ${allocation.asset.symbol} balance after acquisition: need ${requiredRaw.toString()} raw units, found ${availableRaw.toString()}.`
@@ -706,6 +737,9 @@ export class SynthaBasketVaultClient {
     // 4. Encode instruction using Anchor IDL BorshInstructionCoder
     const basketDecimals = 6;
     const sharesToMintRaw = BigInt(Math.floor(quote.expectedBasketTokens * 10 ** basketDecimals));
+    if (sharesToMintRaw <= 0n) {
+      throw new Error('Mint amount is below the basket share precision.');
+    }
     const encodedData = this.instructionCoder.encode('depositAndMint', {
       sharesToMint: new BN(sharesToMintRaw.toString()),
       constituentAmountsIn,
@@ -726,12 +760,8 @@ export class SynthaBasketVaultClient {
     });
 
     tx.add(depositInstruction);
-    try {
-      const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
-      tx.recentBlockhash = blockhash;
-    } catch {
-      tx.recentBlockhash = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
-    }
+    // A real recent blockhash is attached by the execution layer immediately
+    // before simulation/signing. Never substitute a made-up blockhash here.
     tx.feePayer = userPublicKey;
 
     return tx;
@@ -788,6 +818,9 @@ export class SynthaBasketVaultClient {
 
     const basketDecimals = 6;
     const sharesToBurnRaw = BigInt(Math.floor(quote.burnBasketTokensAmount * 10 ** basketDecimals));
+    if (sharesToBurnRaw <= 0n) {
+      throw new Error('Redemption amount is below the basket share precision.');
+    }
     const encodedData = this.instructionCoder.encode('burnAndRedeem', {
       sharesToBurn: new BN(sharesToBurnRaw.toString()),
     });
@@ -806,12 +839,8 @@ export class SynthaBasketVaultClient {
     });
 
     tx.add(redeemInstruction);
-    try {
-      const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
-      tx.recentBlockhash = blockhash;
-    } catch {
-      tx.recentBlockhash = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
-    }
+    // A real recent blockhash is attached by the execution layer immediately
+    // before simulation/signing. Never substitute a made-up blockhash here.
     tx.feePayer = userPublicKey;
 
     return tx;

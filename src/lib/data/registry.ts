@@ -15,10 +15,6 @@ export const INITIAL_BASKETS: BasketDefinition[] = [
     vaultPda: '27tzwSrxqyrrQj7oLxfVTAuUVZ9qM6z2Tk2ibfUYkq4Z',
     basketMint: 'BdUTUY9JtFCQ1nu6xmy7hWZjPo38k6fn1atHFHnNAEQy',
     devnetExecutionSymbol: 'AITD',
-    meteoraDbcPoolAddress: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
-    meteoraDammPoolAddress: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
-    meteoraGraduated: false,
-    meteoraMarketCapUsd: 1_250_000,
     createdAt: Date.now() - 86400000 * 5,
     constituents: [
       {
@@ -85,10 +81,6 @@ export const INITIAL_BASKETS: BasketDefinition[] = [
     vaultPda: 'FHrjGsWtZabyoQSzaLV1G2Avg3pJqikv2XS5eHfTUGUb',
     basketMint: 'E34n47abEVaUUwmeRrSBprAup3Yk3MUvztryYWFaHYAS',
     devnetExecutionSymbol: 'ORBITD',
-    meteoraDbcPoolAddress: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
-    meteoraGraduated: true,
-    meteoraDammPoolAddress: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
-    meteoraMarketCapUsd: 2_800_000,
     createdAt: Date.now() - 86400000 * 8,
     constituents: [
       {
@@ -139,9 +131,6 @@ export const INITIAL_BASKETS: BasketDefinition[] = [
     vaultPda: 'HJ4MDvgozdGYmvvQDXML9FKB9dFwCfsDxwuxsmhiddUW',
     basketMint: '3YPYyg84UwpCwXAFnJioJHaAyX2PrmwXXzLUjAhQThGM',
     devnetExecutionSymbol: 'FINXD',
-    meteoraDbcPoolAddress: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
-    meteoraGraduated: false,
-    meteoraMarketCapUsd: 850_000,
     createdAt: Date.now() - 86400000 * 3,
     constituents: [
       {
@@ -208,9 +197,6 @@ export const INITIAL_BASKETS: BasketDefinition[] = [
     vaultPda: '7JuhiGARSwk5SGDWvViBFEuoUfjkq3QN5NAfveqFnqZy',
     basketMint: 'DF7ik18h2eFZ67HtqzyWU1sGsvGFG838WFCzyjWZfLrT',
     devnetExecutionSymbol: 'PREXD',
-    meteoraDbcPoolAddress: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
-    meteoraGraduated: false,
-    meteoraMarketCapUsd: 620_000,
     createdAt: Date.now() - 86400000 * 2,
     constituents: [
       {

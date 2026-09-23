@@ -173,7 +173,6 @@ export async function readCustomBasketDefinitions(
       vaultPda: record.vaultPda,
       basketMint: record.basketMint,
       devnetExecutionSymbol: record.devnetExecutionSymbol,
-      meteoraGraduated: false,
       creatorAddress: record.creatorAddress,
       createdAt: record.createdAt,
     });
