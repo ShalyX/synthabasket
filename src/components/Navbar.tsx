@@ -37,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({ network = 'devnet' }) => {
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex items-center gap-3 text-left">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-strong group-hover:border-brand-primary transition-colors shadow-sm">
             <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none" stroke="currentColor">

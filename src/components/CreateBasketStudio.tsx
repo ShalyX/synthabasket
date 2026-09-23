@@ -7,7 +7,6 @@ import {
   Database,
   Plus,
   ShieldCheck,
-  Sliders,
   Trash2,
 } from 'lucide-react';
 import { AssetQuote, BasketCreationDraft } from '../lib/types';
@@ -192,116 +191,75 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm font-sans">
-      <div className="flex flex-col gap-4 border-b border-border bg-surface-subtle p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-brand-primary">
-            <Sliders className="h-5 w-5" />
+    <div className="space-y-6 font-sans">
+      <div className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-3xl">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
+              Basket Studio
+            </span>
+            <span className="rounded-full border border-brand-primary/25 bg-brand-primary/5 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand-primary">
+              Devnet
+            </span>
           </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-base font-bold uppercase tracking-wider text-ink-primary">
-                Create Basket
-              </h1>
-              <span className="rounded border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-brand-primary">
-                Devnet
-              </span>
-            </div>
-            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-ink-secondary">
-              Define up to eight supported private-market assets and deploy the
-              basket state plus its deterministic SPL share mint. Share supply
-              starts at zero until the first backed investment.
-            </p>
-          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink-primary sm:text-3xl">
+            Create a basket
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-secondary">
+            Choose the companies, set the target mix, and define the basket identity.
+            Deployment creates the on-chain basket state and an empty share mint;
+            investor shares are only created later against deposited assets.
+          </p>
         </div>
 
         <button
           type="button"
           onClick={onCancel}
-          className="self-start rounded-lg border border-border bg-surface px-4 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-border-strong hover:text-ink-primary sm:self-center"
+          className="w-fit rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-ink-secondary transition-colors hover:border-border-strong hover:text-ink-primary"
         >
           Cancel
         </button>
       </div>
 
-      <div className="overflow-x-auto border-b border-border bg-surface px-6 py-3.5">
-        <div className="flex min-w-[620px] items-center justify-between font-mono text-xs">
-          {steps.map((step, index) => {
-            const completed = step.id < currentStep;
-            const current = step.id === currentStep;
-
-            return (
-              <React.Fragment key={step.id}>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                      completed
-                        ? 'bg-brand-primary text-black'
-                        : current
-                        ? 'border-2 border-brand-primary bg-brand-primary/10 text-brand-primary'
-                        : 'border border-border bg-surface-subtle text-ink-tertiary opacity-50'
-                    }`}
-                  >
-                    {completed ? '✓' : step.id}
-                  </span>
-                  <span
-                    className={`font-semibold ${
-                      completed
-                        ? 'text-brand-primary'
-                        : current
-                        ? 'text-ink-primary'
-                        : 'text-ink-tertiary opacity-50'
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div
-                    className={`mx-3 h-0.5 flex-1 rounded-full ${
-                      completed ? 'bg-brand-primary' : 'bg-border'
-                    }`}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 divide-y divide-border lg:grid-cols-[1.3fr_0.85fr] lg:divide-x lg:divide-y-0">
-          <div className="space-y-6 p-6">
-            <section className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink-primary">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-primary/15 text-[10px] text-brand-primary">
-                    1
-                  </span>
-                  Select Assets ({selectedAssets.length}/{MAX_CONSTITUENTS})
-                </label>
-                {selectedAssets.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleEqualWeights}
-                    className="text-xs font-medium text-brand-primary hover:underline"
-                  >
-                    Equalize weights
-                  </button>
-                )}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/10 font-mono text-[11px] font-bold text-brand-primary">
+                      1
+                    </span>
+                    <h2 className="text-base font-bold text-ink-primary">
+                      Choose constituents
+                    </h2>
+                  </div>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-secondary">
+                    Pick up to {MAX_CONSTITUENTS} supported private-market assets.
+                    Provider marks are used only for the indicative target NAV.
+                  </p>
+                </div>
+
+                <span className="w-fit rounded-full border border-border bg-surface-subtle px-3 py-1 font-mono text-[10px] text-ink-tertiary">
+                  {selectedAssets.length}/{MAX_CONSTITUENTS} selected
+                </span>
               </div>
 
-              <div className="flex min-h-14 flex-wrap gap-2 rounded-lg border border-border bg-surface-subtle p-3">
+              <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                 {marketplaceStatus === 'loading' && (
-                  <span className="text-xs text-ink-tertiary">
+                  <div className="col-span-full rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-ink-tertiary">
                     Loading supported provider assets…
-                  </span>
+                  </div>
                 )}
+
                 {marketplaceStatus === 'error' && (
-                  <span className="text-xs text-semantic-negative">
+                  <div className="col-span-full flex items-start gap-2 rounded-xl border border-semantic-negative/30 bg-semantic-negative/5 px-4 py-3 text-sm text-semantic-negative">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     Market assets are unavailable, so basket creation is paused.
-                  </span>
+                  </div>
                 )}
+
                 {marketplaceStatus === 'ready' &&
                   availableAssets.map((asset) => {
                     const selected = selectedAssets.some(
@@ -316,163 +274,200 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                         key={asset.tokenMint}
                         onClick={() => handleAddAsset(asset)}
                         disabled={selected || atLimit}
-                        className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-xs transition-colors ${
-                          selected || atLimit
-                            ? 'cursor-not-allowed border-border-subtle bg-surface-elevated text-ink-disabled opacity-50'
-                            : 'border-border bg-surface text-ink-primary hover:border-brand-primary'
+                        className={`group rounded-xl border p-3.5 text-left transition-all ${
+                          selected
+                            ? 'border-brand-primary/35 bg-brand-primary/5'
+                            : atLimit
+                            ? 'cursor-not-allowed border-border bg-surface-subtle opacity-45'
+                            : 'border-border bg-surface-subtle hover:border-border-strong hover:bg-surface-elevated'
                         }`}
                       >
-                        <Plus className="h-3 w-3 text-ink-tertiary" />
-                        <span className="font-bold">{asset.symbol}</span>
-                        <span className="text-ink-tertiary tabular-nums">
-                          {'$'}{asset.priceUsd.toFixed(2)}
-                        </span>
-                        <span className="rounded bg-surface-elevated px-1.5 py-0.5 font-sans text-[9px] uppercase tracking-wide text-ink-tertiary">
-                          {providerLabel(asset)}
-                        </span>
-                        <span
-                          className={`rounded px-1.5 py-0.5 font-sans text-[9px] font-bold uppercase tracking-wide ${
-                            asset.quoteSource === 'live'
-                              ? 'bg-brand-primary/10 text-brand-primary'
-                              : 'bg-brand-warning/10 text-brand-warning'
-                          }`}
-                        >
-                          {asset.quoteSource === 'live' ? 'Live' : 'Snapshot'}
-                        </span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-ink-primary">
+                                {asset.symbol}
+                              </span>
+                              {selected && (
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-primary text-black">
+                                  <Check className="h-2.5 w-2.5" />
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-ink-tertiary">
+                              {asset.name}
+                            </p>
+                          </div>
+                          {!selected && !atLimit && (
+                            <Plus className="mt-0.5 h-4 w-4 shrink-0 text-ink-tertiary transition-colors group-hover:text-brand-primary" />
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex items-end justify-between gap-3">
+                          <div>
+                            <p className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
+                              {'$'}{asset.priceUsd.toFixed(2)}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-ink-tertiary">
+                              {providerLabel(asset)}
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-wide ${
+                              asset.quoteSource === 'live'
+                                ? 'bg-brand-primary/10 text-brand-primary'
+                                : 'bg-brand-warning/10 text-brand-warning'
+                            }`}
+                          >
+                            {asset.quoteSource === 'live' ? 'Live' : 'Snapshot'}
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
               </div>
 
               {selectedAssets.length >= MAX_CONSTITUENTS && (
-                <p className="text-[11px] text-ink-tertiary">
-                  The on-chain basket program supports a maximum of eight
-                  constituents.
+                <p className="mt-3 text-xs text-ink-tertiary">
+                  Maximum reached. The on-chain basket program supports eight constituents.
                 </p>
               )}
             </section>
 
-            {selectedAssets.length > 0 && (
-              <section className="space-y-2">
-                <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-                  <table className="w-full min-w-[620px] text-left font-mono text-xs">
-                    <thead className="border-b border-border bg-surface-subtle font-sans text-[10px] uppercase tracking-wider text-ink-tertiary">
-                      <tr>
-                        <th className="px-3.5 py-2">Constituent</th>
-                        <th className="px-3.5 py-2">Source</th>
-                        <th className="px-3.5 py-2 text-right">
-                          Provider Mark
-                        </th>
-                        <th className="px-3.5 py-2 text-right">Target Weight</th>
-                        <th className="px-3.5 py-2 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle text-[11px]">
-                      {selectedAssets.map((item) => (
-                        <tr
-                          key={item.asset.tokenMint}
-                          className="transition-colors hover:bg-surface-elevated/40"
-                        >
-                          <td className="px-3.5 py-2.5">
-                            <div>
-                              <div className="font-bold text-ink-primary">
-                                {item.asset.symbol}
-                              </div>
-                              <div className="font-sans text-[10px] text-ink-tertiary">
-                                {item.asset.name}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3.5 py-2.5 font-sans text-ink-secondary">
-                            {providerLabel(item.asset)} ·{' '}
-                            {item.asset.quoteSource === 'live'
-                              ? 'live'
-                              : 'snapshot'}
-                          </td>
-                          <td className="px-3.5 py-2.5 text-right tabular-nums text-ink-secondary">
-                            {'$'}{item.asset.priceUsd.toFixed(2)}
-                          </td>
-                          <td className="px-3.5 py-2.5 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <input
-                                type="number"
-                                min="0.01"
-                                max="100"
-                                step="0.01"
-                                value={item.weightPct}
-                                onChange={(event) =>
-                                  handleWeightChange(
-                                    item.asset.tokenMint,
-                                    Number(event.target.value)
-                                  )
-                                }
-                                className="w-20 rounded border border-border bg-surface-subtle px-2 py-1 text-right font-mono text-xs tabular-nums text-ink-primary focus:border-brand-primary focus:outline-none"
-                              />
-                              <span className="text-ink-tertiary">%</span>
-                            </div>
-                          </td>
-                          <td className="px-3.5 py-2.5 text-right">
-                            <button
-                              type="button"
-                              aria-label={`Remove ${item.asset.symbol}`}
-                              onClick={() =>
-                                handleRemoveAsset(item.asset.tokenMint)
-                              }
-                              className="text-ink-tertiary transition-colors hover:text-semantic-negative"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/10 font-mono text-[11px] font-bold text-brand-primary">
+                      2
+                    </span>
+                    <h2 className="text-base font-bold text-ink-primary">
+                      Set the target mix
+                    </h2>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-ink-secondary">
+                    Weights must add up to exactly 100%.
+                  </p>
                 </div>
 
-                <div
-                  className={`flex flex-col gap-2 rounded-lg border p-3 font-mono text-xs sm:flex-row sm:items-center sm:justify-between ${
-                    isValidWeight
-                      ? 'border-brand-primary/40 bg-brand-primary/5 text-brand-primary'
-                      : 'border-brand-warning/40 bg-brand-warning/5 text-brand-warning'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {isValidWeight ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4" />
-                    )}
-                    <span>
-                      Total:{' '}
-                      <span className="font-bold tabular-nums">
-                        {totalWeightPct.toFixed(2)}%
-                      </span>{' '}
-                      · {totalWeightBps.toLocaleString()} bps
+                {selectedAssets.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleEqualWeights}
+                    className="w-fit rounded-full border border-border bg-surface-subtle px-3 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:border-brand-primary hover:text-brand-primary"
+                  >
+                    Equal weight
+                  </button>
+                )}
+              </div>
+
+              {selectedAssets.length === 0 ? (
+                <div className="mt-5 rounded-xl border border-dashed border-border px-5 py-10 text-center">
+                  <p className="text-sm font-medium text-ink-secondary">
+                    No constituents selected yet
+                  </p>
+                  <p className="mt-1 text-xs text-ink-tertiary">
+                    Choose assets above and they’ll appear here for weighting.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-2.5">
+                  {selectedAssets.map((item) => (
+                    <div
+                      key={item.asset.tokenMint}
+                      className="flex flex-col gap-3 rounded-xl border border-border bg-surface-subtle p-3.5 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold text-ink-primary">
+                            {item.asset.symbol}
+                          </span>
+                          <span className="text-xs text-ink-tertiary">
+                            {item.asset.name}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-ink-tertiary">
+                          {providerLabel(item.asset)} · {item.asset.quoteSource === 'live' ? 'live mark' : 'snapshot'} · {'$'}{item.asset.priceUsd.toFixed(2)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center rounded-lg border border-border bg-surface px-2.5 py-2">
+                          <input
+                            type="number"
+                            min="0.01"
+                            max="100"
+                            step="0.01"
+                            value={item.weightPct}
+                            onChange={(event) =>
+                              handleWeightChange(
+                                item.asset.tokenMint,
+                                Number(event.target.value)
+                              )
+                            }
+                            className="w-20 bg-transparent text-right font-mono text-sm font-semibold tabular-nums text-ink-primary outline-none"
+                          />
+                          <span className="ml-1 text-xs text-ink-tertiary">%</span>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${item.asset.symbol}`}
+                          onClick={() => handleRemoveAsset(item.asset.tokenMint)}
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-ink-tertiary transition-colors hover:border-semantic-negative/40 hover:text-semantic-negative"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div
+                    className={`mt-4 flex flex-col gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                      isValidWeight
+                        ? 'border-brand-primary/30 bg-brand-primary/5'
+                        : 'border-brand-warning/30 bg-brand-warning/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isValidWeight ? (
+                        <Check className="h-4 w-4 text-brand-primary" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-brand-warning" />
+                      )}
+                      <span
+                        className={`text-sm font-semibold ${
+                          isValidWeight ? 'text-brand-primary' : 'text-brand-warning'
+                        }`}
+                      >
+                        {totalWeightPct.toFixed(2)}% allocated
+                      </span>
+                    </div>
+                    <span className="font-mono text-xs text-ink-tertiary">
+                      {totalWeightBps.toLocaleString()} / 10,000 bps
                     </span>
                   </div>
-                  <span>
-                    Indicative target NAV:{' '}
-                    <span className="font-bold tabular-nums">
-                      {'$'}{previewNav.toFixed(2)}
-                    </span>
-                  </span>
                 </div>
-              </section>
-            )}
+              )}
+            </section>
 
-            <section className="space-y-4 border-t border-border pt-5">
-              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink-primary">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-primary/15 text-[10px] text-brand-primary">
+            <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/10 font-mono text-[11px] font-bold text-brand-primary">
                   3
                 </span>
-                Basket Details
-              </label>
+                <h2 className="text-base font-bold text-ink-primary">
+                  Name the basket
+                </h2>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-ink-secondary">
+                Keep the public identity simple. The ticker is also used to derive the Devnet basket addresses.
+              </p>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="sm:col-span-2">
+              <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+                <div>
                   <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
-                      Basket Name
+                    <label className="text-xs font-semibold text-ink-secondary">
+                      Basket name
                     </label>
                     <span className="font-mono text-[10px] text-ink-tertiary">
                       {basketName.length}/32
@@ -482,22 +477,22 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                     type="text"
                     required
                     maxLength={32}
-                    placeholder="e.g. Next-Gen Cloud Pioneers"
+                    placeholder="Next-Gen Cloud Pioneers"
                     value={basketName}
                     onChange={(event) => setBasketName(event.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-xs text-ink-primary placeholder:text-ink-disabled focus:border-brand-primary focus:outline-none"
+                    className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3.5 py-3 text-sm text-ink-primary outline-none transition-colors placeholder:text-ink-disabled focus:border-brand-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
+                  <label className="text-xs font-semibold text-ink-secondary">
                     Ticker
                   </label>
                   <input
                     type="text"
                     required
                     maxLength={10}
-                    placeholder="e.g. CLOUD"
+                    placeholder="CLOUD"
                     value={basketSymbol}
                     onChange={(event) =>
                       setBasketSymbol(
@@ -506,165 +501,208 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                           .replace(/[^A-Z0-9]/g, '')
                       )
                     }
-                    className="mt-1.5 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 font-mono text-xs font-bold uppercase text-ink-primary placeholder:text-ink-disabled focus:border-brand-primary focus:outline-none"
+                    className="mt-2 w-full rounded-xl border border-border bg-surface-subtle px-3.5 py-3 font-mono text-sm font-bold uppercase text-ink-primary outline-none transition-colors placeholder:text-ink-disabled focus:border-brand-primary"
                   />
-                  <p className="mt-1 text-[10px] text-ink-tertiary">
-                    1–10 letters or numbers. The ticker derives the on-chain PDA.
-                  </p>
                 </div>
 
-                <div className="sm:col-span-3">
-                  <label className="block text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
-                    Investment Thesis
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold text-ink-secondary">
+                    Investment thesis <span className="font-normal text-ink-tertiary">(optional)</span>
                   </label>
-                  <input
-                    type="text"
+                  <textarea
                     maxLength={280}
-                    placeholder="Optional thesis summary or sector focus…"
+                    rows={3}
+                    placeholder="What connects these companies, and what exposure is this basket designed to track?"
                     value={basketDescription}
-                    onChange={(event) =>
-                      setBasketDescription(event.target.value)
-                    }
-                    className="mt-1.5 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-xs text-ink-primary placeholder:text-ink-disabled focus:border-brand-primary focus:outline-none"
+                    onChange={(event) => setBasketDescription(event.target.value)}
+                    className="mt-2 w-full resize-none rounded-xl border border-border bg-surface-subtle px-3.5 py-3 text-sm leading-6 text-ink-primary outline-none transition-colors placeholder:text-ink-disabled focus:border-brand-primary"
                   />
                 </div>
               </div>
             </section>
 
-            <section className="rounded-lg border border-border bg-surface-subtle p-4">
+            <section className="rounded-2xl border border-border bg-surface-subtle p-5">
               <div className="flex items-start gap-3">
                 <Database className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
-                <div className="space-y-1.5">
-                  <h3 className="text-xs font-bold text-ink-primary">
-                    Deployment scope
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-primary">
+                    What deployment creates
                   </h3>
-                  <p className="text-[11px] leading-relaxed text-ink-secondary">
-                    This creates the SynthaBasket vault state and deterministic
-                    SPL share mint on Solana Devnet, then indexes the verified
-                    basket in durable storage. It does not mint investor shares
-                    or create secondary-market liquidity.
-                  </p>
-                  <p className="text-[11px] leading-relaxed text-ink-tertiary">
-                    Secondary liquidity is surfaced separately only after a
-                    compatible executable venue exists for the basket share mint.
+                  <p className="mt-1.5 text-xs leading-5 text-ink-secondary">
+                    A verified Devnet basket state and deterministic SPL share mint, followed by durable registry indexing.
+                    Share supply starts at zero. This step does not mint investor shares or create secondary liquidity.
                   </p>
                 </div>
               </div>
             </section>
 
             {!registryReady && marketplaceStatus === 'ready' && (
-              <div className="flex items-start gap-2 rounded-lg border border-semantic-negative/30 bg-semantic-negative/5 p-3 text-[11px] text-semantic-negative">
+              <div className="flex items-start gap-2 rounded-xl border border-semantic-negative/30 bg-semantic-negative/5 px-4 py-3 text-sm text-semantic-negative">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                Durable custom-basket storage is not configured, so deployment
-                is disabled to prevent a created basket from disappearing on
-                refresh.
+                Durable custom-basket storage is not configured, so deployment is disabled to prevent a basket from disappearing after refresh.
               </div>
             )}
           </div>
 
-          <aside className="flex flex-col justify-between space-y-6 bg-surface-subtle p-6">
-            <div className="space-y-5">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink-primary">
-                  Deployment Preview
-                </span>
-                <span className="font-mono text-xs font-bold text-brand-primary">
-                  {'$'}{normalizedSymbol || 'INDEX'}
-                </span>
-              </div>
-
-              <div className="space-y-2.5 rounded-lg border border-border bg-surface p-4 font-mono text-xs">
-                <div className="flex justify-between gap-4">
-                  <span className="font-sans text-ink-tertiary">
-                    Indicative target NAV
-                  </span>
-                  <span className="font-bold tabular-nums text-ink-primary">
-                    {'$'}{previewNav.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="font-sans text-ink-tertiary">
-                    Constituents
-                  </span>
-                  <span className="font-semibold text-ink-primary">
-                    {selectedAssets.length}/{MAX_CONSTITUENTS}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="font-sans text-ink-tertiary">
-                    Weight method
-                  </span>
-                  <span className="font-sans text-ink-secondary">
-                    {indexMethodology}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="font-sans text-ink-tertiary">
-                    Market data
-                  </span>
-                  <span className="font-sans text-right text-ink-secondary">
-                    {marketDataSource}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="font-sans text-ink-tertiary">
-                    Share supply at deploy
-                  </span>
-                  <span className="font-semibold text-ink-primary">0</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="font-sans text-ink-tertiary">
-                    Secondary liquidity
-                  </span>
-                  <span className="font-sans text-ink-tertiary">
-                    Not created
-                  </span>
+          <aside className="xl:sticky xl:top-24">
+            <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-6">
+              <div className="border-b border-border pb-5">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink-tertiary">
+                  Review
+                </p>
+                <div className="mt-2 flex items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-ink-primary">
+                      {basketName.trim() || 'Untitled basket'}
+                    </h2>
+                    <p className="mt-1 font-mono text-xs font-semibold text-brand-primary">
+                      {normalizedSymbol ? `$${normalizedSymbol}` : '$INDEX'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-2xl font-extrabold tabular-nums text-ink-primary">
+                      {'$'}{previewNav.toFixed(2)}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-ink-tertiary">
+                      indicative NAV
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {selectedAssets.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-ink-tertiary">
-                    <span className="font-medium">Target composition</span>
-                    <span className="font-mono text-[10px]">
-                      {totalWeightPct.toFixed(2)}%
+              <div className="space-y-3 border-b border-border py-5">
+                <p className="text-xs font-semibold text-ink-secondary">
+                  Setup progress
+                </p>
+                {steps.map((step) => {
+                  const completed = step.id < currentStep || (step.id === 4 && canDeploy);
+                  const current = step.id === currentStep && !canDeploy;
+                  return (
+                    <div key={step.id} className="flex items-center gap-2.5">
+                      <span
+                        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[9px] font-bold ${
+                          completed
+                            ? 'border-brand-primary bg-brand-primary text-black'
+                            : current
+                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                            : 'border-border text-ink-tertiary'
+                        }`}
+                      >
+                        {completed ? <Check className="h-3 w-3" /> : step.id}
+                      </span>
+                      <span
+                        className={`text-xs ${
+                          completed || current
+                            ? 'font-medium text-ink-primary'
+                            : 'text-ink-tertiary'
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-4 py-5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-surface-subtle p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-ink-tertiary">
+                      Constituents
+                    </p>
+                    <p className="mt-1.5 font-mono text-sm font-bold text-ink-primary">
+                      {selectedAssets.length}/{MAX_CONSTITUENTS}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-surface-subtle p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-ink-tertiary">
+                      Weighting
+                    </p>
+                    <p className="mt-1.5 text-sm font-semibold text-ink-primary">
+                      {indexMethodology}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-surface-subtle p-3.5">
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-ink-tertiary">Market data</span>
+                    <span className="text-right font-medium text-ink-secondary">
+                      {marketDataSource}
                     </span>
                   </div>
-                  <div className="space-y-1.5 font-mono text-[11px]">
-                    {weightedAssets.map((item) => (
-                      <div
-                        key={item.asset.tokenMint}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="font-semibold text-ink-primary">
-                          {item.asset.symbol}
-                        </span>
-                        <span className="tabular-nums text-ink-tertiary">
-                          {(item.targetWeightBps / 100).toFixed(2)}%
-                        </span>
-                      </div>
-                    ))}
+                  <div className="mt-2.5 flex items-center justify-between gap-3 text-xs">
+                    <span className="text-ink-tertiary">Share supply at deploy</span>
+                    <span className="font-mono font-semibold text-ink-primary">0</span>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between gap-3 text-xs">
+                    <span className="text-ink-tertiary">Secondary liquidity</span>
+                    <span className="text-ink-secondary">Not created</span>
                   </div>
                 </div>
-              )}
 
-              <div className="flex items-start gap-2.5 rounded-lg border border-border bg-surface p-3">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
-                <p className="text-[11px] leading-relaxed text-ink-secondary">
-                  Deployment creates no unbacked basket shares. The share mint
-                  starts at zero supply; later minting requires the vault's
-                  deposit-and-mint path and live constituent custody.
-                </p>
+                {weightedAssets.length > 0 && (
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-ink-secondary">
+                        Target composition
+                      </span>
+                      <span className={`font-mono text-[10px] ${
+                        isValidWeight ? 'text-brand-primary' : 'text-brand-warning'
+                      }`}>
+                        {totalWeightPct.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {weightedAssets.map((item) => (
+                        <div key={item.asset.tokenMint}>
+                          <div className="mb-1 flex items-center justify-between text-[11px]">
+                            <span className="font-mono font-semibold text-ink-primary">
+                              {item.asset.symbol}
+                            </span>
+                            <span className="font-mono tabular-nums text-ink-tertiary">
+                              {(item.targetWeightBps / 100).toFixed(2)}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-border">
+                            <div
+                              className="h-full rounded-full bg-brand-primary"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.max(0, item.targetWeightBps / 100)
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-subtle p-3.5">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
+                  <p className="text-[11px] leading-5 text-ink-secondary">
+                    Deployment creates no unbacked shares. Later minting still requires verified constituent custody.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={!canDeploy}
-              className="w-full rounded-lg border border-brand-primary/40 bg-brand-primary py-3 text-xs font-bold uppercase tracking-wider text-black shadow-sm transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              Deploy Basket Vault
-            </button>
+              <button
+                type="submit"
+                disabled={!canDeploy}
+                className="w-full rounded-xl bg-brand-primary py-3 text-sm font-bold text-black transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                Deploy basket
+              </button>
+
+              {!canDeploy && (
+                <p className="mt-2 text-center text-[10px] leading-4 text-ink-tertiary">
+                  Complete the setup above before deployment becomes available.
+                </p>
+              )}
+            </div>
           </aside>
         </div>
       </form>

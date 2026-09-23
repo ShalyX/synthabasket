@@ -261,7 +261,7 @@ export default function PortfolioPage() {
     <main className="min-h-screen bg-background pb-16 font-sans text-ink-primary">
       <Navbar network="devnet" />
 
-      <div className="mx-auto max-w-[1600px] space-y-8 px-4 pt-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1440px] space-y-9 px-4 pt-10 sm:px-6 sm:pt-12 lg:px-8">
         <div className="flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">

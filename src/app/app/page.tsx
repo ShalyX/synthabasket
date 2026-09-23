@@ -1233,14 +1233,14 @@ export default function AppPage() {
     <main className="flex-1 pb-16 font-sans">
       <Navbar network={network} />
 
-      <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-6 lg:px-8 space-y-10">
+      <div className="mx-auto max-w-[1440px] space-y-12 px-4 pt-10 sm:px-6 sm:pt-12 lg:px-8">
 
         {/* ========================================================================= */}
         {/* TAB 1: MAIN HOMEPAGE / BASKETS MARKETPLACE (MATCHING REFERENCE DESIGN) */}
         {/* ========================================================================= */}
         {activeTab === 'baskets' && (
           <div className="space-y-10">
-            <div className="pt-2">
+            <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-ink-primary sm:text-3xl">
                 Baskets
               </h1>
@@ -1447,7 +1447,7 @@ export default function AppPage() {
       </div>
 
       <footer className="mt-24 border-t border-border/60 bg-background py-10 font-sans">
-        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="flex items-center gap-2.5">
