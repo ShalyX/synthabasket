@@ -68,8 +68,7 @@ export default function Home() {
             <span className="block text-brand-primary">In One Basket.</span>
           </h1>
           <p className="max-w-xl text-base leading-7 text-ink-secondary">
-            Get diversified exposure to the world&apos;s most innovative private companies through asset-backed,
-            on-chain, redeemable indexes.
+            Build diversified private-market exposure through on-chain basket shares that custody constituent SPL assets when issued.
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
@@ -119,9 +118,9 @@ export default function Home() {
       <section className="mx-auto max-w-[1600px] px-4 pb-24 sm:px-6 lg:px-8">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            [Lock, 'Real Assets', 'Underlying SPL assets held in on-chain vaults.'],
+            [Lock, 'Vault Custody', 'Issued shares map to constituent SPL assets held in program-controlled vaults.'],
             [Layers, 'Diversified', 'Theme-based exposure across AI, space, fintech and more.'],
-            [Zap, 'Solana Native', 'Fast execution, transparent settlement and composable liquidity.'],
+            [Zap, 'Solana Native', 'Fast settlement, transparent custody and composable SPL assets.'],
             [ArrowRightLeft, 'Redeemable', 'Burn basket shares for proportional underlying reserves.'],
           ].map(([Icon, title, body], index) => (
             <ScrollReveal key={title as string} delay={index * 70} className="h-full">
@@ -159,7 +158,7 @@ export default function Home() {
                     <h3 className="mt-2 text-lg font-bold">{basket.name}</h3>
                   </div>
                   <span className="rounded-full border border-brand-primary/30 bg-brand-primary/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase text-brand-primary">
-                    Backed
+                    On-chain
                   </span>
                 </div>
                 <p className="mt-4 min-h-12 text-sm leading-6 text-ink-secondary">{basket.description}</p>
@@ -174,10 +173,12 @@ export default function Home() {
                 </div>
                 <div className="mt-5 flex items-end justify-between">
                   <div>
-                    <p className="font-mono text-[9px] uppercase tracking-wider text-ink-tertiary">NAV</p>
-                    <p className="mt-1 font-mono text-xl font-extrabold tabular-nums">${basket.navUsd.toFixed(2)}</p>
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-ink-tertiary">Target mix</p>
+                    <p className="mt-1 font-mono text-sm font-bold text-ink-primary">
+                      {basket.constituents.length} constituent{basket.constituents.length === 1 ? '' : 's'}
+                    </p>
                   </div>
-                  <span className="font-mono text-sm font-bold text-brand-primary">+${basket.navChange24h.toFixed(2)}%</span>
+                  <span className="text-xs font-semibold text-brand-primary">Live NAV in app</span>
                 </div>
               </article>
               </ScrollReveal>
@@ -214,19 +215,19 @@ export default function Home() {
           <ScrollReveal>
           <div>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-brand-primary">
-              Protocol-backed
+              Program custody
             </span>
-            <h2 className="mt-3 text-2xl font-extrabold">Pricing informs NAV. Vault balances determine backing.</h2>
+            <h2 className="mt-3 text-2xl font-extrabold">Provider marks inform NAV. Program state tracks reserves.</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-secondary">
-              SynthaBasket separates market valuation from solvency: oracle and provider data power analytics,
-              while the on-chain vault tracks the actual constituent tokens backing basket shares.
+              SynthaBasket separates market valuation from reserve accounting: provider marks power analytics,
+              while the on-chain program tracks the constituent reserves associated with issued basket shares.
             </p>
           </div>
         </ScrollReveal>
         <ScrollReveal delay={120}>
           <div className="flex items-center gap-2 rounded-full border border-brand-primary/30 bg-brand-primary/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-brand-primary">
             <ShieldCheck className="h-4 w-4" />
-            Asset-backed
+            Vault-backed when issued
           </div>
         </ScrollReveal>
         </div>

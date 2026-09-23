@@ -20,7 +20,6 @@ import { SynthaBasketVaultClient } from '../src/lib/execution/vault_client';
 import { INITIAL_BASKETS } from '../src/lib/data/registry';
 import {
   calculateMintQuote,
-  calculateRedeemQuote,
 } from '../src/lib/services/valuation_engine';
 import { BasketDefinition, BasketMintQuote } from '../src/lib/types';
 
@@ -380,7 +379,11 @@ async function runHappyPath() {
       acquisition.executionQuote.expectedBasketTokens / 2
     ).toFixed(6)
   );
-  const redeemQuote = calculateRedeemQuote(targetBasket, sharesToRedeem);
+  const redeemQuote = await vaultClient.prepareLiveRedeemQuote(
+    targetBasket,
+    sharesToRedeem,
+    true
+  );
   const redeemTx = await vaultClient.buildRedeemTransaction(
     runner.publicKey,
     targetBasket,
