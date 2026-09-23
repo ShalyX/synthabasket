@@ -1,4 +1,5 @@
 import { BasketDefinition } from '../types';
+import { getRedisRestConfig, redisRestConfigured } from './redis_config';
 
 export interface DurableNavHistoryPoint {
   timestamp: number;
@@ -12,34 +13,12 @@ const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 // Vercel preview envs are read at runtime; a redeploy is required after adding them.
 const KEY_PREFIX = 'synthabasket:nav-history:v1';
 
-function getRedisConfig(): { url: string; token: string } | null {
-  const url =
-    process.env.UPSTASH_REDIS_REST_URL ||
-    process.env.KV_REST_API_URL ||
-    '';
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    process.env.KV_REST_API_TOKEN ||
-    '';
-
-  if (!url || !token) return null;
-
-  const normalizedUrl = url.trim().replace(/\/$/, '');
-  if (!/^https:\/\//i.test(normalizedUrl)) {
-    throw new Error(
-      'UPSTASH_REDIS_REST_URL must be the HTTPS REST endpoint, not a Redis CLI/redis:// connection string.'
-    );
-  }
-
-  return { url: normalizedUrl, token };
-}
-
 export function durableNavHistoryConfigured(): boolean {
-  return Boolean(getRedisConfig());
+  return redisRestConfigured();
 }
 
 async function redisCommand(command: Array<string | number>): Promise<any> {
-  const config = getRedisConfig();
+  const config = getRedisRestConfig();
   if (!config) return null;
 
   const response = await fetch(config.url, {
@@ -62,7 +41,7 @@ async function redisCommand(command: Array<string | number>): Promise<any> {
 }
 
 async function redisPipeline(commands: Array<Array<string | number>>): Promise<any[]> {
-  const config = getRedisConfig();
+  const config = getRedisRestConfig();
   if (!config || commands.length === 0) return [];
 
   const response = await fetch(`${config.url}/pipeline`, {

@@ -1,4 +1,5 @@
 import { AssetQuote, BasketDefinition } from '../types';
+import { getRedisRestConfig, redisRestConfigured } from './redis_config';
 
 interface StoredCustomBasket {
   id: string;
@@ -18,29 +19,12 @@ interface StoredCustomBasket {
 
 const REGISTRY_KEY = 'synthabasket:custom-baskets:devnet:v1';
 
-function getRedisConfig(): { url: string; token: string } | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
-
-  if (!url || !token) return null;
-
-  const normalizedUrl = url.trim().replace(/\/$/, '');
-  if (!/^https:\/\//i.test(normalizedUrl)) {
-    throw new Error(
-      'UPSTASH_REDIS_REST_URL must be the HTTPS REST endpoint, not a Redis CLI/redis:// connection string.'
-    );
-  }
-
-  return { url: normalizedUrl, token };
-}
-
 export function durableCustomBasketRegistryConfigured(): boolean {
-  return Boolean(getRedisConfig());
+  return redisRestConfigured();
 }
 
 async function redisCommand(command: Array<string | number>): Promise<any> {
-  const config = getRedisConfig();
+  const config = getRedisRestConfig();
   if (!config) return null;
 
   const response = await fetch(config.url, {

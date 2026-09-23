@@ -22,7 +22,9 @@ type WalletMintBalance = {
 
 function getDevnetConnection(): Connection {
   return new Connection(
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com',
+    process.env.SOLANA_DEVNET_RPC_URL ||
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+      'https://api.devnet.solana.com',
     'confirmed'
   );
 }

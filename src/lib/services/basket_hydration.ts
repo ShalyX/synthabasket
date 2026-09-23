@@ -25,8 +25,9 @@ export async function hydrateBaskets(
   const assetByMint = new Map(assets.map((asset) => [asset.tokenMint, asset]));
   const vaultClient = new SynthaBasketVaultClient(connection);
 
-  return Promise.all(
-    definitions.map(async (definition) => {
+  const hydratedBaskets: BasketDefinition[] = [];
+
+  for (const definition of definitions) {
       const constituents = definition.constituents.map((constituent) => {
         const quote = assetByMint.get(constituent.asset.tokenMint);
         const mergedAsset = withDevnetMirror(
@@ -101,7 +102,7 @@ export async function hydrateBaskets(
             ? aumUsd / snapshot.totalSharesMinted
             : targetNav.navUsd;
 
-        return {
+        hydratedBaskets.push({
           ...pricedBasket,
           constituents: hydratedConstituents,
           navUsd: Number(navUsd.toFixed(2)),
@@ -117,14 +118,14 @@ export async function hydrateBaskets(
           totalSharesMinted: snapshot.totalSharesMinted,
           vaultPda: snapshot.basketPda,
           basketMint: snapshot.basketMint,
-        } satisfies BasketDefinition;
+        } satisfies BasketDefinition);
       } catch (error) {
         console.warn(
           `[Basket hydration] Unable to read live execution state for ${definition.symbol}:`,
           error
         );
 
-        return {
+        hydratedBaskets.push({
           ...pricedBasket,
           navUsd: targetNav.navUsd,
           navChange24h: targetNav.navChange24h,
@@ -135,8 +136,9 @@ export async function hydrateBaskets(
           // Never present registry demo state as live AUM/supply.
           aumUsd: 0,
           totalSharesMinted: 0,
-        } satisfies BasketDefinition;
+        } satisfies BasketDefinition);
       }
-    })
-  );
+  }
+
+  return hydratedBaskets;
 }
