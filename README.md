@@ -4,86 +4,88 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/ShalyX/synthabasket/build.yml?branch=main&style=flat-square&label=build)](https://github.com/ShalyX/synthabasket/actions/workflows/build.yml)
 [![Stocklana Hackathon](https://img.shields.io/badge/Hackathon-Stocklana%202026-9945ff?style=flat-square)](https://hackathons.solana.com/hackathons/stocklana)
 
-**SynthaBasket** is a Solana index-basket app for tokenized private-market assets. A user can connect a wallet, invest Devnet USDC into a thematic basket, receive an SPL basket share, track the position, and redeem that share for the proportional underlying constituent assets held by the basket vault.
+**SynthaBasket** is a Solana index-basket app for tokenized private-market assets. Users invest Devnet USDC into thematic baskets, receive SPL basket shares backed by constituent assets held in program-controlled vault accounts, track their positions, and redeem shares for the proportional underlying constituents.
 
 **Live app:** https://synthabasket.vercel.app  
-**Stocklana submission notes:** [STOCKLANA_SUBMISSION.md](./STOCKLANA_SUBMISSION.md)  
-**3-minute demo + technical walkthrough:** [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)  
+**Technical walkthrough:** [TECHNICAL_WALKTHROUGH.md](./TECHNICAL_WALKTHROUGH.md)  
 **Verified Devnet receipts:** [DEMO_RUN_RECEIPTS.md](./DEMO_RUN_RECEIPTS.md)
 
-> The hosted app is a **Devnet product prototype**. Provider marks are market/valuation data, not a promise of executable mainnet liquidity. Devnet execution uses explicit test mirror mints so the demo never pretends canonical provider assets have Devnet liquidity.
+> The hosted app runs on **Solana Devnet**. Provider marks are valuation data; Devnet execution uses explicit test mirror mints for supported constituents.
 
 ---
 
-## The problem
+## The product
 
-Tokenized private-company exposure is fragmented across providers and individual assets. A user who wants diversified exposure has to discover assets separately, compare provider marks, size allocations manually, manage multiple token accounts, and then track the resulting position themselves.
-
-SynthaBasket turns that into one product flow:
+Tokenized private-company assets are spread across providers and individual instruments. SynthaBasket turns that fragmented experience into a single portfolio workflow:
 
 **discover → inspect → invest → receive basket shares → track → partially redeem → fully redeem**
 
-The basket share is not just a dashboard abstraction. When shares are issued, constituent SPL assets are deposited into program-controlled basket vault accounts and the user receives an SPL share token representing their position.
+Basket shares are on-chain SPL assets. During investment, constituent tokens move into program-controlled basket vault accounts and basket shares are minted to the user. During redemption, shares are burned and the proportional underlying constituents are released back to the wallet.
 
 ---
 
-## What works today
+## What SynthaBasket does
 
 ### Baskets
-- Curated private-market baskets across AI, space/defense, fintech, and PreStocks-focused exposure.
-- Live provider hydration from **PreStocks** and **Tessera**, with clearly labeled fallback states when a provider is unavailable.
-- Basket NAV, composition, real observation history, freshness state, and on-chain verification.
-- Exact pre-signing Invest and Redeem quotes with quote expiry and refresh protection.
+
+- Curated private-market baskets across AI, space/defense, fintech, and provider-focused exposure.
+- Provider hydration from **PreStocks** and **Tessera**.
+- Basket NAV, composition, recorded market history, freshness, and on-chain verification.
+- Exact pre-signing Invest and Redeem quotes with quote expiry.
 
 ### Invest
+
 - Connect a Solana wallet.
-- Spend Devnet USDC.
+- Enter a Devnet USDC amount.
 - Acquire the basket's Devnet execution constituents.
-- Verify the live basket PDA, share mint, and configured constituent accounts.
-- Broadcast the real Anchor `deposit_and_mint` instruction.
-- Receive basket shares into the user's wallet.
-- Persist confirmed activity and refresh Portfolio immediately.
+- Verify the basket PDA, share mint, and configured constituent accounts.
+- Execute the Anchor `deposit_and_mint` instruction.
+- Receive basket shares in the wallet.
+- See the confirmed position in Portfolio and Account Activity.
 
 ### Redeem
-- Burn basket shares with the real Anchor `burn_and_redeem` instruction.
+
+- Burn basket shares with Anchor `burn_and_redeem`.
 - Receive proportional constituent assets directly into the wallet.
-- Record the exact returned assets and marked value.
-- Partial redemptions keep the basket position open.
-- Full redemptions move the basket into **Closed positions**, while returned constituents remain visible under **Redeemed assets**.
+- See the exact assets returned and their marked value.
+- Partial redemption keeps the basket position open.
+- Full redemption moves the basket into **Closed positions** while returned constituents remain visible under **Redeemed assets**.
 
 ### Portfolio + Account
+
 - Current basket holdings and marked value.
-- Cost basis and P&L only when indexed history reconciles with the actual on-chain balance.
-- Partial-history states instead of fabricated P&L.
+- Cost basis and P&L when indexed activity reconciles with the current on-chain share balance.
 - Redeemed assets and closed-position history.
 - Durable wallet activity for investments, redemptions, and basket creation.
-- Transaction links to Solana Explorer.
+- Direct Solana Explorer links for confirmed transactions.
 
 ### Create Basket
-- Select supported provider assets and target weights.
-- Wallet-signed registration flow.
-- Deterministic on-chain basket state + share mint.
-- Durable custom-basket registry.
-- A created basket re-enters the normal product lifecycle: discover → inspect → invest → Portfolio → redeem.
+
+- Select supported assets and target weights.
+- Sign the basket registration with the connected wallet.
+- Initialize deterministic on-chain basket state and a share mint.
+- Persist the custom basket in the registry.
+- Use the same discover → inspect → invest → Portfolio → redeem lifecycle as curated baskets.
 
 ### Markets
+
 - Provider-specific marks and implied valuations.
-- Durable real-observation charts; snapshot fallbacks never create fake chart history.
-- Cross-provider comparison where the same underlying has multiple provider marks.
-- Optional Pyth private-index references only when a supported value actually resolves.
-- Jupiter route-based liquidity/basis signals only when a real route can be verified.
+- Recorded live-observation market history.
+- Cross-provider comparison where the same underlying is available from multiple providers.
+- Optional Pyth private-index references when a supported value resolves.
+- Jupiter route/liquidity signals when a live route is available.
 
 ---
 
 ## Why Solana
 
-SynthaBasket uses Solana for the parts that should be independently verifiable and composable:
+SynthaBasket uses Solana for ownership, custody, reserve accounting, and settlement:
 
-- **SPL assets** for basket shares and constituents.
-- **PDAs** for deterministic basket state and vault authority.
-- **Atomic program instructions** for reserve deposit/share minting and share burn/reserve release.
-- **Transparent balances** so reserve state and user ownership can be checked without trusting the UI.
-- **Fast, low-cost settlement** for a product that may touch multiple constituent token accounts in one user journey.
+- **SPL tokens** represent basket shares and constituent assets.
+- **PDAs** provide deterministic basket state and vault authority.
+- **Anchor instructions** handle constituent deposits, share minting, share burning, and reserve release.
+- **On-chain balances** expose reserve state and user ownership directly.
+- **Fast, low-cost transactions** make multi-asset basket interactions practical.
 
 ---
 
@@ -105,7 +107,6 @@ PreStocks / Tessera provider data
             │
             ▼
   Devnet mirror acquisition
-      (test infrastructure)
             │
             ▼
  constituent SPL token accounts
@@ -122,7 +123,7 @@ PreStocks / Tessera provider data
         User wallet
 ```
 
-The app deliberately separates **market valuation** from **reserve accounting**. Provider marks power NAV and analytics. The Solana program tracks the constituent reserves associated with issued basket shares.
+Market valuation and reserve accounting are separate layers. Provider marks power NAV and analytics; the Solana program tracks the constituent reserves associated with issued basket shares.
 
 ---
 
@@ -133,41 +134,44 @@ The app deliberately separates **market valuation** from **reserve accounting**.
 - **FinTech Disruptors (`$FINX`)** — private-market fintech / event-market exposure.
 - **PreStocks Sovereign Frontier (`$PREX`)** — a focused basket composed of PreStocks-issued assets.
 
-SynthaBasket is provider-neutral at the product layer: providers are constituent sources rather than separate user experiences.
+The product layer treats providers as constituent sources, so baskets can combine supported assets into a single portfolio experience.
 
 ---
 
 ## Devnet execution model
 
-Canonical provider mints are never treated as if they automatically have Devnet liquidity.
+The hosted demo maps supported constituent identities to explicit 6-decimal **Devnet execution mirror mints**.
 
-For the hosted demo, supported assets map to explicit 6-decimal **Devnet execution mirror mints**. The server-side Devnet adapter builds an acquisition transaction that:
+For an investment:
 
-1. transfers Devnet USDC from the user to the Devnet mirror treasury; and
-2. issues the corresponding test mirror constituents to the user.
+1. Devnet USDC is transferred from the user to the mirror treasury.
+2. The corresponding test mirror constituents are issued to the user.
+3. Those constituents are deposited into the basket vault.
+4. The Anchor program mints the resulting basket shares.
 
-Those test constituents are then deposited into the basket vault before shares are minted.
-
-This path exists only to make the Devnet demo executable and auditable. Canonical provider mint addresses remain the asset identity used by the provider/valuation layer.
+Provider mint addresses remain the identity and valuation references used by the market-data layer.
 
 ---
 
-## Transaction guarantees
-
-SynthaBasket does not call a route or operation successful because a quote, simulation, setup transfer, or unrelated signature exists.
+## Transaction flow
 
 For **Invest**:
 
-1. every constituent must have an executable acquisition path;
-2. acquisition transactions must confirm;
-3. exact acquired raw token amounts are passed into the vault instruction;
-4. basket state, share mint, and constituent configuration are verified;
-5. the actual Anchor `deposit_and_mint` transaction is broadcast; and
-6. Solana confirmation is checked before a success receipt is shown.
+1. build the constituent acquisition quote;
+2. confirm constituent acquisition;
+3. pass the acquired raw token amounts into the vault instruction;
+4. verify basket state, share mint, and constituent configuration;
+5. execute Anchor `deposit_and_mint`;
+6. confirm the transaction and refresh the user's position.
 
-For **Redeem**, the actual Anchor `burn_and_redeem` transaction must confirm before the UI records the redemption.
+For **Redeem**:
 
-The Anchor program also validates dynamic token accounts against the configured constituent mints and authorities.
+1. verify the user's basket-share balance and current vault state;
+2. execute Anchor `burn_and_redeem`;
+3. confirm the transaction;
+4. refresh the returned constituent balances and basket position.
+
+The Anchor program validates the supplied token accounts against the basket's configured constituent mints and authorities.
 
 ---
 
@@ -191,23 +195,38 @@ The Anchor program also validates dynamic token accounts against the configured 
 - `deposit_and_mint(shares_to_mint, constituent_amounts_in)`
 - `burn_and_redeem(shares_to_burn)`
 
-Subsequent issuance is bounded by the least-proportional constituent deposit, preventing an underfunded leg from diluting existing share holders.
+Subsequent issuance is bounded by the least-proportional constituent deposit so share issuance remains aligned with basket reserves.
 
 ---
 
 ## Integrations
 
-- **Tessera** — official Product API marks for T-Tokens including OpenAI, SpaceX, and Kalshi.
-- **PreStocks** — private-company token metadata / marks for supported PreStocks assets.
-- **Pyth** — optional indicative private-index references when the configured Pyth Pro path resolves a supported value. Pyth references are not NAV inputs or executable prices.
-- **Jupiter Swap API V2** — route verification / acquisition path for supported non-Devnet flows; the current hosted UI remains Devnet-only.
+- **Tessera** — Product API marks for supported T-Tokens including OpenAI, SpaceX, and Kalshi.
+- **PreStocks** — private-company token metadata and marks for supported PreStocks assets.
+- **Pyth** — optional indicative private-index references when a configured value resolves.
+- **Jupiter Swap API V2** — route and liquidity verification for supported non-Devnet paths.
 - **Upstash Redis** — durable NAV history, market observations, custom basket registry, and wallet activity.
+
+---
+
+## Technical walkthrough
+
+For the implementation path, see [TECHNICAL_WALKTHROUGH.md](./TECHNICAL_WALKTHROUGH.md).
+
+The walkthrough covers:
+
+- Anchor basket state, share minting, and redemption;
+- the execution client and quote lifecycle;
+- provider hydration and durable history;
+- wallet-signed custom basket registration;
+- confirmed Devnet execution receipts.
 
 ---
 
 ## Run locally
 
 Requirements:
+
 - Node.js 22
 - a Solana Devnet RPC
 - Devnet SOL + Devnet USDC for execution testing
@@ -235,30 +254,22 @@ npx tsx scripts/test-e2e-pipeline.ts
 # Share-accounting invariant checks
 npx tsx scripts/verify-vault-math.ts
 
-# Real Devnet proof runner (requires funded/configured runner)
+# Devnet execution proof runner
 npm run execute-happy-path
 ```
 
-The proof runner exits with an error instead of manufacturing a success receipt if acquisition, deposit/mint, or redemption cannot execute.
-
 ---
 
-## Proof integrity
+## Devnet execution receipts
 
-An earlier Devnet receipt set was retired after an audit found that setup/self-transfer signatures had been labeled as deposit/redemption proof while the Anchor operations were only simulated.
+[DEMO_RUN_RECEIPTS.md](./DEMO_RUN_RECEIPTS.md) contains confirmed transactions for:
 
-Those signatures are not used as protocol evidence.
-
-The repaired proof runner records only the transaction that actually performs the claimed operation. See [DEMO_RUN_RECEIPTS.md](./DEMO_RUN_RECEIPTS.md) for the confirmed acquisition, Anchor deposit/mint, and Anchor burn/redeem receipts.
+1. Devnet USDC-backed constituent acquisition;
+2. Anchor basket deposit and share minting;
+3. Anchor basket-share burn and proportional redemption.
 
 ---
 
 ## Stocklana 2026
 
-SynthaBasket is built for the **Stocklana 2026** hackathon.
-
-The current submission is aimed at:
-- **Solana Foundation Main Track**
-- **Tessera — Best Use of Tessera, Pre-IPO stocks**
-
-See [STOCKLANA_SUBMISSION.md](./STOCKLANA_SUBMISSION.md) for judge-facing copy and [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for the recording plan.
+SynthaBasket is built for the **Stocklana 2026** hackathon, including the **Tessera — Best Use of Tessera, Pre-IPO stocks** sponsor track.

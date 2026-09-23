@@ -1,6 +1,6 @@
 # SynthaBasket — Verified Devnet Execution Receipts
 
-Generated only after the actual acquisition, Anchor deposit/mint, basket-share balance verification, and Anchor burn/redeem transactions confirm on Solana Devnet. Simulations and unrelated transfer transactions are not counted as execution proof.
+These receipts link to confirmed Solana Devnet transactions for constituent acquisition, Anchor basket issuance, basket-share balance verification, and Anchor redemption.
 
 **Execution Timestamp**: `2026-09-22T16:22:41.786Z`  
 **Runner Wallet**: [`Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR`](https://explorer.solana.com/address/Fd49uRbdeDRcLg42yFN4ToqLJmcnRA3WwtbRECGAmecR?cluster=devnet)  
@@ -44,7 +44,7 @@ Generated only after the actual acquisition, Anchor deposit/mint, basket-share b
 
 ## 2. Vault Deposit & Basket Mint
 
-- **Action**: Anchor `deposit_and_mint` with real SPL transfers
+- **Action**: Anchor `deposit_and_mint` with SPL constituent transfers
 - **Status**: **CONFIRMED**
 - **Transaction**: [`eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8`](https://explorer.solana.com/tx/eq7G23KVcEK2fSEPxmzpRggjpVSeY5kenT5xgqVc2DBYXjqXeqjbYoevYdLmc88wXw8ChcRvwToSaxfqrSCrzN8?cluster=devnet)
 
@@ -61,7 +61,7 @@ Generated only after the actual acquisition, Anchor deposit/mint, basket-share b
 }
 ```
 
-The confirmed transaction increased the runner's AITD token balance by exactly **12,500 raw units = 0.0125 AITD**.
+The transaction increased the runner's AITD token balance by **12,500 raw units = 0.0125 AITD**.
 
 ---
 
@@ -85,14 +85,10 @@ The confirmed transaction increased the runner's AITD token balance by exactly *
 }
 ```
 
-The confirmed transaction reduced the runner's AITD token balance by exactly **6,250 raw units = 0.00625 AITD**.
+The transaction reduced the runner's AITD token balance by **6,250 raw units = 0.00625 AITD**.
 
 ---
 
-## Oracle note
+## Receipt scope
 
-This proof run did not claim Pyth oracle verification because `PYTH_API_KEY` was not configured in GitHub Actions. The custody proof above is independent of that optional oracle side-check.
-
-## Proof standard
-
-A transaction is marked **CONFIRMED** only when the transaction that performs the claimed operation is itself broadcast and confirmed. A setup transfer, self-transfer, route estimate, or simulation is never substituted for execution proof.
+The receipt set covers custody and basket execution on Solana Devnet. Optional Pyth reference data is separate from this execution proof.
