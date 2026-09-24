@@ -8,6 +8,7 @@ import { Navbar } from '../../components/Navbar';
 import { BasketDetailView } from '../../components/BasketDetailView';
 import { CreateBasketStudio } from '../../components/CreateBasketStudio';
 import { TransactionLifecycleModal } from '../../components/TransactionLifecycleModal';
+import { AssetAvatar } from '../../components/AssetAvatar';
 
 const BasisMonitor = dynamic(
   () =>
@@ -707,7 +708,7 @@ export default function AppPage() {
       },
       {
         id: 'burn_and_release',
-        label: `Redeeming ${quote.burnBasketTokensAmount} ${basket.symbol}`,
+        label: `Redeeming ${quote.burnBasketTokensAmount} ${basket.symbol} to assets`,
         description: 'Burning your shares and releasing the underlying assets',
         status: 'pending' as const,
       },
@@ -721,7 +722,7 @@ export default function AppPage() {
 
     setTxLifecycle({
       isOpen: true,
-      title: `Burn & Redeem: ${basket.name} ($${basket.symbol})`,
+      title: `Redeem to assets: ${basket.name} ($${basket.symbol})`,
       steps: initialSteps,
       currentStepIndex: 0,
       isCompleted: false,
@@ -775,7 +776,7 @@ export default function AppPage() {
           index === 1
             ? {
                 ...step,
-                label: `Redeeming ${executionRedeemQuote.burnBasketTokensAmount} ${basket.symbol}`,
+                label: `Redeeming ${executionRedeemQuote.burnBasketTokensAmount} ${basket.symbol} to assets`,
                 description: 'Burning your shares and releasing the current pro-rata vault assets',
               }
             : step
@@ -1509,9 +1510,10 @@ export default function AppPage() {
                 Baskets
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-secondary">
-                <span>Private-market indexes you can invest in and redeem on Solana.</span>
+                <span>Private-market indexes you can invest in and redeem for underlying assets on Solana.</span>
                 {marketplaceStale && (
-                  <span className="rounded border border-amber-400/30 bg-amber-400/5 px-2 py-0.5 text-xs font-medium text-amber-300">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                     Last known snapshot
                   </span>
                 )}
@@ -1672,13 +1674,18 @@ export default function AppPage() {
 
                           {/* Holdings list */}
                           <div className="space-y-1.5 pt-1 text-[11px]">
-                            {basket.constituents.slice(0, 3).map((c, idx) => (
-                              <div key={c.asset.tokenMint} className="flex items-center justify-between text-ink-secondary">
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`h-1.5 w-1.5 rounded-full ${getSegmentColor(idx)}`} />
-                                  <span className="text-ink-primary font-medium">{c.asset.symbol}</span>
+                            {basket.constituents.slice(0, 3).map((c) => (
+                              <div key={c.asset.tokenMint} className="flex items-center justify-between gap-3 text-ink-secondary">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <AssetAvatar
+                                    symbol={c.asset.symbol}
+                                    name={c.asset.name}
+                                    logoUrl={c.asset.logoUrl}
+                                    size="xs"
+                                  />
+                                  <span className="truncate font-medium text-ink-primary">{c.asset.symbol}</span>
                                 </div>
-                                <span className="font-mono tabular-nums text-ink-tertiary">{c.targetWeightBps / 100}%</span>
+                                <span className="shrink-0 font-mono tabular-nums text-ink-tertiary">{c.targetWeightBps / 100}%</span>
                               </div>
                             ))}
                           </div>

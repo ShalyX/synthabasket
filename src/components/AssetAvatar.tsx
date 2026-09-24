@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-type AssetAvatarSize = 'sm' | 'md' | 'lg';
+type AssetAvatarSize = 'xs' | 'sm' | 'md' | 'lg';
 
 interface AssetAvatarProps {
   symbol?: string;
@@ -29,6 +29,7 @@ const SIZE_STYLES: Record<
   AssetAvatarSize,
   { shell: string; image: string; text: string }
 > = {
+  xs: { shell: 'h-6 w-6 rounded-md', image: 'h-3.5 w-3.5', text: 'text-[8px]' },
   sm: { shell: 'h-7 w-7 rounded-lg', image: 'h-[18px] w-[18px]', text: 'text-[9px]' },
   md: { shell: 'h-8 w-8 rounded-lg', image: 'h-5 w-5', text: 'text-[10px]' },
   lg: { shell: 'h-10 w-10 rounded-xl', image: 'h-6 w-6', text: 'text-[11px]' },

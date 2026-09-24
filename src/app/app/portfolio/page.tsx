@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '../../../components/Navbar';
 import { PositionDetailsModal } from '../../../components/PositionDetailsModal';
+import { AssetAvatar } from '../../../components/AssetAvatar';
 import { AccountActivity, PositionHistorySummary } from '../../../lib/activity';
 
 type MarketDataSource = 'live' | 'snapshot' | 'mixed';
@@ -610,7 +611,7 @@ export default function PortfolioPage() {
                         <div className="mt-4 grid grid-cols-3 gap-2">
                           <button type="button" onClick={() => setSelectedPosition(holding)} className="rounded-lg border border-border bg-surface-subtle px-2 py-2.5 text-xs font-semibold text-ink-primary">Details</button>
                           <Link href={`/app?basket=${encodeURIComponent(holding.basketId)}&action=mint`} className="rounded-lg border border-border bg-surface-subtle px-2 py-2.5 text-center text-xs font-semibold text-ink-primary">Invest</Link>
-                          <Link href={`/app?basket=${encodeURIComponent(holding.basketId)}&action=redeem`} className="rounded-lg bg-brand-primary px-2 py-2.5 text-center text-xs font-bold text-black">Redeem</Link>
+                          <Link href={`/app?basket=${encodeURIComponent(holding.basketId)}&action=redeem`} className="rounded-lg bg-brand-primary px-2 py-2.5 text-center text-xs font-bold text-black">Redeem assets</Link>
                         </div>
                       </article>
                     ))}
@@ -800,7 +801,7 @@ export default function PortfolioPage() {
                                 )}&action=redeem`}
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-black transition-opacity hover:opacity-90"
                               >
-                                Redeem
+                                Redeem assets
                                 <ArrowRight className="h-3.5 w-3.5" />
                               </Link>
                             </div>
@@ -839,7 +840,7 @@ export default function PortfolioPage() {
                   <div className="divide-y divide-border md:hidden">
                     {redeemedAssets.map((asset) => (
                       <article key={asset.mint || asset.symbol} className="p-4">
-                        <div className="flex items-start justify-between gap-4"><div><h3 className="font-mono text-sm font-bold text-ink-primary">{asset.symbol}</h3><p className="mt-1 text-[10px] text-ink-tertiary">{asset.redemptionCount} redemption{asset.redemptionCount === 1 ? '' : 's'}</p></div><p className="font-mono text-sm font-bold tabular-nums text-ink-primary">{asset.currentValueUsd === null ? '—' : '$' + formatUsd(asset.currentValueUsd)}</p></div>
+                        <div className="flex items-start justify-between gap-4"><div className="flex min-w-0 items-center gap-3"><AssetAvatar symbol={asset.symbol} /><div className="min-w-0"><h3 className="truncate font-mono text-sm font-bold text-ink-primary">{asset.symbol}</h3><p className="mt-1 text-[10px] text-ink-tertiary">{asset.redemptionCount} redemption{asset.redemptionCount === 1 ? '' : 's'}</p></div></div><p className="shrink-0 font-mono text-sm font-bold tabular-nums text-ink-primary">{asset.currentValueUsd === null ? '—' : '$' + formatUsd(asset.currentValueUsd)}</p></div>
                         <div className="mt-4 grid grid-cols-2 gap-3 border-y border-border py-3 text-xs">
                           <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Wallet balance</p><p className="mt-1 font-mono tabular-nums text-ink-primary">{asset.currentWalletBalance === null ? '—' : asset.currentWalletBalance.toLocaleString(undefined,{maximumFractionDigits:6})}</p></div>
                           <div><p className="text-[9px] uppercase tracking-wider text-ink-tertiary">Received here</p><p className="mt-1 font-mono tabular-nums text-ink-primary">{asset.receivedAmount.toLocaleString(undefined,{maximumFractionDigits:6})}</p></div>
@@ -867,12 +868,17 @@ export default function PortfolioPage() {
                       {redeemedAssets.map((asset) => (
                         <tr key={asset.mint || asset.symbol} className="hover:bg-surface-elevated/40">
                           <td className="px-5 py-4">
-                            <div className="font-bold text-ink-primary">{asset.symbol}</div>
-                            <div className="mt-1 text-[10px] text-ink-tertiary">
-                              {asset.redemptionCount} redemption{asset.redemptionCount === 1 ? '' : 's'}
-                              {asset.receivedValueUsd !== null
-                                ? ' · $' + formatUsd(asset.receivedValueUsd) + ' marked when received'
-                                : ''}
+                            <div className="flex min-w-0 items-center gap-3">
+                              <AssetAvatar symbol={asset.symbol} />
+                              <div className="min-w-0">
+                                <div className="font-bold text-ink-primary">{asset.symbol}</div>
+                                <div className="mt-1 text-[10px] text-ink-tertiary">
+                                  {asset.redemptionCount} redemption{asset.redemptionCount === 1 ? '' : 's'}
+                                  {asset.receivedValueUsd !== null
+                                    ? ' · $' + formatUsd(asset.receivedValueUsd) + ' marked when received'
+                                    : ''}
+                                </div>
+                              </div>
                             </div>
                           </td>
                           <td className="px-5 py-4 text-right font-mono text-xs tabular-nums">
