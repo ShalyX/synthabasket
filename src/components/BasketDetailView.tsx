@@ -32,6 +32,12 @@ const TIMEFRAMES = [
   { label: '30D', ms: 30 * 24 * 60 * 60 * 1000 },
 ] as const;
 
+function providerLabel(provider: string) {
+  if (provider === 'prestocks') return 'PreStocks';
+  if (provider === 'tessera') return 'Tessera';
+  return provider;
+}
+
 export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
   basket,
   initialTab = 'mint',
@@ -521,7 +527,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     : unfundedVault
                     ? 'The vault is verified but has no share supply yet. NAV is target-weight indicative until the basket receives its first funding.'
                     : !basket.onChainStateLoaded
-                    ? 'Live vault state was unavailable in this refresh. Values are indicative; invest and redeem remain gated by a fresh on-chain verification.'
+                    ? 'Live vault state was unavailable in this refresh. Values are indicative; investing and asset redemption remain gated by a fresh on-chain verification.'
                     : 'One or more constituent prices are using verified fallback data rather than a fully live provider response.'}
                 </p>
               )}
@@ -679,7 +685,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                           {constituent.asset.symbol}
                         </div>
                         <div className="truncate text-xs text-ink-tertiary">
-                          {constituent.asset.name} · {constituent.asset.provider}
+                          {constituent.asset.name} · {providerLabel(constituent.asset.provider)}
                         </div>
                       </div>
                     </div>
@@ -716,7 +722,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   <p className="mt-1 text-xs leading-5 text-ink-secondary">
                     {executionVerification.verified
                       ? `This refresh verified the ${executionVerification.executionSymbol} Devnet vault, deterministic share mint, and live reserve state.`
-                      : 'The deterministic execution addresses are shown below, but live basket state was not verified in this refresh. Invest and redeem remain gated by a fresh on-chain verification before signing.'}
+                      : 'The deterministic execution addresses are shown below, but live basket state was not verified in this refresh. Investing and asset redemption remain gated by a fresh on-chain verification before signing.'}
                   </p>
                 </div>
               </div>
@@ -742,7 +748,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
               </div>
 
               <a
-                href="https://github.com/ShalyX/synthabasket/blob/ui/wider-shell/DEMO_RUN_RECEIPTS.md"
+                href="https://github.com/ShalyX/synthabasket/blob/main/DEMO_RUN_RECEIPTS.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
@@ -789,7 +795,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     : 'border-transparent text-ink-tertiary hover:text-ink-primary'
                 }`}
               >
-                Redeem
+                Redeem assets
               </button>
             </div>
 
@@ -851,7 +857,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
 
                 <p className="text-xs leading-5 text-ink-tertiary">
                   Investing acquires the underlying constituents and deposits them into the program vault.
-                  Redemption burns basket shares for the current pro-rata underlying assets. No secondary pool
+                  Redeem to assets burns basket shares for the current pro-rata underlying assets. No secondary pool
                   is presented as active unless a compatible venue is actually verified.
                 </p>
 
@@ -860,7 +866,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                     Invest
                   </button>
                   <button onClick={() => setActiveTab('redeem')} className="rounded-lg border border-border bg-surface py-2.5 text-sm font-semibold text-ink-primary transition-colors hover:border-border-strong">
-                    Redeem
+                    Redeem assets
                   </button>
                 </div>
               </div>
@@ -1058,7 +1064,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                 <div className="border-y border-border py-4">
                   {!redeemShares || redeemShares <= 0 ? (
                     <p className="text-sm leading-6 text-ink-secondary">
-                      Enter the number of {basket.symbol} shares you want to redeem, or use Max.
+                      Enter the number of {basket.symbol} shares you want to redeem to underlying assets, or use Max.
                       We’ll show the exact current vault assets before you sign.
                     </p>
                   ) : redeemQuoteLoading ? (
@@ -1093,7 +1099,7 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                         </p>
                       )}
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-ink-secondary">Marked value</span>
+                        <span className="text-sm text-ink-secondary">Estimated asset value</span>
                         <span className="font-mono text-sm font-semibold tabular-nums text-ink-primary">
                           ${liveRedeemQuote.expectedUsdcValue.toFixed(2)}
                         </span>
@@ -1157,9 +1163,9 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                       : redeemQuoteStale
                       ? 'Refresh quote before redeeming'
                       : redeemShares > 0
-                      ? `Redeem ${redeemShares} ${basket.symbol}`
+                      ? `Redeem ${redeemShares} ${basket.symbol} to assets`
                       : `Enter ${basket.symbol} amount`
-                    : 'Connect wallet to redeem'}
+                    : 'Connect wallet to redeem assets'}
                 </button>
 
                 <p className="text-center text-xs text-ink-tertiary">

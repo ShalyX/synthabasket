@@ -172,8 +172,8 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
               <p className="text-base font-semibold text-ink-primary">
                 {state.actionType === 'redeem'
                   ? redemptionClosed
-                    ? 'Redemption complete — position closed'
-                    : 'Redemption complete — assets delivered'
+                    ? 'Assets delivered — position closed'
+                    : 'Assets delivered — redemption complete'
                   : 'Investment complete'}
               </p>
               <p className="mt-1 text-sm leading-6 text-ink-secondary">
@@ -216,7 +216,7 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
 
                 {typeof state.receipt.redemptionValueUsd === 'number' && (
                   <div className="flex items-center justify-between py-1">
-                    <span className="text-ink-secondary">Marked value returned</span>
+                    <span className="text-ink-secondary">Estimated asset value</span>
                     <span className="font-mono tabular-nums text-ink-primary">
                       {'$'}{state.receipt.redemptionValueUsd.toFixed(2)}
                     </span>

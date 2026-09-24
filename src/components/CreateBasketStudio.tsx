@@ -149,6 +149,19 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
     setIndexMethodology('Custom');
   };
 
+  const handleToggleAsset = (asset: AssetQuote) => {
+    const selected = selectedAssets.some(
+      (item) => item.asset.tokenMint === asset.tokenMint
+    );
+
+    if (selected) {
+      handleRemoveAsset(asset.tokenMint);
+      return;
+    }
+
+    handleAddAsset(asset);
+  };
+
   const handleWeightChange = (mint: string, value: number) => {
     const weight = Number.isFinite(value)
       ? Math.min(100, Math.max(0, value))
@@ -283,8 +296,10 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                       <button
                         type="button"
                         key={asset.tokenMint}
-                        onClick={() => handleAddAsset(asset)}
-                        disabled={selected || atLimit || executionUnavailable}
+                        onClick={() => handleToggleAsset(asset)}
+                        aria-pressed={selected}
+                        title={selected ? `Remove ${asset.symbol} from basket` : `Add ${asset.symbol} to basket`}
+                        disabled={atLimit || (executionUnavailable && !selected)}
                         className={`group rounded-xl border p-3.5 text-left transition-all ${
                           selected
                             ? 'border-brand-primary/35 bg-brand-primary/5'

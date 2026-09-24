@@ -48,7 +48,7 @@ function formatAge(timestamp: number): string {
 }
 
 function activityTitle(activity: AccountActivity): string {
-  if (activity.type === 'redeem') return `Redeemed ${activity.basketSymbol}`;
+  if (activity.type === 'redeem') return `Redeemed ${activity.basketSymbol} to assets`;
   if (activity.type === 'create_basket') return `Created ${activity.basketSymbol}`;
   return `Invested in ${activity.basketSymbol}`;
 }

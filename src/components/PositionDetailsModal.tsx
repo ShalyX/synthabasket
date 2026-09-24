@@ -38,7 +38,7 @@ function signedUsd(value: number): string {
 }
 
 function activityLabel(activity: AccountActivity): string {
-  if (activity.type === 'redeem') return 'Redeemed';
+  if (activity.type === 'redeem') return 'Redeemed to assets';
   if (activity.type === 'create_basket') return 'Created basket';
   return 'Invested';
 }
@@ -199,7 +199,7 @@ export function PositionDetailsModal({
               )}&action=redeem`}
               className="rounded-lg border border-border bg-surface px-3 py-2.5 text-center text-xs font-semibold text-ink-primary hover:border-brand-primary"
             >
-              Redeem
+              Redeem assets
             </Link>
             <Link
               href={`/app?basket=${encodeURIComponent(

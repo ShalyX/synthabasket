@@ -66,6 +66,12 @@ function formatUsd(value?: number, compact = false) {
   }).format(value);
 }
 
+function providerLabel(provider: string) {
+  if (provider === 'prestocks') return 'PreStocks';
+  if (provider === 'tessera') return 'Tessera';
+  return provider;
+}
+
 function formatAge(timestamp: number | null | undefined, now: number) {
   if (!timestamp || !Number.isFinite(timestamp)) return 'Unknown';
   const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
@@ -273,7 +279,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-4">
-            <div className="flex items-center gap-3"><AssetAvatar symbol={selectedItem.symbol} name={selectedItem.name} logoUrl={selectedItem.logoUrl} size="lg" /><div><div className="text-xs text-ink-tertiary">{selectedItem.symbol} · {selectedItem.provider}</div><div className="mt-1 font-mono text-2xl font-bold text-ink-primary">{formatUsd(selectedItem.providerMarkPriceUsd)}</div></div></div>
+            <div className="flex items-center gap-3"><AssetAvatar symbol={selectedItem.symbol} name={selectedItem.name} logoUrl={selectedItem.logoUrl} size="lg" /><div><div className="text-xs text-ink-tertiary">{selectedItem.symbol} · {providerLabel(selectedItem.provider)}</div><div className="mt-1 font-mono text-2xl font-bold text-ink-primary">{formatUsd(selectedItem.providerMarkPriceUsd)}</div></div></div>
             {chartChange !== null && <div className={chartChange >= 0 ? 'font-mono text-sm font-semibold text-brand-primary' : 'font-mono text-sm font-semibold text-semantic-negative'}>{chartChange >= 0 ? '+' : ''}{chartChange.toFixed(2)}% {chartTimeframe}</div>}
           </div>
 
@@ -301,7 +307,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
         <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
           <div className="border-b border-border pb-4"><div className="flex items-center gap-2 text-sm font-bold text-ink-primary"><ArrowRightLeft className="h-4 w-4 text-brand-primary" />Cross-provider valuation signals</div><p className="mt-1 text-[11px] text-ink-secondary">Same-company implied valuations are compared where both providers expose a valuation mark. This is provider dispersion, not executable arbitrage.</p></div>
           <div className="mt-4 grid gap-3 lg:grid-cols-3">
-            {comparableGroups.slice(0, 3).map((group) => <div key={group.key} className="rounded-lg border border-border-subtle bg-surface-subtle p-4"><div className="flex items-start justify-between gap-4"><div><div className="font-mono text-sm font-bold text-ink-primary">{group.key}</div><div className="mt-0.5 text-[10px] uppercase tracking-wider text-ink-tertiary">Implied valuation</div></div><span className="font-mono text-[10px] text-ink-tertiary">{group.dispersionPct.toFixed(1)}% dispersion</span></div><div className="mt-4 space-y-2">{group.items.map((item) => <div key={item.tokenMint} className="flex items-center justify-between gap-3 text-xs"><span className="capitalize text-ink-secondary">{item.provider}</span><span className="font-mono font-semibold text-ink-primary">{formatUsd(item.impliedValuationUsd, true)}</span></div>)}</div></div>)}
+            {comparableGroups.slice(0, 3).map((group) => <div key={group.key} className="rounded-lg border border-border-subtle bg-surface-subtle p-4"><div className="flex items-start justify-between gap-4"><div><div className="font-mono text-sm font-bold text-ink-primary">{group.key}</div><div className="mt-0.5 text-[10px] uppercase tracking-wider text-ink-tertiary">Implied valuation</div></div><span className="font-mono text-[10px] text-ink-tertiary">{group.dispersionPct.toFixed(1)}% dispersion</span></div><div className="mt-4 space-y-2">{group.items.map((item) => <div key={item.tokenMint} className="flex items-center justify-between gap-3 text-xs"><span className="text-ink-secondary">{providerLabel(item.provider)}</span><span className="font-mono font-semibold text-ink-primary">{formatUsd(item.impliedValuationUsd, true)}</span></div>)}</div></div>)}
           </div>
         </section>
       )}
@@ -344,7 +350,7 @@ export const BasisMonitor: React.FC<BasisMonitorProps> = ({
                     <AssetAvatar symbol={item.symbol} name={item.name} logoUrl={item.logoUrl} />
                     <div className="min-w-0">
                       <p className="truncate font-mono text-sm font-bold text-ink-primary">{item.symbol}</p>
-                      <p className="mt-1 truncate text-[10px] capitalize text-ink-tertiary">{item.name} · {item.provider}</p>
+                      <p className="mt-1 truncate text-[10px] capitalize text-ink-tertiary">{item.name} · {providerLabel(item.provider)}</p>
                     </div>
                   </div>
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase text-brand-primary"><span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />Live</span>
@@ -374,5 +380,5 @@ const Metric = ({ label, value, detail }: { label: string; value: string; detail
 const MarketRow = ({ item, now }: { item: BasisMonitorItem; now: number }) => {
   const positive = item.change24h > 0;
   const negative = item.change24h < 0;
-  return <tr className="transition-colors hover:bg-surface-elevated/40"><td className="px-5 py-4"><div className="flex items-center gap-3"><AssetAvatar symbol={item.symbol} name={item.name} logoUrl={item.logoUrl} /><div><div className="font-bold text-ink-primary">{item.symbol}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">{item.name}</div></div></div></td><td className="px-5 py-4"><span className="text-[10px] uppercase tracking-wide text-ink-secondary">{item.provider}</span></td><td className="px-5 py-4 text-right font-semibold text-ink-primary">{formatUsd(item.providerMarkPriceUsd)}</td><td className="px-5 py-4 text-right text-ink-secondary">{formatUsd(item.impliedValuationUsd, true)}</td><td className="px-5 py-4 text-right">{item.change24hAvailable ? <span className={positive ? 'font-semibold text-brand-primary' : negative ? 'font-semibold text-semantic-negative' : 'font-semibold text-ink-secondary'}>{positive ? '+' : ''}{item.change24h.toFixed(2)}%</span> : <span className="text-ink-tertiary">—</span>}</td><td className="px-5 py-4"><span className="inline-flex items-center gap-1.5 font-sans text-[10px] font-semibold uppercase text-brand-primary"><span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />Live</span></td><td className="px-5 py-4 text-right text-ink-tertiary"><span className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" />{formatAge(item.lastUpdated, now)}</span></td><td className="px-5 py-4 text-right">{typeof item.pythBenchmarkPriceUsd === 'number' ? <div><div className="font-semibold text-ink-primary">{formatUsd(item.pythBenchmarkPriceUsd)}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">Indicative Pyth Index · not executable</div></div> : <span className="font-sans text-[10px] text-ink-tertiary">—</span>}</td></tr>;
+  return <tr className="transition-colors hover:bg-surface-elevated/40"><td className="px-5 py-4"><div className="flex items-center gap-3"><AssetAvatar symbol={item.symbol} name={item.name} logoUrl={item.logoUrl} /><div><div className="font-bold text-ink-primary">{item.symbol}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">{item.name}</div></div></div></td><td className="px-5 py-4"><span className="text-[10px] tracking-wide text-ink-secondary">{providerLabel(item.provider)}</span></td><td className="px-5 py-4 text-right font-semibold text-ink-primary">{formatUsd(item.providerMarkPriceUsd)}</td><td className="px-5 py-4 text-right text-ink-secondary">{formatUsd(item.impliedValuationUsd, true)}</td><td className="px-5 py-4 text-right">{item.change24hAvailable ? <span className={positive ? 'font-semibold text-brand-primary' : negative ? 'font-semibold text-semantic-negative' : 'font-semibold text-ink-secondary'}>{positive ? '+' : ''}{item.change24h.toFixed(2)}%</span> : <span className="text-ink-tertiary">—</span>}</td><td className="px-5 py-4"><span className="inline-flex items-center gap-1.5 font-sans text-[10px] font-semibold uppercase text-brand-primary"><span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />Live</span></td><td className="px-5 py-4 text-right text-ink-tertiary"><span className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" />{formatAge(item.lastUpdated, now)}</span></td><td className="px-5 py-4 text-right">{typeof item.pythBenchmarkPriceUsd === 'number' ? <div><div className="font-semibold text-ink-primary">{formatUsd(item.pythBenchmarkPriceUsd)}</div><div className="mt-0.5 font-sans text-[10px] text-ink-tertiary">Indicative Pyth Index · not executable</div></div> : <span className="font-sans text-[10px] text-ink-tertiary">—</span>}</td></tr>;
 };
