@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { AssetQuote, BasketCreationDraft } from '../lib/types';
+import { AssetAvatar } from './AssetAvatar';
 
 interface CreateBasketStudioProps {
   availableAssets: AssetQuote[];
@@ -293,20 +294,23 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-bold text-ink-primary">
-                                {asset.symbol}
-                              </span>
-                              {selected && (
-                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-primary text-black">
-                                  <Check className="h-2.5 w-2.5" />
+                          <div className="flex min-w-0 items-center gap-3">
+                            <AssetAvatar symbol={asset.symbol} name={asset.name} logoUrl={asset.logoUrl} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate font-mono text-sm font-bold text-ink-primary">
+                                  {asset.symbol}
                                 </span>
-                              )}
+                                {selected && (
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-primary text-black">
+                                    <Check className="h-2.5 w-2.5" />
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 truncate text-xs text-ink-tertiary">
+                                {asset.name}
+                              </p>
                             </div>
-                            <p className="mt-0.5 truncate text-xs text-ink-tertiary">
-                              {asset.name}
-                            </p>
                           </div>
                           {!selected && !atLimit && !executionUnavailable && (
                             <Plus className="mt-0.5 h-4 w-4 shrink-0 text-ink-tertiary transition-colors group-hover:text-brand-primary" />
@@ -381,18 +385,25 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                       key={item.asset.tokenMint}
                       className="flex flex-col gap-3 rounded-xl border border-border bg-surface-subtle p-3.5 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-bold text-ink-primary">
-                            {item.asset.symbol}
-                          </span>
-                          <span className="text-xs text-ink-tertiary">
-                            {item.asset.name}
-                          </span>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <AssetAvatar
+                          symbol={item.asset.symbol}
+                          name={item.asset.name}
+                          logoUrl={item.asset.logoUrl}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-mono text-sm font-bold text-ink-primary">
+                              {item.asset.symbol}
+                            </span>
+                            <span className="truncate text-xs text-ink-tertiary">
+                              {item.asset.name}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[11px] text-ink-tertiary">
+                            {providerLabel(item.asset)} · ${item.asset.priceUsd.toFixed(2)}
+                          </p>
                         </div>
-                        <p className="mt-1 text-[11px] text-ink-tertiary">
-                          {providerLabel(item.asset)} · ${item.asset.priceUsd.toFixed(2)}
-                        </p>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -660,11 +671,19 @@ export const CreateBasketStudio: React.FC<CreateBasketStudioProps> = ({
                     <div className="space-y-2">
                       {weightedAssets.map((item) => (
                         <div key={item.asset.tokenMint}>
-                          <div className="mb-1 flex items-center justify-between text-[11px]">
-                            <span className="font-mono font-semibold text-ink-primary">
-                              {item.asset.symbol}
+                          <div className="mb-1 flex items-center justify-between gap-3 text-[11px]">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <AssetAvatar
+                                symbol={item.asset.symbol}
+                                name={item.asset.name}
+                                logoUrl={item.asset.logoUrl}
+                                size="sm"
+                              />
+                              <span className="truncate font-mono font-semibold text-ink-primary">
+                                {item.asset.symbol}
+                              </span>
                             </span>
-                            <span className="font-mono tabular-nums text-ink-tertiary">
+                            <span className="shrink-0 font-mono tabular-nums text-ink-tertiary">
                               {(item.targetWeightBps / 100).toFixed(2)}%
                             </span>
                           </div>

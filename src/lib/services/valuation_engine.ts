@@ -104,6 +104,7 @@ export function generateBasisMonitoringLedger(assets: AssetQuote[]): BasisMonito
         change24h: asset.change24h,
         change24hAvailable: asset.change24hAvailable === true,
         quoteSource: asset.quoteSource || 'snapshot',
+        logoUrl: asset.logoUrl,
         pythBenchmarkSymbol: asset.pythBenchmarkSymbol,
         pythBenchmarkPriceUsd: benchmarkPrice,
         pythBenchmarkSource: asset.pythBenchmarkSource,

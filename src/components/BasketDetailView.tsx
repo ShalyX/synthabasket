@@ -12,6 +12,7 @@ import { getHistoryForRange, NavHistoryPoint } from '../lib/client/nav_history';
 import { SYNTHABASKET_PROGRAM_ID, SynthaBasketVaultClient } from '../lib/execution/vault_client';
 import { AllocationRouter } from '../lib/execution/allocation_router';
 import { explainTransactionError } from '../lib/client/transaction_errors';
+import { AssetAvatar } from './AssetAvatar';
 
 interface BasketDetailViewProps {
   basket: BasketDefinition;
@@ -667,6 +668,12 @@ export const BasketDetailView: React.FC<BasketDetailViewProps> = ({
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${getSegmentColor(index)}`} />
+                      <AssetAvatar
+                        symbol={constituent.asset.symbol}
+                        name={constituent.asset.name}
+                        logoUrl={constituent.asset.logoUrl}
+                        size="sm"
+                      />
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-ink-primary">
                           {constituent.asset.symbol}

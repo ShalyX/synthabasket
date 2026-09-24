@@ -172,6 +172,7 @@ export interface BasisMonitorItem {
   change24h: number;
   change24hAvailable: boolean;
   quoteSource: 'live' | 'last_live' | 'snapshot';
+  logoUrl?: string;
   pythBenchmarkSymbol?: string;
   pythBenchmarkPriceUsd?: number;
   pythBenchmarkSource?: 'pyth_index';
